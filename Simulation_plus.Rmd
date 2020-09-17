@@ -1,0 +1,24 @@
+---
+title: "Simulation in Different Scenario"
+author: "Xinyi Lin"
+date: "9/17/2020"
+output: html_document
+---
+
+Problems need to solve:
+
+3. DCATS: label problems
+
+```{r,message=FALSE,warning=FALSE}
+library(splatter)
+library(Seurat)
+library(speckle)
+library(DCATS)
+library(ggplot2)
+library(tidyverse)
+```
+
+```{r}
+
+```
+

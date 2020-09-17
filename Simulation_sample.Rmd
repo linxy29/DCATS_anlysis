@@ -58,7 +58,7 @@ batchMut = simMut@colData@listData$Batch %>%
   str_replace("Batch", "Mut")
 ```
 
-Then, seperate the normal sample and mutate sample by batch and combind them into a list.
+Then, separate the normal sample and mutate sample by batch and combine them into a list.
 
 ```{r,warning=FALSE,message=FALSE}
 # Normal
