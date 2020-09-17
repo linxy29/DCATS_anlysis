@@ -1,0 +1,139 @@
+---
+title: "tools example"
+author: "Xinyi Lin"
+date: "9/10/2020"
+output: html_document
+---
+
+## speckle
+
+```{r,message=FALSE,warning=FALSE}
+library(speckle)
+library(limma)
+library(ggplot2)
+library(tidyverse)
+```
+
+>In order to test for differences in cell type proportions between multiple experimental conditions at least one of the groups must have some form of biological replication (i.e. at least two samples). For a two group scenario, the absolute minimum sample size is thus three. Since there are many technical aspects which can affect cell type proportion estimates, having biological replication is essential for a meaningful analysis.
+
+```{r,message=FALSE}
+# Get some example data which has two groups, three cell types and two 
+# biological replicates in each group
+cell_info <- speckle_example_data()
+head(cell_info)
+cell_info %>% 
+  group_by(clusters, samples, group) %>% 
+  summarise(n = n())
+```
+
+```{r}
+# Run propeller testing for cell type proportion differences between the two 
+# groups
+propeller(clusters = cell_info$clusters, sample = cell_info$samples, 
+group = cell_info$group)
+
+# Plot cell type proportions
+plotCellTypeProps(clusters=cell_info$clusters, sample=cell_info$samples)
+```
+
+create my own examples
+
+```{r}
+myExample = data.frame(clusters = cell_info$clusters, groups = cell_info$group)
+head(myExample)
+propeller(clusters = myExample$clusters, group = myExample$groups)
+```
+
+## diffcyt
+
+>The diffcyt package implements statistical methods for differential discovery analyses in high-dimensional cytometry data, based on a combination of high-resolution clustering and empirical Bayes moderated tests adapted from transcriptomics.
+
+```{r,warning=FALSE}
+suppressPackageStartupMessages(library(HDCytoData))
+suppressPackageStartupMessages(library(flowCore))
+```
+
+Load Data
+
+```{r}
+# d_flowSet
+d_flowSet <- Bodenmiller_BCR_XL_flowSet()
+print(d_flowSet)
+```
+
+what this `d_flowSet` looks like
+
+```{r}
+# sample names
+pData(d_flowSet)
+# number of cells
+fsApply(d_flowSet, nrow)
+# dimensions
+dim(exprs(d_flowSet[[1]]))
+# expression values
+exprs(d_flowSet[[1]])[1:6, 1:5]
+```
+
+```{r}
+# Meta-data: experiment information
+
+# check sample order
+filenames <- as.character(pData(d_flowSet)$name)
+
+# sample information
+sample_id <- gsub("^PBMC8_30min_", "", gsub("\\.fcs$", "", filenames))
+group_id <- factor(
+  gsub("^patient[0-9]+_", "", sample_id), levels = c("Reference", "BCR-XL")
+)
+patient_id <- factor(gsub("_.*$", "", sample_id))
+
+experiment_info <- data.frame(
+  group_id, patient_id, sample_id, stringsAsFactors = FALSE
+)
+
+print(experiment_info)
+```
+
+```{r}
+# Meta-data: marker information
+
+# source: Bruggner et al. (2014), Table 1
+
+# column indices of all markers, lineage markers, and functional markers
+cols_markers <- c(3:4, 7:9, 11:19, 21:22, 24:26, 28:31, 33)
+cols_lineage <- c(3:4, 9, 11, 12, 14, 21, 29, 31, 33)
+cols_func <- setdiff(cols_markers, cols_lineage)
+
+# channel and marker names
+channel_name <- colnames(d_flowSet)
+marker_name <- gsub("\\(.*$", "", channel_name)
+
+# marker classes
+# note: using lineage markers for 'cell type', and functional markers for 
+# 'cell state'
+marker_class <- rep("none", ncol(d_flowSet[[1]]))
+marker_class[cols_lineage] <- "type"
+marker_class[cols_func] <- "state"
+marker_class <- factor(marker_class, levels = c("type", "state", "none"))
+
+marker_info <- data.frame(
+  channel_name, marker_name, marker_class, stringsAsFactors = FALSE
+)
+
+print(marker_info)
+```
+
+## DCATS
+
+```{r}
+K <- 2
+totals1 = c(100, 800, 1300, 600)
+totals2 = c(250, 700, 1100)
+diri_s1 = rep(1, K) * 20
+diri_s2 = rep(1, K) * 20
+confuse_rate = 0.2
+simil_mat = diag(K) * (1 - confuse_rate) + confuse_rate * (1 - diag(K)) / 3
+sim_dat <- DCATS::simulator_base(totals1, totals2, diri_s1, diri_s2, simil_mat)
+dcats_fit(sim_dat[[1]], sim_dat[[2]], confuse_mat, n_samples = 100)
+```
+

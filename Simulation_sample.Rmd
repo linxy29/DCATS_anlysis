@@ -1,0 +1,214 @@
+---
+title: "Simulation"
+author: "Xinyi Lin"
+date: "9/10/2020"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+Problems need to solve:
+
+3. DCATS: n_samples? do p-values correspond to each cluster? 
+
+```{r,message=FALSE,warning=FALSE}
+library(splatter)
+library(Seurat)
+library(speckle)
+library(DCATS)
+library(ggplot2)
+library(tidyverse)
+```
+
+## Simulation 1
+
+Set up the group probabilities for Normal and Mutate condtions. Need to change resolution as well.
+
+```{r}
+probNor = c(1/3,1/3,1/3)
+probMut = c(1/2,1/6,1/3)
+setresolu = 0.5
+```
+
+### Simulation
+
+First, we simulate data with three groups and two of them are similar, which means they might have high misclustering rate. 'de.prob' specifies the probability that a gene selected is differentially expressed between the cluster and the rest of the cells.
+
+```{r}
+set.seed(12345)
+
+# simulate normal
+param.groups <- newSplatParams(batchCells = c(600, 600, 600), nGenes = 100)
+simNor <- splatSimulateGroups(param.groups, group.prob = probNor, de.prob = c(0.1,0.1,0.5), verbose = FALSE)
+simNor@colData@rownames = str_replace(simNor@colData@rownames, "Cell", "NorCell")
+simNor_mat <- counts(simNor)
+
+# simulate mutate
+simMut <- splatSimulateGroups(param.groups, group.prob = probMut, de.prob = c(0.1,0.1,0.5), verbose = FALSE)
+simMut@colData@rownames = str_replace(simMut@colData@rownames, "Cell", "MutCell")
+simMut_mat <- counts(simMut)
+```
+
+Batch information of normal and mutate sample
+
+```{r}
+batchNor = simNor@colData@listData$Batch %>% 
+  str_replace("Batch", "Nor")
+batchMut = simMut@colData@listData$Batch %>% 
+  str_replace("Batch", "Mut")
+```
+
+Then, seperate the normal sample and mutate sample by batch and combind them into a list.
+
+```{r,warning=FALSE,message=FALSE}
+# Normal
+seuratNor <- CreateSeuratObject(counts = simNor_mat, project="Splatter")
+seuratNor <- AddMetaData(object = seuratNor, metadata = batchNor, col.name = 'batch')
+seuratNor <- AddMetaData(object = seuratNor, metadata = rep("Normal", 1800), col.name = 'condition')
+# Mutate
+seuratMut <- CreateSeuratObject(counts = simMut_mat, project="Splatter")
+seuratMut <- AddMetaData(object = seuratMut, metadata = batchMut, col.name = 'batch')
+seuratMut <- AddMetaData(object = seuratMut, metadata = rep("Mutate", 1800), col.name = 'condition')
+```
+
+```{r}
+# split by batch
+listNor = SplitObject(seuratNor, split.by = "batch")
+listMut = SplitObject(seuratMut, split.by = "batch")
+
+# combine Normal and Mutate
+listSamples = c(listNor, listMut)
+```
+
+### Process by using Seurat
+
+Log-normalization and identify variable features for each batches separately
+
+```{r}
+for (i in 1:length(listSamples)) {
+    listSamples[[i]] <- NormalizeData(listSamples[[i]], verbose = FALSE)
+    listSamples[[i]] <- FindVariableFeatures(listSamples[[i]], selection.method = "vst", 
+        nfeatures = 2000, verbose = FALSE)
+}
+```
+
+Integrate all batches
+
+```{r}
+anchors <- FindIntegrationAnchors(object.list = listSamples, dims = 1:30, verbose = FALSE)
+integratedSamples <- IntegrateData(anchorset = anchors, dims = 1:30, verbose = FALSE)
+```
+
+```{r}
+DefaultAssay(integratedSamples) <- "integrated"
+
+# Run the standard workflow for visualization and clustering
+integratedSamples <- ScaleData(integratedSamples, verbose = FALSE)
+integratedSamples <- RunPCA(integratedSamples, npcs = 30, verbose = FALSE)
+```
+
+```{r, eval = FALSE}
+# check how many PCs to choose
+ElbowPlot(integratedSamples)
+# dim = 5
+```
+
+```{r}
+integratedSamples<-FindNeighbors(integratedSamples, dims = 1:5, verbose = FALSE)
+integratedSamples<-FindClusters(integratedSamples, resolution = setresolu, algorithm=2, verbose = FALSE)
+```
+
+```{r}
+integratedSamples <- RunUMAP(integratedSamples, reduction = "pca", dims = 1:30, verbose = FALSE)
+```
+
+```{r}
+integratedSamples@active.ident = integratedSamples@active.ident %>% 
+  plyr::mapvalues(from = c("1", "0", "2"), to = c("A", "B", "C"))
+# the plot which shows the cluster results of different samples
+DimPlot(integratedSamples, reduction = "umap", group.by = "batch") + ggtitle("Cluster Results of Different Samples")
+# the plot which shows the cluster results of different clusters
+DimPlot(integratedSamples, reduction = "umap") + ggtitle("Cluster Results")
+# the plot which shows the cluster results of different clusters in different samples
+DimPlot(integratedSamples, ncol = 3, reduction = "umap", split.by = "batch") + ggtitle("Cluster Results of Different Clusters in Different Samples")
+```
+
+### Confusion matrix
+
+```{r}
+celllabels_orig = c(simNor@colData@listData$Group, simMut@colData@listData$Group) 
+
+conf.mat<-table(Idents(integratedSamples), celllabels_orig)
+print(conf.mat)
+
+true.conf<-t(t(conf.mat)/apply(conf.mat,2,sum))
+
+print(true.conf)
+```
+
+```{r}
+condition = integratedSamples@meta.data$condition
+condNor<-Idents(integratedSamples)[condition == "Normal"];
+condMut<-Idents(integratedSamples)[condition == "Mutate"];
+```
+
+### Fisher's exact test
+
+```{r}
+dfRes = data.frame(clusterRes = integratedSamples@active.ident, batch = integratedSamples$batch, condition = integratedSamples$condition) %>% 
+  tibble::rownames_to_column("cellID")
+head(dfRes)
+```
+
+```{r}
+dfCount = dfRes %>% 
+  group_by(condition, clusterRes) %>% 
+  summarise(n = n()) %>% 
+  pivot_wider(names_from = "clusterRes", values_from = "n") %>% 
+  mutate(nonA = B + C,
+         nonB = A + C,
+         nonC = A + B) %>% 
+  select(A, B, C:nonC)
+
+print(dfCount)
+```
+
+```{r, eval=FALSE, echo=FALSE}
+fisherP = rep(NA,3)
+for (i in 1:3){
+  fisherP[i] = fisher.test(dfCount[,c(i+1,i+4)])$p.value
+}
+
+fisherRes = data.frame(clust = c("A", "B", "C"), p_value = fisherP)
+print(fisherRes)
+```
+
+### speckle
+
+```{r}
+# clusters indicates the cluster results, sample indicates the biological replicates, group indicates the conditions/groups
+propeller(clusters = dfRes$clusterRes, sample = dfRes$batch, group = dfRes$condition)
+
+# Plot cell type proportions
+#plotCellTypeProps(clusters=speckleData$clusterRes, sample=speckleData$batch)
+```
+
+* DCATS
+
+First, get the count tables for normal and mutate condtion. The count tables count numbers of cells in different clusters. This is `counts1` and `counts2`. The `similarity_mat` is calculated for all batches across different condtions. It is the true.conf we get before.
+
+*how to set the n_samples parameter?*
+
+```{r}
+countNor = table(batchNor, condNor)
+countMut = table(batchMut, condMut)
+dcats_fit(countNor, countMut, true.conf, n_samples = 3)
+```
+
+### scDC
+
+```{r}
+#library(scdney)
+```
+
+
