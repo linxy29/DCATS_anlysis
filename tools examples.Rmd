@@ -137,3 +137,58 @@ sim_dat <- DCATS::simulator_base(totals1, totals2, diri_s1, diri_s2, simil_mat)
 dcats_fit(sim_dat[[1]], sim_dat[[2]], confuse_mat, n_samples = 100)
 ```
 
+## scDC
+
+```{r}
+library(scdney)
+```
+
+```{r}
+data("sim") # sample data in the vignette
+exprsMat <- sim$sim_exprsMat
+subject <- sim$sim_subject
+cellTypes <- sim$sim_cellTypes
+cond <- sim$sim_cond
+```
+
+```{r}
+dim(exprsMat)
+# 500 genes 260 cells
+table(subject, cellTypes)
+table(cond, cellTypes)
+```
+
+Perform scDC (without clustering)
+
+```{r}
+res_scDC_noClust <- scDC_noClustering(cellTypes, subject, calCI = TRUE, 
+                                     calCI_method = c("percentile", "BCa", "multinom"),
+                                     nboot = 50)
+```
+Visualization
+
+```{r}
+barplotCI(res_scDC_noClust, c("cond1","cond1","cond1","cond1",
+                              "cond2","cond2","cond2","cond2"))
+```
+
+```{r}
+densityCI(res_scDC_noClust, c("cond1","cond1","cond1","cond1",
+                              "cond2","cond2","cond2","cond2"))
+```
+
+```{r}
+source("glm.R")
+res_GLM <- fitGLM_fixed(res_scDC_noClust, c("cond1","cond1","cond1","cond1",
+                                      "cond2","cond2","cond2","cond2"), 
+                  pairwise = FALSE)
+```
+
+with clustering
+
+```{r}
+res_scDC_clust = scDC_clustering(exprsMat, cellTypes, 
+                                   subject, calCI = TRUE, 
+                                   calCI_method = c("percentile", "BCa", "multinom"))
+```
+

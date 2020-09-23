@@ -18,11 +18,12 @@ library(speckle)
 library(DCATS)
 library(ggplot2)
 library(tidyverse)
+library(scdney)
 ```
 
 ## Simulation 1
 
-Set up the group probabilities for Normal and Mutate condtions. Need to change resolution as well.
+Set up the group probabilities for Normal and Mutate conditions. Need to change resolution as well.
 
 ```{r}
 probNor = c(1/3,1/3,1/3)
@@ -195,20 +196,33 @@ propeller(clusters = dfRes$clusterRes, sample = dfRes$batch, group = dfRes$condi
 
 * DCATS
 
-First, get the count tables for normal and mutate condtion. The count tables count numbers of cells in different clusters. This is `counts1` and `counts2`. The `similarity_mat` is calculated for all batches across different condtions. It is the true.conf we get before.
+First, get the count tables for normal and mutate condition. The count tables count numbers of cells in different clusters. This is `counts1` and `counts2`. The `similarity_mat` is calculated for all batches across different condtions. It is the true.conf we get before.
 
 *how to set the n_samples parameter?*
 
 ```{r}
 countNor = table(batchNor, condNor)
 countMut = table(batchMut, condMut)
-dcats_fit(countNor, countMut, true.conf, n_samples = 3)
+dcats_fit(countNor, countMut, true.conf)
 ```
 
 ### scDC
 
+scDC doesn't consider the difference between different conditions and different batches.
+
 ```{r}
-#library(scdney)
+res_scDC <- scDC_noClustering(cellTypes = dfRes$clusterRes, dfRes$batch, calCI = TRUE, 
+                                     calCI_method = c("percentile", "BCa", "multinom"),
+                                     nboot = 50)
+```
+
+```{r}
+barplotCI(res_scDC, c(rep("cond1",9),rep("cond2",9)))
+```
+
+```{r,eval=FALSE}
+source("glm.R")
+res_GLM <- fitGLM(res_scDC, c(rep("cond1",9),rep("cond2",9)), pairwise = FALSE)
 ```
 
 

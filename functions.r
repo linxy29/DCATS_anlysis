@@ -1,17 +1,4 @@
-library(splatter)
-library(Seurat)
-library(speckle)
-library(DCATS)
-library(ggplot2)
-library(tidyverse)
-
-probNor = c(1/3,1/3,1/3)
-probMut = c(1/2,1/6,1/3)
-setresolu = 0.5
-de_prob = c(0.1,0.1,0.5)
-batch_size = 600
-
-# fucntion 1: simulation
+# function 1: simulation
 simualtion = function(probNor, probMut, resolution, de_prob, batch_size){
   set.seed(12345)
   
@@ -36,19 +23,6 @@ simualtion = function(probNor, probMut, resolution, de_prob, batch_size){
   
   return(list(simNor_mat = simNor_mat, simMut_mat = simMut_mat, batchNor = batchNor, batchMut = batchMut, origLabels = origLabels))
 }
-
-## test function
-probNor = c(1/3,1/3,1/3)
-probMut = c(1/2,1/6,1/3)
-setresolu = 0.5
-de_prob = c(0.1,0.1,0.5)
-batch_size = 600
-
-sim_list = simualtion(probNor, probMut, resolution, de_prob, batch_size)
-head(sim_list$simNor_mat)
-head(sim_list$simMut_mat)
-print(sim_list$batchNor)
-print(sim_list$batchMut)
 
 # function 2: Seurat process(might need few minutes)
 runSeurat = function(sim_list, batch_size){
@@ -89,15 +63,9 @@ runSeurat = function(sim_list, batch_size){
   integratedSamples <- FindClusters(integratedSamples, resolution = setresolu, algorithm=2, verbose = FALSE)
   integratedSamples <- RunUMAP(integratedSamples, reduction = "pca", dims = 1:30, verbose = FALSE)
   
+  # change labels to A, B, C
+  integratedSamples@active.ident = integratedSamples@active.ident %>% 
+    plyr::mapvalues(from = c("1", "0", "2"), to = c("A", "B", "C"))
+  
   return(integratedSamples)
 }
-
-## test function
-probNor = c(1/3,1/3,1/3)
-probMut = c(1/2,1/6,1/3)
-setresolu = 0.5
-de_prob = c(0.1,0.1,0.5)
-batch_size = 600
-
-sim_list = simualtion(probNor, probMut, resolution, de_prob, batch_size)
-integratedSamples = runSeurat(sim_list, batch_size)
