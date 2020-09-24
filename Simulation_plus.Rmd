@@ -49,52 +49,13 @@ for (i in 1:4) {
   batch_size = batch_size_list[i]
   setresolu = setresolu_list[i]
   
-  sim_list = simualtion(probNor, probMut, resolution, de_prob, batch_size)
-  integratedSamples = runSeurat(sim_list, batch_size)
+  sim_list = simualtion(probNor, probMut, de_prob, batch_size)
+  integratedSamples = runSeurat(sim_list, batch_size, setresolu)
   time = rep(NA,3)
   plot = DimPlot(integratedSamples, ncol = 3, reduction = "umap", split.by = "batch") + ggtitle("Cluster Results of Different Clusters in Different Samples")
   print(plot)
-  dfRes = data.frame(clusterRes = integratedSamples@active.ident, batch = integratedSamples$batch, condition = integratedSamples$condition) %>% 
-    tibble::rownames_to_column("cellID")
-  ## Fisher's exact test
-  dfCount = dfRes %>% 
-    group_by(condition, clusterRes) %>% 
-    summarise(n = n()) %>% 
-    pivot_wider(names_from = "clusterRes", values_from = "n") %>% 
-    mutate(nonA = B + C,
-           nonB = A + C,
-           nonC = A + B) %>% 
-    select(A, B, C:nonC)
-  t1start = Sys.time()
-  fisher_pvals = rep(NA,3)
-  for (i in 1:3){
-    fisher_pvals[i] = fisher.test(dfCount[,c(i+1,i+4)])$p.value
-    }
-  time[1] = Sys.time() - t1start
-  ## speckle
-  t2start = Sys.time()
-  speckleRes = propeller(clusters = dfRes$clusterRes, sample = dfRes$batch, group = dfRes$condition)
-  time[2] = Sys.time() - t2start
-  #print(speckleRes)
-  speckleP = data.frame(cluster = speckleRes$BaselineProp.clusters, speckle_pvals = speckleRes$FDR)
-  ## DCATS
-  celllabels_orig = sim_list$origLabels
-  conf.mat<-table(Idents(integratedSamples), celllabels_orig)
-  true.conf<-t(t(conf.mat)/apply(conf.mat,2,sum))
-  condition = integratedSamples@meta.data$condition
-  condNor<-Idents(integratedSamples)[condition == "Normal"]
-  condMut<-Idents(integratedSamples)[condition == "Mutate"]
-  countNor = table(sim_list$batchNor, relevel(condNor, "A"))
-  countMut = table(sim_list$batchMut, relevel(condMut, "A"))
-  t3start = Sys.time()
-  dcatsRes = dcats_fit(countNor, countMut, true.conf)
-  time[3] = Sys.time() - t3start
-  #print(dcatsRes)
-  dcatsP = data.frame(cluster = rownames(dcatsRes), dcats_pvals = dcatsRes$pvals)
-  Res_df = merge(dcatsP, speckleP, by = "cluster") %>% 
-    mutate(fisher_pvals = fisher_pvals)
-  time_df = data.frame(methods = c("fisher", "sepckle", "dcats"), time = time)
-  print(list(Res_df = Res_df, time_df = time_df))
+  Res = getPandTime(integratedSamples, sim_list)
+  print(Res)
 }
 ```
 
@@ -119,52 +80,13 @@ for (i in 1:4) {
   de_prob = c(de_prob_list[i], de_prob_list[i], 0.5)
   setresolu = setresolu_list[i]
   
-  sim_list = simualtion(probNor, probMut, resolution, de_prob, batch_size)
-  integratedSamples = runSeurat(sim_list, batch_size)
+  sim_list = simualtion(probNor, probMut, de_prob, batch_size)
+  integratedSamples = runSeurat(sim_list, batch_size, setresolu)
   time = rep(NA,3)
   plot = DimPlot(integratedSamples, ncol = 3, reduction = "umap", split.by = "batch") + ggtitle("Cluster Results of Different Clusters in Different Samples")
   print(plot)
-  dfRes = data.frame(clusterRes = integratedSamples@active.ident, batch = integratedSamples$batch, condition = integratedSamples$condition) %>% 
-    tibble::rownames_to_column("cellID")
-  ## Fisher's exact test
-  dfCount = dfRes %>% 
-    group_by(condition, clusterRes) %>% 
-    summarise(n = n()) %>% 
-    pivot_wider(names_from = "clusterRes", values_from = "n") %>% 
-    mutate(nonA = B + C,
-           nonB = A + C,
-           nonC = A + B) %>% 
-    select(A, B, C:nonC)
-  t1start = Sys.time()
-  fisher_pvals = rep(NA,3)
-  for (i in 1:3){
-    fisher_pvals[i] = fisher.test(dfCount[,c(i+1,i+4)])$p.value
-    }
-  time[1] = Sys.time() - t1start
-  ## speckle
-  t2start = Sys.time()
-  speckleRes = propeller(clusters = dfRes$clusterRes, sample = dfRes$batch, group = dfRes$condition)
-  time[2] = Sys.time() - t2start
-  #print(speckleRes)
-  speckleP = data.frame(cluster = speckleRes$BaselineProp.clusters, speckle_pvals = speckleRes$FDR)
-  ## DCATS
-  celllabels_orig = sim_list$origLabels
-  conf.mat<-table(Idents(integratedSamples), celllabels_orig)
-  true.conf<-t(t(conf.mat)/apply(conf.mat,2,sum))
-  condition = integratedSamples@meta.data$condition
-  condNor<-Idents(integratedSamples)[condition == "Normal"]
-  condMut<-Idents(integratedSamples)[condition == "Mutate"]
-  countNor = table(sim_list$batchNor, relevel(condNor, "A"))
-  countMut = table(sim_list$batchMut, relevel(condMut, "A"))
-  t3start = Sys.time()
-  dcatsRes = dcats_fit(countNor, countMut, true.conf)
-  time[3] = Sys.time() - t3start
-  #print(dcatsRes)
-  dcatsP = data.frame(cluster = rownames(dcatsRes), dcats_pvals = dcatsRes$pvals)
-  Res_df = merge(dcatsP, speckleP, by = "cluster") %>% 
-    mutate(fisher_pvals = fisher_pvals)
-  time_df = data.frame(methods = c("fisher", "sepckle", "dcats"), time = time)
-  print(list(Res_df = Res_df, time_df = time_df))
+  Res = getPandTime(integratedSamples, sim_list)
+  print(Res)
 }
 ```
 
@@ -185,53 +107,40 @@ for (i in 1:4) {
   probMut = c(probMut_list[i], 0.8 - probMut_list[i], 0.2)
   setresolu = setresolu_list[i]
   
-  sim_list = simualtion(probNor, probMut, resolution, de_prob, batch_size)
-  integratedSamples = runSeurat(sim_list, batch_size)
+  sim_list = simualtion(probNor, probMut, de_prob, batch_size)
+  integratedSamples = runSeurat(sim_list, batch_size, setresolu)
   time = rep(NA,3)
   plot = DimPlot(integratedSamples, ncol = 3, reduction = "umap", split.by = "batch") + ggtitle("Cluster Results of Different Clusters in Different Samples")
   print(plot)
-  dfRes = data.frame(clusterRes = integratedSamples@active.ident, batch = integratedSamples$batch, condition = integratedSamples$condition) %>% 
-    tibble::rownames_to_column("cellID")
-  ## Fisher's exact test
-  dfCount = dfRes %>% 
-    group_by(condition, clusterRes) %>% 
-    summarise(n = n()) %>% 
-    pivot_wider(names_from = "clusterRes", values_from = "n") %>% 
-    mutate(nonA = B + C,
-           nonB = A + C,
-           nonC = A + B) %>% 
-    select(A, B, C:nonC)
-  t1start = Sys.time()
-  fisher_pvals = rep(NA,3)
-  for (i in 1:3){
-    fisher_pvals[i] = fisher.test(dfCount[,c(i+1,i+4)])$p.value
-    }
-  time[1] = Sys.time() - t1start
-  ## speckle
-  t2start = Sys.time()
-  speckleRes = propeller(clusters = dfRes$clusterRes, sample = dfRes$batch, group = dfRes$condition)
-  time[2] = Sys.time() - t2start
-  #print(speckleRes)
-  speckleP = data.frame(cluster = speckleRes$BaselineProp.clusters, speckle_pvals = speckleRes$FDR)
-  ## DCATS
-  celllabels_orig = sim_list$origLabels
-  conf.mat<-table(Idents(integratedSamples), celllabels_orig)
-  true.conf<-t(t(conf.mat)/apply(conf.mat,2,sum))
-  #print(true.conf)
-  condition = integratedSamples@meta.data$condition
-  condNor<-Idents(integratedSamples)[condition == "Normal"]
-  condMut<-Idents(integratedSamples)[condition == "Mutate"]
-  countNor = table(sim_list$batchNor, relevel(condNor, "A"))
-  countMut = table(sim_list$batchMut, relevel(condMut, "A"))
-  t3start = Sys.time()
-  dcatsRes = dcats_fit(countNor, countMut, true.conf)
-  time[3] = Sys.time() - t3start
-  #print(dcatsRes)
-  dcatsP = data.frame(cluster = rownames(dcatsRes), dcats_pvals = dcatsRes$pvals)
-  Res_df = merge(dcatsP, speckleP, by = "cluster") %>% 
-    mutate(fisher_pvals = fisher_pvals)
-  time_df = data.frame(methods = c("fisher", "sepckle", "dcats"), time = time)
-  print(list(Res_df = Res_df, time_df = time_df))
+  Res = getPandTime(integratedSamples, sim_list)
+  print(Res)
+}
+```
+
+## negative 
+
+```{r}
+set.seed(123)
+probNor = c(0.4, 0.4, 0.2)
+batch_size = 600
+de_prob = c(0.06,0.06,0.5)
+
+probMut_list = seq(0.3,0.5, 0.05)
+setresolu_list = c(0.3, 0.3, 0.3, 0.3, 0.3)
+```
+
+```{r,warning=FALSE,message=FALSE}
+for (i in 1:5) {
+  probMut = c(probMut_list[i], 0.8 - probMut_list[i], 0.2)
+  setresolu = setresolu_list[i]
+  
+  sim_list = simualtion(probNor, probMut, de_prob, batch_size)
+  integratedSamples = runSeurat(sim_list, batch_size, setresolu)
+  time = rep(NA,3)
+  plot = DimPlot(integratedSamples, ncol = 3, reduction = "umap", split.by = "batch") + ggtitle("Cluster Results of Different Clusters in Different Samples")
+  print(plot)
+  Res = getPandTime(integratedSamples, sim_list)
+  print(Res)
 }
 ```
 
