@@ -74,7 +74,7 @@ runSeurat = function(sim_list, batch_size, setresolu){
   
   # change labels to A, B, C
   integratedSamples@active.ident = integratedSamples@active.ident %>% 
-    plyr::mapvalues(from = c("1", "0", "2"), to = c("A", "B", "C"))
+    plyr::mapvalues(from = c("0", "1", "2", "3", "4", "5"), to = c("A", "B", "C", "D", "E", "F"))
   
   return(integratedSamples)
 }
@@ -88,14 +88,16 @@ getPandTime = function(integratedSamples, sim_list){
     group_by(condition, clusterRes) %>% 
     summarise(n = n()) %>% 
     pivot_wider(names_from = "clusterRes", values_from = "n") %>% 
-    mutate(nonA = B + C,
-           nonB = A + C,
-           nonC = A + B) %>% 
-    select(A, B, C:nonC)
+    mutate(nonA = batch_size*6 - A,
+           nonB = batch_size*6 - B,
+           nonC = batch_size*6 - C,
+           nonD = batch_size*6 - D,
+           nonE = batch_size*6 - E,
+           nonF = batch_size*6 - F)
   t1start = Sys.time()
   fisher_pvals = rep(NA,3)
-  for (i in 1:3){
-    fisher_pvals[i] = fisher.test(dfCount[,c(i+1,i+4)])$p.value
+  for (i in 1:6){
+    fisher_pvals[i] = fisher.test(dfCount[,c(i+1,i+7)])$p.value
   }
   time[1] = Sys.time() - t1start
   ## speckle
@@ -112,34 +114,41 @@ getPandTime = function(integratedSamples, sim_list){
   condition = integratedSamples@meta.data$condition
   condNor<-Idents(integratedSamples)[condition == "Normal"]
   condMut<-Idents(integratedSamples)[condition == "Mutate"]
-  countNor = table(sim_list$batchNor, relevel(condNor, "A"))
-  countMut = table(sim_list$batchMut, relevel(condMut, "A"))
+  countNor = table(sim_list$batchNor, condNor)
+  countMut = table(sim_list$batchMut, condMut)
   t3start = Sys.time()
-  dcatsRes1 = dcats_fit(countNor, countMut, true.conf)  # true similarity matrix
+  dcatsResT = dcats_fit(countNor, countMut, true.conf)  # true similarity matrix
   time[3] = Sys.time() - t3start
-  dcatsRes2 = dcats_fit(countNor, countMut, diag(3))  # identity matrix
+  dcatsResI = dcats_fit(countNor, countMut, diag(6))  # identity matrix
+  dcatsResU = dcats_fit(countNor, countMut, get_similarity_mat(6, 0.05)) # uniform matrix
   #print(dcatsRes)
-  dcatsP1 = data.frame(cluster = rownames(dcatsRes1), dcats_pvals1 = dcatsRes1$pvals)
-  Res_df = merge(dcatsP1, speckleP, by = "cluster") %>% 
-    mutate(dcats_pvals2 = dcatsRes2$pvals,
+  dcatsPT = data.frame(cluster = rownames(dcatsResT), dcats_pvalsT = dcatsResT$pvals)
+  Res_df = merge(dcatsPT, speckleP, by = "cluster") %>% 
+    mutate(dcats_pvalsI = dcatsResI$pvals,
+           dcats_pvalsU = dcatsResU$pvals,
            fisher_pvals = fisher_pvals)
   time_df = data.frame(methods = c("fisher", "sepckle", "dcats"), time = time)
   return(list(Res_df = Res_df, time_df = time_df))
 }
 
+# 0.1, 0.2 keep the same, 0.1->0.05, 0.2->0.1, 0.2->0.25, 0.2->0.3
 
 if(FALSE)
 {
   ## test
   set.seed(123)
-  probNor = c(1/3,1/3,1/3)
-  probMut = c(1/2,1/6,1/3)
+  probNor = c(0.1, 0.2, 0.1, 0.2, 0.2, 0.2)
+  probMut = c(0.1, 0.2, 0.05, 0.1, 0.25, 0.3)
   setresolu = 0.5
-  batch_size = 600
-  de_prob = c(0.06,0.06,0.5)
+  batch_size = 1000
+  de_prob = c(0.5,0.5,0.1, 0.1, 0.05, 0.05)
   
   sim_list = simualtion(probNor, probMut, de_prob, batch_size)
   integratedSamples = runSeurat(sim_list, batch_size, setresolu)
+  conf.mat<-table(Idents(integratedSamples), sim_list$origLabels)
+  print(conf.mat)
+  plot = DimPlot(integratedSamples, ncol = 3, reduction = "umap", split.by = "batch") + ggtitle("Cluster Results of Different Clusters in Different Samples")
+  print(plot)
   Res = getPandTime(integratedSamples, sim_list)
   print(Res)
 }
