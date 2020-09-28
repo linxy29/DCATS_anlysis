@@ -100,6 +100,7 @@ getPandTime = function(integratedSamples, sim_list){
     fisher_pvals[i] = fisher.test(dfCount[,c(i+1,i+7)])$p.value
   }
   time[1] = Sys.time() - t1start
+  fisherP = data.frame(cluster = c("A", "B", "C", "D", "E", "F"), fisher_pvals = fisher_pvals, 4)
   ## speckle
   t2start = Sys.time()
   speckleRes = propeller(clusters = dfRes$clusterRes, sample = dfRes$batch, group = dfRes$condition)
@@ -123,10 +124,12 @@ getPandTime = function(integratedSamples, sim_list){
   dcatsResU = dcats_fit(countNor, countMut, get_similarity_mat(6, 0.05)) # uniform matrix
   #print(dcatsRes)
   dcatsPT = data.frame(cluster = rownames(dcatsResT), dcats_pvalsT = dcatsResT$pvals)
+  dcatsPI = data.frame(cluster = rownames(dcatsResI), dcats_pvalsI = dcatsResI$pvals)
+  dcatsPU = data.frame(cluster = rownames(dcatsResU), dcats_pvalsU = dcatsResU$pvals)
   Res_df = merge(dcatsPT, speckleP, by = "cluster") %>% 
-    mutate(dcats_pvalsI = dcatsResI$pvals,
-           dcats_pvalsU = dcatsResU$pvals,
-           fisher_pvals = fisher_pvals)
+    merge(dcatsPI, by = "cluster") %>% 
+    merge(dcatsPU, by = "cluster") %>% 
+    merge(fisherP, by = "cluster")
   time_df = data.frame(methods = c("fisher", "sepckle", "dcats"), time = time)
   return(list(Res_df = Res_df, time_df = time_df))
 }

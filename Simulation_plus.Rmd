@@ -51,7 +51,6 @@ for (i in 1:4) {
   
   sim_list = simualtion(probNor, probMut, de_prob, batch_size)
   integratedSamples = runSeurat(sim_list, batch_size, setresolu)
-  time = rep(NA,3)
   plot = DimPlot(integratedSamples, ncol = 3, reduction = "umap", split.by = "batch") + ggtitle("Cluster Results of Different Clusters in Different Samples")
   print(plot)
   Res = getPandTime(integratedSamples, sim_list)
