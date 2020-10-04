@@ -18,7 +18,7 @@ library(speckle)
 library(DCATS)
 library(ggplot2)
 library(tidyverse)
-library(scdney)
+library(scDC)
 library(diffcyt)
 ```
 
@@ -231,11 +231,12 @@ res_GLM <- fitGLM(res_scDC, c(rep("cond1",9),rep("cond2",9)), pairwise = FALSE)
 Create a template object to be replaced in the future
 
 ```{r}
+batch_size = 1500
 # For a complete workflow example demonstrating each step in the 'diffcyt' pipeline, 
 # see the package vignette.
 
 # Function to create random data (one sample)
-d_random <- function(n = 20000, mean = 0, sd = 1, ncol = 20, cofactor = 5) {
+d_random <- function(n = 20*batch_size, mean = 0, sd = 1, ncol = 20, cofactor = 5) {
   d <- sinh(matrix(rnorm(n, mean, sd), ncol = ncol)) * cofactor
   colnames(d) <- paste0("marker", sprintf("%02d", 1:ncol))
   d
@@ -265,21 +266,60 @@ marker_info <- data.frame(
                         levels = c("type", "state", "none")), 
   stringsAsFactors = FALSE
 )
-
-# Prepare data
-d_se <- prepareData(d_input, experiment_info, marker_info)
 ```
 
 ```{r}
+# Prepare data
+d_se <- prepareData(d_input, experiment_info, marker_info)
 # Transform data
 d_se <- transformData(d_se)
 # Generate clusters
-# note: include random seed for reproducible clustering
-d_se <- generateClusters(d_se, seed_clustering = 123, xdim = 1, ydim = 3)
-# Calculate cluster cell counts
-d_counts <- calcCounts(d_se)
+d_se <- generateClusters(d_se)
 ```
-```{r}
 
+Replace it with our data information
+
+```{r}
+library(splatter)
+library(Seurat)
+library(speckle)
+library(DCATS)
+library(ggplot2)
+library(tidyverse)
+
+source("functions.r")
+
+set.seed(123)
+probNor = c(0.1, 0.2, 0.1, 0.2, 0.2, 0.2)
+probMut = c(0.1, 0.2, 0.05, 0.1, 0.25, 0.3)
+setresolu = 0.5
+batch_size = 1000
+de_prob = c(0.5,0.5,0.1, 0.1, 0.05, 0.05)
+
+sim_list = simualtion(probNor, probMut, de_prob, batch_size)
+integratedSamples = runSeurat(sim_list, batch_size, setresolu)
+```
+
+```{r}
+d_se@elementMetadata$sample_id = integratedSamples$batch
+d_se@elementMetadata$group_id = integratedSamples$condition
+d_se@elementMetadata$cluster_id = integratedSamples@active.ident
+```
+
+```{r}
+# Calculate counts
+d_counts <- calcCounts(d_se)
+# Create design matrix
+design <- createDesignMatrix(experiment_info, cols_design = "group_id")
+# Create contrast matrix
+contrast <- createContrast(c(0, 1))
+# Test for differential abundance (DA) of clusters
+res_DA <- testDA_edgeR(d_counts, design, contrast)
+diffcytP = topTable(res_DA, format_vals = TRUE) %>% 
+  as.data.frame() %>% 
+  rownames_to_column("cluster") %>% 
+  rename(diffcyt_pvals = p_adj) %>% 
+  select(cluster, diffcyt_pvals)
+print(diffcytP)
 ```
 

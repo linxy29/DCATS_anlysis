@@ -4,7 +4,6 @@ library(speckle)
 library(DCATS)
 library(ggplot2)
 library(tidyverse)
-library(scdney)
 
 source("functions.r")
 

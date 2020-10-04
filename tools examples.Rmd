@@ -289,3 +289,25 @@ res_scDC_clust = scDC_clustering(exprsMat, cellTypes,
                                    calCI_method = c("percentile", "BCa", "multinom"))
 ```
 
+## splatter
+
+```{r}
+library(splatter)
+library(scater)
+```
+
+```{r}
+library(SingleCellExperiment)
+counts <- matrix(rpois(100, lambda = 10), ncol=10, nrow=10)
+sce <- SingleCellExperiment(counts)
+sce
+```
+
+```{r}
+set.seed(1)
+sce <- mockSCE()
+
+params <- splatEstimate(sce)
+params
+```
+
