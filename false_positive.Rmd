@@ -101,3 +101,25 @@ for (i in 1:6){
 }
 ```
 
+## HCC data
+
+```{r}
+HCC_seurat <- readRDS("/storage/holab/hcc_data/RDS_files/SCT/HCC.final.SCT_pc10_res0.1.rds")
+```
+
+```{r}
+count_dgCM = HCC_seurat@assays$RNA@counts
+params <- splatEstimate(as.matrix(count_dgCM))
+params
+```
+
+## mnnCT7
+
+```{r}
+mnnCT7_seurat <- readRDS("/storage/holab/Nelson/mnnCT7.rds")
+```
+
+```{r}
+count_mnnCT7 = mnnCT7_seurat@assays$RNA@counts
+```
+
