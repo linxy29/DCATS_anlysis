@@ -33,6 +33,10 @@ library(tidyverse)
 library(diffcyt)
 ```
 
+```{r}
+source("functions.r")
+```
+
 ## Experiment 6
 
 Import data, we only need 'GSE96583_batch2.total.tsne.df'
@@ -121,5 +125,25 @@ mnnCT7_seurat <- readRDS("/storage/holab/Nelson/mnnCT7.rds")
 
 ```{r}
 count_mnnCT7 = mnnCT7_seurat@assays$RNA@counts
+```
+
+## Simulate data
+
+```{r}
+set.seed(123)
+probNor = c(0.48, 0.11, 0.31, 0.1)
+probMut = c(0.48, 0.11, 0.31, 0.1)
+setresolu = 0.1
+batch_size = 22000
+de_prob = runif(4, 0.01, 0.5)
+  
+sim_list = simualtion(probNor, probMut, de_prob, batch_size)
+integratedSamples = runSeurat(sim_list, batch_size, setresolu)
+conf.mat<-table(Idents(integratedSamples), sim_list$origLabels)
+print(conf.mat)
+plot = DimPlot(integratedSamples, ncol = 3, reduction = "umap", split.by = "batch") + ggtitle("Cluster Results of Different Clusters in Different Samples")
+print(plot)
+Res = getPandTimeFSDD(integratedSamples, sim_list)
+print(Res)
 ```
 
