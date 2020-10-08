@@ -115,6 +115,7 @@ HCC_seurat <- readRDS("/storage/holab/hcc_data/RDS_files/SCT/HCC.final.SCT_pc10_
 count_dgCM = HCC_seurat@assays$RNA@counts
 params <- splatEstimate(as.matrix(count_dgCM))
 params
+saveRDS(params, "./data/HCCparams.rds")
 ```
 
 ## mnnCT7
@@ -131,10 +132,10 @@ count_mnnCT7 = mnnCT7_seurat@assays$RNA@counts
 
 ```{r}
 set.seed(123)
-probNor = c(0.48, 0.11, 0.31, 0.1)
-probMut = c(0.48, 0.11, 0.31, 0.1)
-setresolu = 0.1
-batch_size = 22000
+probNor = c(0.53, 0.11, 0.31, 0.05)
+probMut = c(0.53, 0.11, 0.31, 0.05)
+setresolu = 0.15
+batch_size = 15000
 de_prob = runif(4, 0.01, 0.5)
   
 sim_list = simualtion(probNor, probMut, de_prob, batch_size)
@@ -143,7 +144,7 @@ conf.mat<-table(Idents(integratedSamples), sim_list$origLabels)
 print(conf.mat)
 plot = DimPlot(integratedSamples, ncol = 3, reduction = "umap", split.by = "batch") + ggtitle("Cluster Results of Different Clusters in Different Samples")
 print(plot)
-Res = getPandTimeFSDD(integratedSamples, sim_list)
+Res = getPandTimeFSDD4(integratedSamples, sim_list)
 print(Res)
 ```
 
