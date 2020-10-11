@@ -130,21 +130,64 @@ count_mnnCT7 = mnnCT7_seurat@assays$RNA@counts
 
 ## Simulate data
 
+small cluster: 0.01-0.05
+
 ```{r}
 set.seed(123)
-probNor = c(0.53, 0.11, 0.31, 0.05)
-probMut = c(0.53, 0.11, 0.31, 0.05)
+probNor = c(0.57, 0.11, 0.31, 0.01)
+probMut = c(0.57, 0.11, 0.31, 0.01)
 setresolu = 0.15
-batch_size = 15000
-de_prob = runif(4, 0.01, 0.5)
+batch_size = 22000
+de_prob = c(0.15, 0.40, 0.02, 0.14)
   
 sim_list = simualtion(probNor, probMut, de_prob, batch_size)
 integratedSamples = runSeurat(sim_list, batch_size, setresolu)
+saveRDS(integratedSamples, "./data/integratedSamples_neg.rds")
+integratedSamples = readRDS("./data/integratedSamples_neg.rds")
 conf.mat<-table(Idents(integratedSamples), sim_list$origLabels)
 print(conf.mat)
 plot = DimPlot(integratedSamples, ncol = 3, reduction = "umap", split.by = "batch") + ggtitle("Cluster Results of Different Clusters in Different Samples")
 print(plot)
-Res = getPandTimeFSDD4(integratedSamples, sim_list)
+Res = getPandTimeFSDD4(integratedSamples, sim_list, batch_size)
 print(Res)
 ```
+
+Try to use parameters extract from HCC data. Need to use parallel. 
+
+```{r,warning=FALSE, message=FALSE}
+library(future)
+# check the current active plan
+plan()
+```
+```{r}
+# change the current plan to access parallelization
+plan("multiprocess", workers = 4)
+plan()
+options(future.globals.maxSize = 2000 * 1024^2)
+```
+
+```{r}
+set.seed(123)
+probNor = c(0.57, 0.11, 0.31, 0.01)
+probMut = c(0.57, 0.11, 0.31, 0.01)
+setresolu = 0.05
+batch_size = 20000
+de_prob = c(0.15, 0.40, 0.02, 0.14)
+```
+
+```{r}
+sim_list = simualtionHCC(probNor, probMut, batch_size =  batch_size)
+integratedSamples = runSeurat(sim_list, batch_size, setresolu)
+saveRDS(integratedSamples, "./data/integratedSamples_HCC.rds")
+integratedSamples = readRDS("./data/integratedSamples_HCC.rds")
+conf.mat<-table(Idents(integratedSamples), sim_list$origLabels)
+print(conf.mat)
+plot = DimPlot(integratedSamples, ncol = 3, reduction = "umap", split.by = "batch") + ggtitle("Cluster Results of Different Clusters in Different Samples")
+print(plot)
+Res = getPandTimeFSDD4(integratedSamples, sim_list, batch_size)
+print(Res)
+```
+
+Try to set ‘de.downProb’ and ‘de.facLoc’.
+
 

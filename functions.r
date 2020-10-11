@@ -34,7 +34,37 @@ simualtion = function(probNor, probMut, de_prob, batch_size){
   return(list(simNor_mat = simNor_mat, simMut_mat = simMut_mat, batchNor = batchNor, batchMut = batchMut, origLabels = origLabels))
 }
 
-# function 2: Seurat process(might need few minutes)
+# function 2: simulation using parameters getting from HCC dataset
+simualtionHCC = function(probNor, probMut, de_prob = HCCparams@de.prob, batch_size){
+  set.seed(12345)
+  
+  # simulate normal
+  HCCparams = readRDS("./data/HCCparams.rds")
+  # nGenes=2000 is too large
+  param.groups <- setParams(HCCparams, batchCells = c(batch_size, batch_size, batch_size), nGenes = 1000)
+  simNor <- splatSimulateGroups(param.groups, group.prob = probNor, de.prob = de_prob, verbose = FALSE)
+  #simNor <- splatSimulateGroups(param.groups, group.prob = probNor, verbose = FALSE)
+  simNor@colData@rownames = str_replace(simNor@colData@rownames, "Cell", "NorCell")
+  simNor_mat <- counts(simNor)
+  
+  # simulate mutate
+  simMut <- splatSimulateGroups(param.groups, group.prob = probMut, de.prob = de_prob, verbose = FALSE)
+  #simMut <- splatSimulateGroups(param.groups, group.prob = probMut, verbose = FALSE)
+  simMut@colData@rownames = str_replace(simMut@colData@rownames, "Cell", "MutCell")
+  simMut_mat <- counts(simMut)
+  
+  # batch information
+  batchNor = simNor@colData@listData$Batch %>% 
+    str_replace("Batch", "Nor")
+  batchMut = simMut@colData@listData$Batch %>% 
+    str_replace("Batch", "Mut")
+  
+  origLabels = c(simNor@colData@listData$Group, simMut@colData@listData$Group)
+  
+  return(list(simNor_mat = simNor_mat, simMut_mat = simMut_mat, batchNor = batchNor, batchMut = batchMut, origLabels = origLabels))
+}
+
+# function 3: Seurat process(might need few minutes)
 runSeurat = function(sim_list, batch_size, setresolu){
   # set input
   simNor_mat = sim_list$simNor_mat
@@ -80,7 +110,7 @@ runSeurat = function(sim_list, batch_size, setresolu){
   return(integratedSamples)
 }
 
-# function 3: function to get p-values and time(Fisher, speckle, dcats)
+# function 4: function to get p-values and time(Fisher, speckle, dcats)
 getPandTimeFSD = function(integratedSamples, sim_list){
   time = rep(NA,3)
   dfRes = data.frame(clusterRes = integratedSamples@active.ident, batch = integratedSamples$batch, condition = integratedSamples$condition) %>% 
@@ -150,7 +180,7 @@ getPandTimeFSD = function(integratedSamples, sim_list){
   return(list(Res_df = Res_df, time_df = time_df))
 }
 
-# function 4: function to get p-values and time(Fisher, speckle, dcats, diffcyt)
+# function 5: function to get p-values and time(Fisher, speckle, dcats, diffcyt)
 getPandTimeFSDD = function(integratedSamples, sim_list, batch_size = 1000){
   time = rep(NA,4)
   dfRes = data.frame(clusterRes = integratedSamples@active.ident, batch = integratedSamples$batch, condition = integratedSamples$condition) %>% 
@@ -276,7 +306,7 @@ getPandTimeFSDD = function(integratedSamples, sim_list, batch_size = 1000){
   return(list(Res_df = Res_df, time_df = time_df))
 }
 
-# function 5: function to get p-values and time(Fisher, speckle, dcats, diffcyt) for three clusters
+# function 6: function to get p-values and time(Fisher, speckle, dcats, diffcyt) for three clusters
 getPandTimeFSDD3 = function(integratedSamples, sim_list, batch_size = 1000){
   time = rep(NA,4)
   dfRes = data.frame(clusterRes = integratedSamples@active.ident, batch = integratedSamples$batch, condition = integratedSamples$condition) %>% 
@@ -397,29 +427,6 @@ getPandTimeFSDD3 = function(integratedSamples, sim_list, batch_size = 1000){
     merge(diffcytP, by = "cluster")
   time_df = data.frame(methods = c("fisher", "sepckle", "dcats", "diffcyt"), time = time)
   return(list(Res_df = Res_df, time_df = time_df))
-}
-
-# function 6: function to get p-values and time(test different uniform matrix)
-getPandTimeTestU = function(integratedSamples, sim_list){
-  dfRes = data.frame(clusterRes = integratedSamples@active.ident, batch = integratedSamples$batch, condition = integratedSamples$condition) %>% 
-    tibble::rownames_to_column("cellID")
-  condition = integratedSamples@meta.data$condition
-  condNor<-Idents(integratedSamples)[condition == "Normal"]
-  condMut<-Idents(integratedSamples)[condition == "Mutate"]
-  countNor = table(sim_list$batchNor, condNor)
-  countMut = table(sim_list$batchMut, condMut)
-  dcatsResU1 = dcats_fit(countNor, countMut, get_similarity_mat(6, 0.05)) # uniform matrix
-  dcatsResU2 = dcats_fit(countNor, countMut, get_similarity_mat(6, 0.1)) # uniform matrix
-  dcatsResU3 = dcats_fit(countNor, countMut, get_similarity_mat(6, 0.15)) # uniform matrix
-  #print(dcatsRes)
-  dcatsPU1 = data.frame(cluster = rownames(dcatsResU1), dcats_pvalsU1 = dcatsResU1$pvals)
-  dcatsPU2 = data.frame(cluster = rownames(dcatsResU2), dcats_pvalsU2 = dcatsResU2$pvals)
-  dcatsPU3 = data.frame(cluster = rownames(dcatsResU3), dcats_pvalsU3 = dcatsResU3$pvals)
-  
-  ## results
-  Res_df = merge(dcatsPU1, dcatsPU2, by = "cluster") %>% 
-    merge(dcatsPU3, by = "cluster") 
-  return(Res_df)
 }
 
 # function 7: function to get p-values and time(Fisher, speckle, dcats, diffcyt) for four clusters
@@ -545,6 +552,31 @@ getPandTimeFSDD4 = function(integratedSamples, sim_list, batch_size = 1000){
   time_df = data.frame(methods = c("fisher", "sepckle", "dcats", "diffcyt"), time = time)
   return(list(Res_df = Res_df, time_df = time_df))
 }
+
+# function 8: function to get p-values and time(test different uniform matrix)
+getPandTimeTestU = function(integratedSamples, sim_list){
+  dfRes = data.frame(clusterRes = integratedSamples@active.ident, batch = integratedSamples$batch, condition = integratedSamples$condition) %>% 
+    tibble::rownames_to_column("cellID")
+  condition = integratedSamples@meta.data$condition
+  condNor<-Idents(integratedSamples)[condition == "Normal"]
+  condMut<-Idents(integratedSamples)[condition == "Mutate"]
+  countNor = table(sim_list$batchNor, condNor)
+  countMut = table(sim_list$batchMut, condMut)
+  dcatsResU1 = dcats_fit(countNor, countMut, get_similarity_mat(6, 0.05)) # uniform matrix
+  dcatsResU2 = dcats_fit(countNor, countMut, get_similarity_mat(6, 0.1)) # uniform matrix
+  dcatsResU3 = dcats_fit(countNor, countMut, get_similarity_mat(6, 0.15)) # uniform matrix
+  #print(dcatsRes)
+  dcatsPU1 = data.frame(cluster = rownames(dcatsResU1), dcats_pvalsU1 = dcatsResU1$pvals)
+  dcatsPU2 = data.frame(cluster = rownames(dcatsResU2), dcats_pvalsU2 = dcatsResU2$pvals)
+  dcatsPU3 = data.frame(cluster = rownames(dcatsResU3), dcats_pvalsU3 = dcatsResU3$pvals)
+  
+  ## results
+  Res_df = merge(dcatsPU1, dcatsPU2, by = "cluster") %>% 
+    merge(dcatsPU3, by = "cluster") 
+  return(Res_df)
+}
+
+
 
 # 0.1, 0.2 keep the same, 0.1->0.05, 0.2->0.1, 0.2->0.25, 0.2->0.3
 
