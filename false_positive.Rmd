@@ -159,6 +159,7 @@ library(future)
 # check the current active plan
 plan()
 ```
+
 ```{r}
 # change the current plan to access parallelization
 plan("multiprocess", workers = 4)
@@ -170,7 +171,7 @@ options(future.globals.maxSize = 2000 * 1024^2)
 set.seed(123)
 probNor = c(0.57, 0.11, 0.31, 0.01)
 probMut = c(0.57, 0.11, 0.31, 0.01)
-setresolu = 0.05
+setresolu = 0.15
 batch_size = 20000
 de_prob = c(0.15, 0.40, 0.02, 0.14)
 ```
