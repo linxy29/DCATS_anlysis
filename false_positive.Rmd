@@ -113,8 +113,8 @@ HCC_seurat <- readRDS("/storage/holab/hcc_data/RDS_files/SCT/HCC.final.SCT_pc10_
 ```
 
 ```{r}
-count_dgCM = HCC_seurat@assays$RNA@counts
-params <- splatEstimate(as.matrix(count_dgCM))
+count_HCC = HCC_seurat@assays$RNA@counts
+params <- splatEstimate(as.matrix(count_HCC))
 params
 saveRDS(params, "./data/HCCparams.rds")
 ```
@@ -127,7 +127,7 @@ mnnCT7_seurat <- readRDS("/storage/holab/Nelson/mnnCT7.rds")
 
 ```{r}
 count_mnnCT7 = mnnCT7_seurat@assays$RNA@counts
-params <- splatEstimate(as.matrix(count_dgCM))
+params <- splatEstimate(as.matrix(count_mnnCT7))
 params
 saveRDS(params, "./data/mnnCT7params.rds")
 ```
