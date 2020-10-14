@@ -168,6 +168,8 @@ plan()
 options(future.globals.maxSize = 2000 * 1024^2)
 ```
 
+When clusters' numbers equals to four
+
 ```{r}
 set.seed(123)
 probNor = c(0.57, 0.11, 0.31, 0.01)
@@ -180,8 +182,8 @@ de_prob = c(0.15, 0.40, 0.02, 0.14)
 ```{r}
 sim_list = simualtionHCC(probNor, probMut, batch_size =  batch_size)
 integratedSamples = runSeurat(sim_list, batch_size, setresolu)
-saveRDS(integratedSamples, "./data/integratedSamples_HCC.rds")
-integratedSamples = readRDS("./data/integratedSamples_HCC.rds")
+saveRDS(integratedSamples, "./data/integratedSamples_HCC4.rds")
+integratedSamples = readRDS("./data/integratedSamples_HCC4.rds")
 conf.mat<-table(Idents(integratedSamples), sim_list$origLabels)
 print(conf.mat)
 plot = DimPlot(integratedSamples, ncol = 3, reduction = "umap", split.by = "batch") + ggtitle("Cluster Results of Different Clusters in Different Samples")
@@ -189,6 +191,31 @@ print(plot)
 Res = getPandTimeFSDD4(integratedSamples, sim_list, batch_size)
 print(Res)
 ```
+
+When clusters' numbers equals to six
+
+```{r}
+set.seed(123)
+probNor = c(0.52, 0.11, 0.20, 0.01, 0.01, 0.15)
+probMut = c(0.52, 0.11, 0.20, 0.01, 0.01, 0.15)
+setresolu = 0.1
+batch_size = 10000
+de_prob = c(0.15, 0.40, 0.02, 0.14, 0.02, 0.17)
+```
+
+```{r}
+sim_list = simualtionHCC(probNor, probMut, batch_size =  batch_size)
+integratedSamples = runSeurat(sim_list, batch_size, setresolu)
+saveRDS(integratedSamples, "./data/integratedSamples_HCC6.rds")
+integratedSamples = readRDS("./data/integratedSamples_HCC6.rds")
+conf.mat<-table(Idents(integratedSamples), sim_list$origLabels)
+print(conf.mat)
+plot = DimPlot(integratedSamples, ncol = 3, reduction = "umap", split.by = "batch") + ggtitle("Cluster Results of Different Clusters in Different Samples")
+print(plot)
+Res = getPandTimeFSDD6(integratedSamples, sim_list, batch_size)
+print(Res)
+```
+
 
 Try to set ‘de.downProb’ and ‘de.facLoc’.
 
