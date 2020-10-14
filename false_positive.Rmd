@@ -127,6 +127,9 @@ mnnCT7_seurat <- readRDS("/storage/holab/Nelson/mnnCT7.rds")
 
 ```{r}
 count_mnnCT7 = mnnCT7_seurat@assays$RNA@counts
+params <- splatEstimate(as.matrix(count_dgCM))
+params
+saveRDS(params, "./data/mnnCT7params.rds")
 ```
 
 ## Simulate data
@@ -198,7 +201,7 @@ When clusters' numbers equals to six
 set.seed(123)
 probNor = c(0.52, 0.11, 0.20, 0.01, 0.01, 0.15)
 probMut = c(0.52, 0.11, 0.20, 0.01, 0.01, 0.15)
-setresolu = 0.1
+setresolu = 0.15
 batch_size = 10000
 de_prob = c(0.15, 0.40, 0.02, 0.14, 0.02, 0.17)
 ```
