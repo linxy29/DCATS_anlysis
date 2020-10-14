@@ -13,12 +13,14 @@ simualtion = function(probNor, probMut, de_prob, batch_size){
   set.seed(12345)
   
   # simulate normal
+  set.seed(123)
   param.groups <- newSplatParams(batchCells = c(batch_size, batch_size, batch_size), nGenes = 100)
   simNor <- splatSimulateGroups(param.groups, group.prob = probNor, de.prob = de_prob, verbose = FALSE)
   simNor@colData@rownames = str_replace(simNor@colData@rownames, "Cell", "NorCell")
   simNor_mat <- counts(simNor)
   
   # simulate mutate
+  set.seed(234)
   simMut <- splatSimulateGroups(param.groups, group.prob = probMut, de.prob = de_prob, verbose = FALSE)
   simMut@colData@rownames = str_replace(simMut@colData@rownames, "Cell", "MutCell")
   simMut_mat <- counts(simMut)
