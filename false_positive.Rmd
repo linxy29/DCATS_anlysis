@@ -7,17 +7,11 @@ output: html_document
 
 Problems need to solve:
 
-2. scDC: doesn't work
+Why the batch of 123 for mutate and normal can be mapped to each other?
 
-3. ROC curve? 
+Try set up parameters and simulate with two small clusters and it doesn't work. Try using expression parameters extract from HCC data for four clusters with one small clusters and six clusters with two small clusters. Do not work too. Seurat performs better with six clusters.
 
-4. DCATS: true matrix Hungarian method; knn matrix: change order(updata package)
-
-5. paper: figures in standard format; choose which cases 
-
-Some finding:
-
-1. Identity matrix works the best
+Try mnnCT7 parameters......
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = FALSE)
@@ -134,6 +128,8 @@ saveRDS(params, "./data/mnnCT7params.rds")
 
 ## Simulate data
 
+### self set params
+
 small cluster: 0.01-0.05
 
 ```{r}
@@ -171,6 +167,8 @@ plan()
 options(future.globals.maxSize = 2000 * 1024^2)
 ```
 
+### HCC params
+
 When clusters' numbers equals to four
 
 ```{r}
@@ -207,7 +205,8 @@ de_prob = c(0.15, 0.40, 0.02, 0.14, 0.02, 0.17)
 ```
 
 ```{r}
-sim_list = simualtionHCC(probNor, probMut, batch_size =  batch_size)
+HCCparams = readRDS("./data/HCCparams.rds")
+sim_list = simualtionRWD(probNor, probMut, de_prob, batch_size, params = HCCparams)
 integratedSamples = runSeurat(sim_list, batch_size, setresolu)
 saveRDS(integratedSamples, "./data/integratedSamples_HCC6.rds")
 integratedSamples = readRDS("./data/integratedSamples_HCC6.rds")
@@ -218,6 +217,9 @@ print(plot)
 Res = getPandTimeFSDD6(integratedSamples, sim_list, batch_size)
 print(Res)
 ```
+
+### mnnCT7params
+
 
 
 Try to set ‘de.downProb’ and ‘de.facLoc’.

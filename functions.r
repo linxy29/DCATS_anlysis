@@ -36,14 +36,13 @@ simualtion = function(probNor, probMut, de_prob, batch_size){
   return(list(simNor_mat = simNor_mat, simMut_mat = simMut_mat, batchNor = batchNor, batchMut = batchMut, origLabels = origLabels))
 }
 
-# function 2: simulation using parameters getting from HCC dataset
-simualtionHCC = function(probNor, probMut, de_prob = HCCparams@de.prob, batch_size){
+# function 2: simulation using parameters getting from real word dataset
+simualtionRWD = function(probNor, probMut, de_prob = HCCparams@de.prob, batch_size, params = HCCparams){
   set.seed(12345)
   
   # simulate normal
-  HCCparams = readRDS("./data/HCCparams.rds")
   # nGenes=2000 is too large
-  param.groups <- setParams(HCCparams, batchCells = c(batch_size, batch_size, batch_size), nGenes = 1000)
+  param.groups <- setParams(params, batchCells = c(batch_size, batch_size, batch_size), nGenes = 1000)
   simNor <- splatSimulateGroups(param.groups, group.prob = probNor, de.prob = de_prob, verbose = FALSE)
   #simNor <- splatSimulateGroups(param.groups, group.prob = probNor, verbose = FALSE)
   simNor@colData@rownames = str_replace(simNor@colData@rownames, "Cell", "NorCell")
@@ -182,8 +181,8 @@ getPandTimeFSD = function(integratedSamples, sim_list){
   return(list(Res_df = Res_df, time_df = time_df))
 }
 
-# function 5: function to get p-values and time(Fisher, speckle, dcats, diffcyt)
-getPandTimeFSDD = function(integratedSamples, sim_list, batch_size = 1000){
+# function 5: function to get p-values and time(Fisher, speckle, dcats, diffcyt) for six clusters
+getPandTimeFSDD6 = function(integratedSamples, sim_list, batch_size = 1000){
   time = rep(NA,4)
   dfRes = data.frame(clusterRes = integratedSamples@active.ident, batch = integratedSamples$batch, condition = integratedSamples$condition) %>% 
     tibble::rownames_to_column("cellID")
