@@ -13,9 +13,7 @@ Try set up parameters and simulate with two small clusters and it doesn't work. 
 
 Try mnnCT7 parameters......
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = FALSE)
-```
+Seurat has the tendency to mark cells evenly for paired batch???
 
 ```{r,message=FALSE,warning=FALSE}
 library(splatter)
@@ -35,7 +33,7 @@ source("functions.r")
 
 Import data, we only need 'GSE96583_batch2.total.tsne.df'
 
-```{r}
+```{r, eval = FALSE}
 GSE96583_batch2.total.tsne.df <- read.delim("D:/#Codes/R/Ho_DCATS/data/GSE96583_batch2.total.tsne.df.tsv")
 summary(GSE96583_batch2.total.tsne.df)
 # check NA
@@ -44,7 +42,7 @@ apply(is.na(GSE96583_batch2.total.tsne.df),2,sum)
 
 No cluster have different proportion in 'ctrl' and 'stim' group.
 
-```{r}
+```{r, eval = FALSE}
 # data preprocessing 
 batchlabels <- GSE96583_batch2.total.tsne.df[,6][!is.na(GSE96583_batch2.total.tsne.df[,6])]
 conditionlabels <- GSE96583_batch2.total.tsne.df[,4][!is.na(GSE96583_batch2.total.tsne.df[,6])]
@@ -54,7 +52,7 @@ batch2info <- table(conditionlabels,batchlabels)
 heat_matrix(batch2info,show_value = TRUE)
 ```
 
-```{r}
+```{r, eval = FALSE}
 exp6_df = GSE96583_batch2.total.tsne.df %>% 
   filter(!is.na(cell)) %>% 
   group_by(cell, stim) %>% 
@@ -71,7 +69,7 @@ Simulate our own data based on GSE96583_batch2.total.tsne.df
 
 ## Experiment 7
 
-```{r}
+```{r, eval = FALSE}
 # CR_Exp7_1 
 # data preprocessing
 Fig6_tSNE <- read.delim("./data/Fig6_tSNE.txt")
@@ -102,11 +100,8 @@ for (i in 1:6){
 
 ## HCC data
 
-```{r}
+```{r, eval = FALSE}
 HCC_seurat <- readRDS("/storage/holab/hcc_data/RDS_files/SCT/HCC.final.SCT_pc10_res0.1.rds")
-```
-
-```{r}
 count_HCC = HCC_seurat@assays$RNA@counts
 params <- splatEstimate(as.matrix(count_HCC))
 params
@@ -115,11 +110,8 @@ saveRDS(params, "./data/HCCparams.rds")
 
 ## mnnCT7
 
-```{r}
+```{r, eval = FALSE}
 mnnCT7_seurat <- readRDS("/storage/holab/Nelson/mnnCT7.rds")
-```
-
-```{r}
 count_mnnCT7 = mnnCT7_seurat@assays$RNA@counts
 params <- splatEstimate(as.matrix(count_mnnCT7))
 params
@@ -141,8 +133,8 @@ batch_size = 22000
 de_prob = c(0.15, 0.40, 0.02, 0.14)
   
 sim_list = simualtion(probNor, probMut, de_prob, batch_size)
-integratedSamples = runSeurat(sim_list, batch_size, setresolu)
-saveRDS(integratedSamples, "./data/integratedSamples_neg.rds")
+#integratedSamples = runSeurat(sim_list, batch_size, setresolu)
+#saveRDS(integratedSamples, "./data/integratedSamples_neg.rds")
 integratedSamples = readRDS("./data/integratedSamples_neg.rds")
 conf.mat<-table(Idents(integratedSamples), sim_list$origLabels)
 print(conf.mat)
@@ -181,9 +173,11 @@ de_prob = c(0.15, 0.40, 0.02, 0.14)
 ```
 
 ```{r}
-sim_list = simualtionHCC(probNor, probMut, batch_size =  batch_size)
-integratedSamples = runSeurat(sim_list, batch_size, setresolu)
-saveRDS(integratedSamples, "./data/integratedSamples_HCC4.rds")
+HCCparams = readRDS("./data/HCCparams.rds")
+sim_list = simualtionRWD(probNor, probMut, de_prob, batch_size, params = HCCparams)
+#integratedSamples = runSeurat(sim_list, batch_size, setresolu)
+#saveRDS(integratedSamples, "./data/integratedSamples_HCC4.rds")
+#sendEmail("Seurat is done!")
 integratedSamples = readRDS("./data/integratedSamples_HCC4.rds")
 conf.mat<-table(Idents(integratedSamples), sim_list$origLabels)
 print(conf.mat)
@@ -207,8 +201,9 @@ de_prob = c(0.15, 0.40, 0.02, 0.14, 0.02, 0.17)
 ```{r}
 HCCparams = readRDS("./data/HCCparams.rds")
 sim_list = simualtionRWD(probNor, probMut, de_prob, batch_size, params = HCCparams)
-integratedSamples = runSeurat(sim_list, batch_size, setresolu)
-saveRDS(integratedSamples, "./data/integratedSamples_HCC6.rds")
+#integratedSamples = runSeurat(sim_list, batch_size, setresolu)
+#saveRDS(integratedSamples, "./data/integratedSamples_HCC6.rds")
+#sendEmail("Seurat is done!")
 integratedSamples = readRDS("./data/integratedSamples_HCC6.rds")
 conf.mat<-table(Idents(integratedSamples), sim_list$origLabels)
 print(conf.mat)
@@ -226,7 +221,7 @@ When clusters' numbers equals to six
 set.seed(123)
 probNor = c(0.52, 0.11, 0.20, 0.01, 0.01, 0.15)
 probMut = c(0.52, 0.11, 0.20, 0.01, 0.01, 0.15)
-setresolu = 0.15
+setresolu = 0.2
 batch_size = 10000
 de_prob = c(0.15, 0.40, 0.02, 0.14, 0.02, 0.17)
 ```
@@ -234,16 +229,20 @@ de_prob = c(0.15, 0.40, 0.02, 0.14, 0.02, 0.17)
 ```{r}
 mnnCT7params = readRDS("./data/mnnCT7params.rds")
 sim_list = simualtionRWD(probNor, probMut, de_prob, batch_size, params = mnnCT7params)
-integratedSamples = runSeurat(sim_list, batch_size, setresolu)
-saveRDS(integratedSamples, "./data/integratedSamples_mnn6.rds")
+#integratedSamples = runSeurat(sim_list, batch_size, setresolu)
+#saveRDS(integratedSamples, "./data/integratedSamples_mnn6.rds")
+#sendEmail("Seurat is done!")
 integratedSamples = readRDS("./data/integratedSamples_mnn6.rds")
 conf.mat<-table(Idents(integratedSamples), sim_list$origLabels)
 print(conf.mat)
 plot = DimPlot(integratedSamples, ncol = 3, reduction = "umap", split.by = "batch") + ggtitle("Cluster Results of Different Clusters in Different Samples")
 print(plot)
-sendEmail("Seurat is done!")
 Res = getPandTimeFSDD6(integratedSamples, sim_list, batch_size)
 print(Res)
+```
+
+```{r}
+sendEmail("knitr is done")
 ```
 
 
