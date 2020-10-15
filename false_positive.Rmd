@@ -220,6 +220,30 @@ print(Res)
 
 ### mnnCT7params
 
+When clusters' numbers equals to six
+
+```{r}
+set.seed(123)
+probNor = c(0.52, 0.11, 0.20, 0.01, 0.01, 0.15)
+probMut = c(0.52, 0.11, 0.20, 0.01, 0.01, 0.15)
+setresolu = 0.15
+batch_size = 10000
+de_prob = c(0.15, 0.40, 0.02, 0.14, 0.02, 0.17)
+```
+
+```{r}
+mnnCT7params = readRDS("./data/mnnCT7params.rds")
+sim_list = simualtionRWD(probNor, probMut, de_prob, batch_size, params = mnnCT7params)
+integratedSamples = runSeurat(sim_list, batch_size, setresolu)
+saveRDS(integratedSamples, "./data/integratedSamples_mnn6.rds")
+integratedSamples = readRDS("./data/integratedSamples_mnn6.rds")
+conf.mat<-table(Idents(integratedSamples), sim_list$origLabels)
+print(conf.mat)
+plot = DimPlot(integratedSamples, ncol = 3, reduction = "umap", split.by = "batch") + ggtitle("Cluster Results of Different Clusters in Different Samples")
+print(plot)
+Res = getPandTimeFSDD6(integratedSamples, sim_list, batch_size)
+print(Res)
+```
 
 
 Try to set ‘de.downProb’ and ‘de.facLoc’.

@@ -293,7 +293,7 @@ getPandTimeFSDD6 = function(integratedSamples, sim_list, batch_size = 1000){
   diffcytP = topTable(res_DA, format_vals = TRUE) %>% 
     as.data.frame() %>% 
     rownames_to_column("cluster") %>% 
-    rename(diffcyt_pvals = p_adj) %>% 
+    dplyr::rename(diffcyt_pvals = p_adj) %>% 
     select(cluster, diffcyt_pvals)
   
   ## results
