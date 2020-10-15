@@ -241,11 +241,11 @@ conf.mat<-table(Idents(integratedSamples), sim_list$origLabels)
 print(conf.mat)
 plot = DimPlot(integratedSamples, ncol = 3, reduction = "umap", split.by = "batch") + ggtitle("Cluster Results of Different Clusters in Different Samples")
 print(plot)
+sendEmail("Seurat is done!")
 Res = getPandTimeFSDD6(integratedSamples, sim_list, batch_size)
 print(Res)
 ```
 
 
 Try to set ‘de.downProb’ and ‘de.facLoc’.
-
 

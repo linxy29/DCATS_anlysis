@@ -577,6 +577,17 @@ getPandTimeTestU = function(integratedSamples, sim_list){
   return(Res_df)
 }
 
+# function 9: function to send reminder email
+sendEmail = function(subject = "The job is done"){
+  library(emayili)
+  email <- envelope() %>%
+    from("dummy_acc29@outlook.com") %>%
+    to("xl2836@outlook.com") %>%
+    subject(subject) %>%
+    text("Can you hear me?")
+  smtp <- server(host = "smtp.gmail.com", port = 465, username = "4sendEmail29@gmail.com", password = "dummy_acc29")
+  smtp(email, verbose = FALSE)
+}
 
 
 # 0.1, 0.2 keep the same, 0.1->0.05, 0.2->0.1, 0.2->0.25, 0.2->0.3
