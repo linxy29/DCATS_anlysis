@@ -584,7 +584,7 @@ sendEmail = function(subject = "The job is done"){
     from("dummy_acc29@outlook.com") %>%
     to("xl2836@outlook.com") %>%
     subject(subject) %>%
-    text("Can you hear me?")
+    text("Yeah!!")
   smtp <- server(host = "smtp.gmail.com", port = 465, username = "4sendEmail29@gmail.com", password = "dummy_acc29")
   smtp(email, verbose = FALSE)
 }
