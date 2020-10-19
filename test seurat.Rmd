@@ -22,6 +22,23 @@ library(diffcyt)
 source("functions.r")
 ```
 
+Example:
+
+```{r}
+HCCparams = readRDS("./data/HCCparams.rds")
+sim_list = simualtionRWD(probNor, probMut, de_prob, batch_size, params = HCCparams)
+#integratedSamples = runSeurat(sim_list, batch_size, setresolu)
+#saveRDS(integratedSamples, "./data/integratedSamples_HCC6.rds")
+#sendEmail("Seurat is done!")
+integratedSamples = readRDS("./data/integratedSamples_HCC6.rds")
+conf.mat<-table(Idents(integratedSamples), sim_list$origLabels)
+print(conf.mat)
+plot = DimPlot(integratedSamples, ncol = 3, reduction = "umap", split.by = "batch") + ggtitle("Cluster Results of Different Clusters in Different Samples")
+print(plot)
+Res = getPandTimeFSDD6(integratedSamples, sim_list, batch_size)
+print(Res)
+```
+
 ```{r,warning=FALSE, message=FALSE}
 library(future)
 # check the current active plan
@@ -48,7 +65,7 @@ batch_size = 1000
 de_prob = c(0.15, 0.40, 0.02, 0.14)
 ```
 
-```{r}
+```{r,eval=FALSE}
 HCCparams = readRDS("./data/HCCparams.rds")
 sim_list = simualtionRWD(probNor, probMut, de_prob, batch_size, params = HCCparams)
 
@@ -113,3 +130,4 @@ Res = getPandTimeFSDD6(integratedSamples, sim_list, batch_size)
 print(Res)
 ```
 
+We can find that splatter simulate very similar cells in corresponding batch?
