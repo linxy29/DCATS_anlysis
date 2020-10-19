@@ -40,23 +40,16 @@ options(future.globals.maxSize = 2000 * 1024^2)
 Use HCC params with 6 clusters and change the order and name of Mut1, Mut2, Mut3, Nor1, Nor2, Nor3.
 
 ```{r}
-set.seed(123)
-probNor = c(0.52, 0.11, 0.20, 0.01, 0.01, 0.15)
-probMut = c(0.52, 0.11, 0.20, 0.01, 0.01, 0.15)
-setresolu = 0.15
-batch_size = 1000
-de_prob = c(0.15, 0.40, 0.02, 0.14, 0.02, 0.17)
-```
-
-```{r}
 HCCparams = readRDS("./data/HCCparams.rds")
 sim_list = simualtionRWD(probNor, probMut, de_prob, batch_size, params = HCCparams)
 
 # set input
 simNor_mat = sim_list$simNor_mat
 simMut_mat = sim_list$simMut_mat
-batchNor = sim_list$batchNor
-batchMut = sim_list$batchMut
+batchNor = sim_list$batchNor %>% 
+  plyr::mapvalues(from = c("Nor1", "Nor2", "Nor3"), to = c("Sa", "Sc", "Sb")) # change name
+batchMut = sim_list$batchMut%>% 
+  plyr::mapvalues(from = c("Mut1", "Mut2", "Mut3"), to = c("Se", "Sf", "Sg"))
   
 # pre-process
 seuratNor <- CreateSeuratObject(counts = simNor_mat, project="Splatter")
@@ -69,12 +62,11 @@ seuratMut <- AddMetaData(object = seuratMut, metadata = rep("Mutate", batch_size
 listNor = SplitObject(seuratNor, split.by = "batch")
 listMut = SplitObject(seuratMut, split.by = "batch")
 listSamples = c(listNor, listMut)
-names(listSamples) = c("batch1", "batch5", "batch4", "batch3", "batch2", "batch6")
+listSamples = listSamples[c("Sa", "Sb", "Sc", "Se", "Sf", "Sg")] # change order
 
 
 # log-normalization and identify variable features
 for (i in 1:length(listSamples)) {
-  listSamples[[i]]@meta.data$batch = NULL
   listSamples[[i]]@meta.data$condition = NULL
   listSamples[[i]] <- NormalizeData(listSamples[[i]], verbose = FALSE)
   listSamples[[i]] <- FindVariableFeatures(listSamples[[i]], selection.method = "vst", 
@@ -110,60 +102,5 @@ plot = DimPlot(integratedSamples, ncol = 3, reduction = "umap", split.by = "batc
 print(plot)
 Res = getPandTimeFSDD6(integratedSamples, sim_list, batch_size)
 print(Res)
-```
-
-Problem not solved. Try to change batch at the begining
-
-```{r}
-HCCparams = readRDS("./data/HCCparams.rds")
-sim_list = simualtionRWD(probNor, probMut, de_prob, batch_size, params = HCCparams)
-
-# set input
-simNor_mat = sim_list$simNor_mat
-simMut_mat = sim_list$simMut_mat
-batchNor = sim_list$batchNor %>% 
-  plyr::mapvalues(from = c("Nor1", "Nor2", "Nor3"), to = c("Sa", "Sc", "Sb"))
-batchMut = sim_list$batchMut%>% 
-  plyr::mapvalues(from = c("Mut1", "Mut2", "Mut3"), to = c("Se", "Sf", "Sg"))
-  
-# pre-process
-seuratNor <- CreateSeuratObject(counts = simNor_mat, project="Splatter")
-seuratNor <- AddMetaData(object = seuratNor, metadata = batchNor, col.name = 'batch')
-seuratNor <- AddMetaData(object = seuratNor, metadata = rep("Normal", batch_size*3), col.name = 'condition')
-seuratMut <- CreateSeuratObject(counts = simMut_mat, project="Splatter")
-seuratMut <- AddMetaData(object = seuratMut, metadata = batchMut, col.name = 'batch')
-seuratMut <- AddMetaData(object = seuratMut, metadata = rep("Mutate", batch_size*3), col.name = 'condition')
-  
-listNor = SplitObject(seuratNor, split.by = "batch")
-listMut = SplitObject(seuratMut, split.by = "batch")
-listSamples = c(listNor, listMut)
-
-
-# log-normalization and identify variable features
-for (i in 1:length(listSamples)) {
-  listSamples[[i]] <- NormalizeData(listSamples[[i]], verbose = FALSE)
-  listSamples[[i]] <- FindVariableFeatures(listSamples[[i]], selection.method = "vst", 
-                                             nfeatures = 2000, verbose = FALSE)
-}
-  
-# integrate all batches
-anchors <- FindIntegrationAnchors(object.list = listSamples, dims = 1:30, verbose = FALSE)
-integratedSamples <- IntegrateData(anchorset = anchors, dims = 1:30, verbose = FALSE)
-DefaultAssay(integratedSamples) <- "integrated"
-
-# clustering
-integratedSamples <- ScaleData(integratedSamples, verbose = FALSE)
-integratedSamples <- RunPCA(integratedSamples, npcs = 30, verbose = FALSE)
-integratedSamples <- FindNeighbors(integratedSamples, dims = 1:5, verbose = FALSE)
-integratedSamples <- FindClusters(integratedSamples, resolution = setresolu, algorithm=2, verbose = FALSE)
-integratedSamples <- RunUMAP(integratedSamples, reduction = "pca", dims = 1:30, verbose = FALSE)
-  
-# change labels to A, B, C
-integratedSamples@active.ident = integratedSamples@active.ident %>% 
-  plyr::mapvalues(from = c("0", "1", "2", "3", "4", "5"), to = c("A", "B", "C", "D", "E", "F"))
-
-
-saveRDS(integratedSamples, "./data/integratedSamples_HCC6_test.rds")
-sendEmail("Seurat is done!")
 ```
 
