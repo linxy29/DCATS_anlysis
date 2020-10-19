@@ -5,6 +5,8 @@ date: "9/27/2020"
 output: html_document
 ---
 
+Using 6 clusters instead of 3 clusters
+
 Problems need to solve:
 
 2. scDC: doesn't work

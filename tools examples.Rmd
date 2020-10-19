@@ -311,3 +311,17 @@ params <- splatEstimate(sce)
 params
 ```
 
+## Seurat
+
+```{r}
+library(Seurat)
+library(SeuratData)
+InstallData("panc8")
+```
+
+```{r}
+data("panc8")
+pancreas.list <- SplitObject(panc8, split.by = "tech")
+pancreas.list <- pancreas.list[c("celseq", "celseq2", "fluidigmc1", "smartseq2")]
+```
+
