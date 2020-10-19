@@ -14,8 +14,6 @@ library(speckle)
 library(DCATS)
 library(ggplot2)
 library(tidyverse)
-library(scDC)
-library(diffcyt)
 ```
 
 ```{r}
@@ -23,6 +21,15 @@ source("functions.r")
 ```
 
 Example:
+
+```{r}
+set.seed(123)
+probNor = c(0.52, 0.11, 0.20, 0.01, 0.01, 0.15)
+probMut = c(0.52, 0.11, 0.20, 0.01, 0.01, 0.15)
+setresolu = 0.15
+batch_size = 10000
+de_prob = c(0.15, 0.40, 0.02, 0.14, 0.02, 0.17)
+```
 
 ```{r}
 HCCparams = readRDS("./data/HCCparams.rds")
@@ -35,8 +42,6 @@ conf.mat<-table(Idents(integratedSamples), sim_list$origLabels)
 print(conf.mat)
 plot = DimPlot(integratedSamples, ncol = 3, reduction = "umap", split.by = "batch") + ggtitle("Cluster Results of Different Clusters in Different Samples")
 print(plot)
-Res = getPandTimeFSDD6(integratedSamples, sim_list, batch_size)
-print(Res)
 ```
 
 ```{r,warning=FALSE, message=FALSE}
@@ -126,8 +131,6 @@ conf.mat<-table(Idents(integratedSamples), sim_list$origLabels)
 print(conf.mat)
 plot = DimPlot(integratedSamples, ncol = 3, reduction = "umap", split.by = "batch") + ggtitle("Cluster Results of Different Clusters in Different Samples")
 print(plot)
-Res = getPandTimeFSDD6(integratedSamples, sim_list, batch_size)
-print(Res)
 ```
 
 We can find that splatter simulate very similar cells in corresponding batch?
