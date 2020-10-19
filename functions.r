@@ -38,8 +38,7 @@ simualtion = function(probNor, probMut, de_prob, batch_size){
 
 # function 2: simulation using parameters getting from real word dataset
 simualtionRWD = function(probNor, probMut, de_prob = HCCparams@de.prob, batch_size, params = HCCparams){
-  set.seed(12345)
-  
+  set.seed(123)
   # simulate normal
   # nGenes=2000 is too large
   param.groups <- setParams(params, batchCells = c(batch_size, batch_size, batch_size), nGenes = 1000)
@@ -47,7 +46,7 @@ simualtionRWD = function(probNor, probMut, de_prob = HCCparams@de.prob, batch_si
   #simNor <- splatSimulateGroups(param.groups, group.prob = probNor, verbose = FALSE)
   simNor@colData@rownames = str_replace(simNor@colData@rownames, "Cell", "NorCell")
   simNor_mat <- counts(simNor)
-  
+  set.seed(345)
   # simulate mutate
   simMut <- splatSimulateGroups(param.groups, group.prob = probMut, de.prob = de_prob, verbose = FALSE)
   #simMut <- splatSimulateGroups(param.groups, group.prob = probMut, verbose = FALSE)
