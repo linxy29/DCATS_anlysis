@@ -1,0 +1,109 @@
+---
+title: "Simulation_plus3"
+author: "Xinyi Lin"
+date: "10/20/2020"
+output: html_document
+---
+
+Try to use parameters from HCC and mnnCT7 to do simulation.
+
+0.1, 0.2 keep the same, 0.1->0.05, 0.2->0.1, 0.2->0.25, 0.2->0.3
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+```{r,message=FALSE,warning=FALSE}
+library(splatter)
+library(Seurat)
+library(speckle)
+library(DCATS)
+library(ggplot2)
+library(tidyverse)
+library(diffcyt)
+```
+
+```{r}
+source("functions.r")
+```
+
+```{r,warning=FALSE, message=FALSE}
+library(future)
+# check the current active plan
+plan()
+```
+
+```{r}
+# change the current plan to access parallelization
+plan("multiprocess", workers = 4)
+plan()
+options(future.globals.maxSize = 2000 * 1024^2)
+```
+
+## Different batch size
+
+Batch sizes are 5000, 10000, 15000, 20000.
+
+```{r}
+set.seed(123)
+probNor = c(0.1, 0.2, 0.1, 0.2, 0.2, 0.2)
+probMut = c(0.1, 0.2, 0.05, 0.1, 0.25, 0.3)
+de_prob = runif(6, 0.2, 0.5)
+
+batch_size_list = seq(2000,11000,3000)
+setresolu_list = c(0.5, 0.3, 0.3, 0.4)
+```
+
+```{r,warning=FALSE,message=FALSE}
+HCCparams = readRDS("./data/HCCparams.rds")
+for (i in 1:4) {
+  batch_size = batch_size_list[i]
+  setresolu = setresolu_list[i]
+  
+  sim_list = simualtionRWD(probNor, probMut, de_prob, batch_size, params = HCCparams)
+  integratedSamples = runSeurat(sim_list, batch_size, setresolu)
+  conf.mat<-table(Idents(integratedSamples), origLabels)
+  print(conf.mat)
+  plot = DimPlot(integratedSamples, ncol = 3, reduction = "umap", split.by = "batch") + ggtitle("Cluster Results of Different Clusters in Different Samples")
+  print(plot)
+  Res = getPandTimeFSDD6(integratedSamples, sim_list, batch_size)
+  print(Res)
+}
+```
+
+## Different de.prob
+
+The de.prob of cluster B, C are 0.02, 0.04, 0.06, 0.08.
+
+When de.prob equals to 0.04, only the fisher's exact test give the "correct" result.
+
+```{r}
+set.seed(123)
+probNor = c(0.1, 0.2, 0.1, 0.2, 0.2, 0.2)
+probMut = c(0.1, 0.2, 0.05, 0.1, 0.25, 0.3)
+batch_size = 10000
+
+de_prob_list = seq(0.02, 0.10, 0.02)
+setresolu_list = c(0.4, 0.4, 0.4, 0.3, 0.3)
+```
+
+```{r,warning=FALSE,message=FALSE}
+for (i in 1:5) {
+  de_prob = c(0.5,0.5,0.1, 0.1, de_prob_list[i], de_prob_list[i])
+  setresolu = setresolu_list[i]
+  
+  sim_list = simualtionRWD(probNor, probMut, de_prob, batch_size, params = HCCparams)
+  integratedSamples = runSeurat(sim_list, batch_size, setresolu)
+  conf.mat<-table(Idents(integratedSamples), origLabels)
+  print(conf.mat)
+  plot = DimPlot(integratedSamples, ncol = 3, reduction = "umap", split.by = "batch") + ggtitle("Cluster Results of Different Clusters in Different Samples")
+  print(plot)
+  Res = getPandTimeFSDD6(integratedSamples, sim_list, batch_size)
+  print(Res)
+}
+```
+
+## Codes
+
+```{r, ref.label=knitr::all_labels(),echo=TRUE,eval=FALSE}
+```
