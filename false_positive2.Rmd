@@ -23,6 +23,8 @@ source("functions.r")
 
 ## Simulate 6 batches
 
+### HCC
+
 simulate 6 batches directly and split them into 'Mutate' and 'Normal'. But we don't solve the problem and it might happened in positive+negative scenario.
 
 ```{r}
@@ -84,3 +86,65 @@ Res = getPandTimeFSDD6(integratedSamples, sim_list, batch_size)
 print(Res)
 ```
 
+### mnnCT7
+
+simulate 6 batches directly and split them into 'Mutate' and 'Normal'. But we don't solve the problem and it might happened in positive+negative scenario.
+
+```{r}
+set.seed(123)
+probNor = c(0.52, 0.11, 0.20, 0.01, 0.01, 0.15)
+probMut = c(0.52, 0.11, 0.20, 0.01, 0.01, 0.15)
+setresolu = 0.15
+batch_size = 10000
+de_prob = runif(6, 0.2, 0.5)
+```
+
+Simulation
+
+```{r}
+mnnCT7params = readRDS("./data/mnnCT7params.rds")
+
+set.seed(123)
+param.groups <- setParams(mnnCT7params, batchCells = rep(batch_size, 6), nGenes = 1000)
+simSplat <- splatSimulateGroups(param.groups, group.prob = probNor, de.prob = de_prob, verbose = FALSE)
+
+a = 3*batch_size
+b = 3*batch_size+1
+c = 6*batch_size
+simNor_mat <- counts(simSplat)[,1:a]
+simMut_mat <- counts(simSplat)[,b:c]
+batchSplat = simSplat@colData@listData$Batch %>% 
+  plyr::mapvalues(from = c("Batch1", "Batch2", "Batch3", "Batch4", "Batch5", "Batch6"), to = c("Nor1", "Nor2", "Nor3", "Mut1", "Mut2", "Mut3"))
+batchNor = batchSplat[1:(3*batch_size)]
+batchMut = batchSplat[(3*batch_size+1):(6*batch_size)]
+origLabels = simSplat@colData@listData$Group
+sim_list = list(simNor_mat = simNor_mat, simMut_mat = simMut_mat, batchNor = batchNor, batchMut = batchMut, origLabels = origLabels)
+```
+
+Clustering
+
+```{r,warning=FALSE, message=FALSE}
+library(future)
+# check the current active plan
+plan()
+```
+
+```{r}
+# change the current plan to access parallelization
+plan("multiprocess", workers = 4)
+plan()
+options(future.globals.maxSize = 2000 * 1024^2)
+```
+
+```{r}
+#integratedSamples = runSeurat(sim_list, batch_size, setresolu)
+#saveRDS(integratedSamples, "./data/integratedSamples_mnn6_pseudo.rds")
+#sendEmail("Seurat is done!")
+integratedSamples = readRDS("./data/integratedSamples_mnn6_pseudo.rds")
+conf.mat<-table(Idents(integratedSamples), origLabels)
+print(conf.mat)
+plot = DimPlot(integratedSamples, ncol = 3, reduction = "umap", split.by = "batch") + ggtitle("Cluster Results of Different Clusters in Different Samples")
+print(plot)
+Res = getPandTimeFSDD6(integratedSamples, sim_list, batch_size)
+print(Res)
+```
