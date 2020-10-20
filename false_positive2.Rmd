@@ -31,7 +31,7 @@ probNor = c(0.52, 0.11, 0.20, 0.01, 0.01, 0.15)
 probMut = c(0.52, 0.11, 0.20, 0.01, 0.01, 0.15)
 setresolu = 0.15
 batch_size = 10000
-de_prob = runif(6, 0.2, 0.5)
+de_prob = runif(6, 0.2, 0.7)
 ```
 
 Simulation
@@ -72,9 +72,9 @@ options(future.globals.maxSize = 2000 * 1024^2)
 ```
 
 ```{r}
-integratedSamples = runSeurat(sim_list, batch_size, setresolu)
-saveRDS(integratedSamples, "./data/integratedSamples_HCC6_pseudo.rds")
-sendEmail("Seurat is done!")
+#integratedSamples = runSeurat(sim_list, batch_size, setresolu)
+#saveRDS(integratedSamples, "./data/integratedSamples_HCC6_pseudo.rds")
+#sendEmail("Seurat is done!")
 integratedSamples = readRDS("./data/integratedSamples_HCC6_pseudo.rds")
 conf.mat<-table(Idents(integratedSamples), origLabels)
 print(conf.mat)
