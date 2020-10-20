@@ -433,7 +433,7 @@ plan(&quot;multiprocess&quot;, workers = 4)</code></pre>
 probNor = c(0.57, 0.11, 0.31, 0.01)
 probMut = c(0.57, 0.11, 0.31, 0.01)
 setresolu = 0.08
-batch_size = 1000
+batch_size = 10000
 de_prob = c(0.15, 0.40, 0.02, 0.14)</code></pre>
 <pre class="r"><code>HCCparams = readRDS(&quot;./data/HCCparams.rds&quot;)
 sim_list = simualtionRWD(probNor, probMut, de_prob, batch_size, params = HCCparams)
