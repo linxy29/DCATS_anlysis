@@ -444,7 +444,7 @@ print(plot)</code></pre>
 <pre class="r"><code>Res = getPandTimeFSDD6(integratedSamples, sim_list, batch_size)</code></pre>
 <pre><code>## `summarise()` regrouping output by &#39;condition&#39; (override with `.groups` argument)</code></pre>
 <pre><code>## group variable has 2 levels, t-tests will be performed</code></pre>
-<pre><code>## FlowSOM clustering completed in 1.4 seconds</code></pre>
+<pre><code>## FlowSOM clustering completed in 1.8 seconds</code></pre>
 <pre class="r"><code>print(Res)</code></pre>
 <pre><code>## $Res_df
 ##   cluster dcats_pvalsT speckle_pvals dcats_pvalsI dcats_pvalsU dcats_pvalsK
@@ -464,10 +464,340 @@ print(plot)</code></pre>
 ## 
 ## $time_df
 ##   methods       time
-## 1  fisher 1.39232707
-## 2 sepckle 0.05536199
-## 3   dcats 0.69514108
-## 4 diffcyt 0.04224896</code></pre>
+## 1  fisher 0.14520717
+## 2 sepckle 0.10784817
+## 3   dcats 0.69435191
+## 4 diffcyt 0.06843996</code></pre>
+<pre class="r"><code>set.seed(123)
+probNor = c(0.52, 0.11, 0.20, 0.01, 0.01, 0.15)
+probMut = c(0.52, 0.11, 0.20, 0.01, 0.01, 0.15)
+setresolu = 0.14
+batch_size = 5000
+de_prob = runif(6, 0.2, 0.5)</code></pre>
+<p>Simulation</p>
+<pre class="r"><code>HCCparams = readRDS(&quot;./data/HCCparams.rds&quot;)
+
+set.seed(123)
+param.groups &lt;- setParams(HCCparams, batchCells = rep(batch_size, 6), nGenes = 1000)
+simSplat &lt;- splatSimulateGroups(param.groups, group.prob = probNor, de.prob = de_prob, verbose = FALSE)
+
+a = 3*batch_size
+b = 3*batch_size+1
+c = 6*batch_size
+simNor_mat &lt;- counts(simSplat)[,1:a]
+simMut_mat &lt;- counts(simSplat)[,b:c]
+batchSplat = simSplat@colData@listData$Batch %&gt;% 
+  plyr::mapvalues(from = c(&quot;Batch1&quot;, &quot;Batch2&quot;, &quot;Batch3&quot;, &quot;Batch4&quot;, &quot;Batch5&quot;, &quot;Batch6&quot;), to = c(&quot;Nor1&quot;, &quot;Nor2&quot;, &quot;Nor3&quot;, &quot;Mut1&quot;, &quot;Mut2&quot;, &quot;Mut3&quot;))
+batchNor = batchSplat[1:(3*batch_size)]
+batchMut = batchSplat[(3*batch_size+1):(6*batch_size)]
+origLabels = simSplat@colData@listData$Group
+sim_list = list(simNor_mat = simNor_mat, simMut_mat = simMut_mat, batchNor = batchNor, batchMut = batchMut, origLabels = origLabels)</code></pre>
+<p>Clustering</p>
+<pre class="r"><code>integratedSamples = runSeurat(sim_list, batch_size, setresolu)</code></pre>
+<pre><code>## Warning: Cannot find a parent environment called Seurat
+
+## Warning: Cannot find a parent environment called Seurat</code></pre>
+<pre><code>## Warning: UNRELIABLE VALUE: Future (&#39;future_lapply-1&#39;) unexpectedly generated
+## random numbers without specifying argument &#39;[future.]seed&#39;. There is a risk that
+## those random numbers are not statistically sound and the overall results might
+## be invalid. To fix this, specify argument &#39;[future.]seed&#39;, e.g. &#39;seed=TRUE&#39;.
+## This ensures that proper, parallel-safe random numbers are produced via the
+## L&#39;Ecuyer-CMRG method. To disable this check, use [future].seed=NULL, or set
+## option &#39;future.rng.onMisuse&#39; to &quot;ignore&quot;.</code></pre>
+<pre><code>## Warning: UNRELIABLE VALUE: Future (&#39;future_lapply-2&#39;) unexpectedly generated
+## random numbers without specifying argument &#39;[future.]seed&#39;. There is a risk that
+## those random numbers are not statistically sound and the overall results might
+## be invalid. To fix this, specify argument &#39;[future.]seed&#39;, e.g. &#39;seed=TRUE&#39;.
+## This ensures that proper, parallel-safe random numbers are produced via the
+## L&#39;Ecuyer-CMRG method. To disable this check, use [future].seed=NULL, or set
+## option &#39;future.rng.onMisuse&#39; to &quot;ignore&quot;.</code></pre>
+<pre><code>## Warning: UNRELIABLE VALUE: Future (&#39;future_lapply-3&#39;) unexpectedly generated
+## random numbers without specifying argument &#39;[future.]seed&#39;. There is a risk that
+## those random numbers are not statistically sound and the overall results might
+## be invalid. To fix this, specify argument &#39;[future.]seed&#39;, e.g. &#39;seed=TRUE&#39;.
+## This ensures that proper, parallel-safe random numbers are produced via the
+## L&#39;Ecuyer-CMRG method. To disable this check, use [future].seed=NULL, or set
+## option &#39;future.rng.onMisuse&#39; to &quot;ignore&quot;.</code></pre>
+<pre><code>## Warning: UNRELIABLE VALUE: Future (&#39;future_lapply-4&#39;) unexpectedly generated
+## random numbers without specifying argument &#39;[future.]seed&#39;. There is a risk that
+## those random numbers are not statistically sound and the overall results might
+## be invalid. To fix this, specify argument &#39;[future.]seed&#39;, e.g. &#39;seed=TRUE&#39;.
+## This ensures that proper, parallel-safe random numbers are produced via the
+## L&#39;Ecuyer-CMRG method. To disable this check, use [future].seed=NULL, or set
+## option &#39;future.rng.onMisuse&#39; to &quot;ignore&quot;.</code></pre>
+<pre><code>## Warning: Cannot find a parent environment called Seurat</code></pre>
+<pre><code>## Warning: UNRELIABLE VALUE: Future (&#39;future_lapply-1&#39;) unexpectedly generated
+## random numbers without specifying argument &#39;[future.]seed&#39;. There is a risk that
+## those random numbers are not statistically sound and the overall results might
+## be invalid. To fix this, specify argument &#39;[future.]seed&#39;, e.g. &#39;seed=TRUE&#39;.
+## This ensures that proper, parallel-safe random numbers are produced via the
+## L&#39;Ecuyer-CMRG method. To disable this check, use [future].seed=NULL, or set
+## option &#39;future.rng.onMisuse&#39; to &quot;ignore&quot;.</code></pre>
+<pre><code>## Warning: UNRELIABLE VALUE: Future (&#39;future_lapply-2&#39;) unexpectedly generated
+## random numbers without specifying argument &#39;[future.]seed&#39;. There is a risk that
+## those random numbers are not statistically sound and the overall results might
+## be invalid. To fix this, specify argument &#39;[future.]seed&#39;, e.g. &#39;seed=TRUE&#39;.
+## This ensures that proper, parallel-safe random numbers are produced via the
+## L&#39;Ecuyer-CMRG method. To disable this check, use [future].seed=NULL, or set
+## option &#39;future.rng.onMisuse&#39; to &quot;ignore&quot;.</code></pre>
+<pre><code>## Warning: UNRELIABLE VALUE: Future (&#39;future_lapply-3&#39;) unexpectedly generated
+## random numbers without specifying argument &#39;[future.]seed&#39;. There is a risk that
+## those random numbers are not statistically sound and the overall results might
+## be invalid. To fix this, specify argument &#39;[future.]seed&#39;, e.g. &#39;seed=TRUE&#39;.
+## This ensures that proper, parallel-safe random numbers are produced via the
+## L&#39;Ecuyer-CMRG method. To disable this check, use [future].seed=NULL, or set
+## option &#39;future.rng.onMisuse&#39; to &quot;ignore&quot;.</code></pre>
+<pre><code>## Warning: UNRELIABLE VALUE: Future (&#39;future_lapply-4&#39;) unexpectedly generated
+## random numbers without specifying argument &#39;[future.]seed&#39;. There is a risk that
+## those random numbers are not statistically sound and the overall results might
+## be invalid. To fix this, specify argument &#39;[future.]seed&#39;, e.g. &#39;seed=TRUE&#39;.
+## This ensures that proper, parallel-safe random numbers are produced via the
+## L&#39;Ecuyer-CMRG method. To disable this check, use [future].seed=NULL, or set
+## option &#39;future.rng.onMisuse&#39; to &quot;ignore&quot;.</code></pre>
+<pre><code>## Warning: Cannot find a parent environment called Seurat</code></pre>
+<pre><code>## Warning: UNRELIABLE VALUE: Future (&#39;future_lapply-1&#39;) unexpectedly generated
+## random numbers without specifying argument &#39;[future.]seed&#39;. There is a risk that
+## those random numbers are not statistically sound and the overall results might
+## be invalid. To fix this, specify argument &#39;[future.]seed&#39;, e.g. &#39;seed=TRUE&#39;.
+## This ensures that proper, parallel-safe random numbers are produced via the
+## L&#39;Ecuyer-CMRG method. To disable this check, use [future].seed=NULL, or set
+## option &#39;future.rng.onMisuse&#39; to &quot;ignore&quot;.</code></pre>
+<pre><code>## Warning: UNRELIABLE VALUE: Future (&#39;future_lapply-2&#39;) unexpectedly generated
+## random numbers without specifying argument &#39;[future.]seed&#39;. There is a risk that
+## those random numbers are not statistically sound and the overall results might
+## be invalid. To fix this, specify argument &#39;[future.]seed&#39;, e.g. &#39;seed=TRUE&#39;.
+## This ensures that proper, parallel-safe random numbers are produced via the
+## L&#39;Ecuyer-CMRG method. To disable this check, use [future].seed=NULL, or set
+## option &#39;future.rng.onMisuse&#39; to &quot;ignore&quot;.</code></pre>
+<pre><code>## Warning: UNRELIABLE VALUE: Future (&#39;future_lapply-3&#39;) unexpectedly generated
+## random numbers without specifying argument &#39;[future.]seed&#39;. There is a risk that
+## those random numbers are not statistically sound and the overall results might
+## be invalid. To fix this, specify argument &#39;[future.]seed&#39;, e.g. &#39;seed=TRUE&#39;.
+## This ensures that proper, parallel-safe random numbers are produced via the
+## L&#39;Ecuyer-CMRG method. To disable this check, use [future].seed=NULL, or set
+## option &#39;future.rng.onMisuse&#39; to &quot;ignore&quot;.</code></pre>
+<pre><code>## Warning: UNRELIABLE VALUE: Future (&#39;future_lapply-4&#39;) unexpectedly generated
+## random numbers without specifying argument &#39;[future.]seed&#39;. There is a risk that
+## those random numbers are not statistically sound and the overall results might
+## be invalid. To fix this, specify argument &#39;[future.]seed&#39;, e.g. &#39;seed=TRUE&#39;.
+## This ensures that proper, parallel-safe random numbers are produced via the
+## L&#39;Ecuyer-CMRG method. To disable this check, use [future].seed=NULL, or set
+## option &#39;future.rng.onMisuse&#39; to &quot;ignore&quot;.</code></pre>
+<pre><code>## Warning: Cannot find a parent environment called Seurat</code></pre>
+<pre><code>## Warning: UNRELIABLE VALUE: Future (&#39;future_lapply-1&#39;) unexpectedly generated
+## random numbers without specifying argument &#39;[future.]seed&#39;. There is a risk that
+## those random numbers are not statistically sound and the overall results might
+## be invalid. To fix this, specify argument &#39;[future.]seed&#39;, e.g. &#39;seed=TRUE&#39;.
+## This ensures that proper, parallel-safe random numbers are produced via the
+## L&#39;Ecuyer-CMRG method. To disable this check, use [future].seed=NULL, or set
+## option &#39;future.rng.onMisuse&#39; to &quot;ignore&quot;.</code></pre>
+<pre><code>## Warning: UNRELIABLE VALUE: Future (&#39;future_lapply-2&#39;) unexpectedly generated
+## random numbers without specifying argument &#39;[future.]seed&#39;. There is a risk that
+## those random numbers are not statistically sound and the overall results might
+## be invalid. To fix this, specify argument &#39;[future.]seed&#39;, e.g. &#39;seed=TRUE&#39;.
+## This ensures that proper, parallel-safe random numbers are produced via the
+## L&#39;Ecuyer-CMRG method. To disable this check, use [future].seed=NULL, or set
+## option &#39;future.rng.onMisuse&#39; to &quot;ignore&quot;.</code></pre>
+<pre><code>## Warning: UNRELIABLE VALUE: Future (&#39;future_lapply-3&#39;) unexpectedly generated
+## random numbers without specifying argument &#39;[future.]seed&#39;. There is a risk that
+## those random numbers are not statistically sound and the overall results might
+## be invalid. To fix this, specify argument &#39;[future.]seed&#39;, e.g. &#39;seed=TRUE&#39;.
+## This ensures that proper, parallel-safe random numbers are produced via the
+## L&#39;Ecuyer-CMRG method. To disable this check, use [future].seed=NULL, or set
+## option &#39;future.rng.onMisuse&#39; to &quot;ignore&quot;.</code></pre>
+<pre><code>## Warning: UNRELIABLE VALUE: Future (&#39;future_lapply-4&#39;) unexpectedly generated
+## random numbers without specifying argument &#39;[future.]seed&#39;. There is a risk that
+## those random numbers are not statistically sound and the overall results might
+## be invalid. To fix this, specify argument &#39;[future.]seed&#39;, e.g. &#39;seed=TRUE&#39;.
+## This ensures that proper, parallel-safe random numbers are produced via the
+## L&#39;Ecuyer-CMRG method. To disable this check, use [future].seed=NULL, or set
+## option &#39;future.rng.onMisuse&#39; to &quot;ignore&quot;.</code></pre>
+<pre><code>## Warning: Cannot find a parent environment called Seurat</code></pre>
+<pre><code>## Warning: UNRELIABLE VALUE: Future (&#39;future_lapply-1&#39;) unexpectedly generated
+## random numbers without specifying argument &#39;[future.]seed&#39;. There is a risk that
+## those random numbers are not statistically sound and the overall results might
+## be invalid. To fix this, specify argument &#39;[future.]seed&#39;, e.g. &#39;seed=TRUE&#39;.
+## This ensures that proper, parallel-safe random numbers are produced via the
+## L&#39;Ecuyer-CMRG method. To disable this check, use [future].seed=NULL, or set
+## option &#39;future.rng.onMisuse&#39; to &quot;ignore&quot;.</code></pre>
+<pre><code>## Warning: UNRELIABLE VALUE: Future (&#39;future_lapply-2&#39;) unexpectedly generated
+## random numbers without specifying argument &#39;[future.]seed&#39;. There is a risk that
+## those random numbers are not statistically sound and the overall results might
+## be invalid. To fix this, specify argument &#39;[future.]seed&#39;, e.g. &#39;seed=TRUE&#39;.
+## This ensures that proper, parallel-safe random numbers are produced via the
+## L&#39;Ecuyer-CMRG method. To disable this check, use [future].seed=NULL, or set
+## option &#39;future.rng.onMisuse&#39; to &quot;ignore&quot;.</code></pre>
+<pre><code>## Warning: UNRELIABLE VALUE: Future (&#39;future_lapply-3&#39;) unexpectedly generated
+## random numbers without specifying argument &#39;[future.]seed&#39;. There is a risk that
+## those random numbers are not statistically sound and the overall results might
+## be invalid. To fix this, specify argument &#39;[future.]seed&#39;, e.g. &#39;seed=TRUE&#39;.
+## This ensures that proper, parallel-safe random numbers are produced via the
+## L&#39;Ecuyer-CMRG method. To disable this check, use [future].seed=NULL, or set
+## option &#39;future.rng.onMisuse&#39; to &quot;ignore&quot;.</code></pre>
+<pre><code>## Warning: UNRELIABLE VALUE: Future (&#39;future_lapply-4&#39;) unexpectedly generated
+## random numbers without specifying argument &#39;[future.]seed&#39;. There is a risk that
+## those random numbers are not statistically sound and the overall results might
+## be invalid. To fix this, specify argument &#39;[future.]seed&#39;, e.g. &#39;seed=TRUE&#39;.
+## This ensures that proper, parallel-safe random numbers are produced via the
+## L&#39;Ecuyer-CMRG method. To disable this check, use [future].seed=NULL, or set
+## option &#39;future.rng.onMisuse&#39; to &quot;ignore&quot;.</code></pre>
+<pre><code>## Warning: UNRELIABLE VALUE: Future (&#39;future_lapply-1&#39;) unexpectedly generated
+## random numbers without specifying argument &#39;[future.]seed&#39;. There is a risk that
+## those random numbers are not statistically sound and the overall results might
+## be invalid. To fix this, specify argument &#39;[future.]seed&#39;, e.g. &#39;seed=TRUE&#39;.
+## This ensures that proper, parallel-safe random numbers are produced via the
+## L&#39;Ecuyer-CMRG method. To disable this check, use [future].seed=NULL, or set
+## option &#39;future.rng.onMisuse&#39; to &quot;ignore&quot;.</code></pre>
+<pre><code>## Warning: UNRELIABLE VALUE: Future (&#39;future_lapply-2&#39;) unexpectedly generated
+## random numbers without specifying argument &#39;[future.]seed&#39;. There is a risk that
+## those random numbers are not statistically sound and the overall results might
+## be invalid. To fix this, specify argument &#39;[future.]seed&#39;, e.g. &#39;seed=TRUE&#39;.
+## This ensures that proper, parallel-safe random numbers are produced via the
+## L&#39;Ecuyer-CMRG method. To disable this check, use [future].seed=NULL, or set
+## option &#39;future.rng.onMisuse&#39; to &quot;ignore&quot;.</code></pre>
+<pre><code>## Warning: UNRELIABLE VALUE: Future (&#39;future_lapply-3&#39;) unexpectedly generated
+## random numbers without specifying argument &#39;[future.]seed&#39;. There is a risk that
+## those random numbers are not statistically sound and the overall results might
+## be invalid. To fix this, specify argument &#39;[future.]seed&#39;, e.g. &#39;seed=TRUE&#39;.
+## This ensures that proper, parallel-safe random numbers are produced via the
+## L&#39;Ecuyer-CMRG method. To disable this check, use [future].seed=NULL, or set
+## option &#39;future.rng.onMisuse&#39; to &quot;ignore&quot;.</code></pre>
+<pre><code>## Warning: UNRELIABLE VALUE: Future (&#39;future_lapply-4&#39;) unexpectedly generated
+## random numbers without specifying argument &#39;[future.]seed&#39;. There is a risk that
+## those random numbers are not statistically sound and the overall results might
+## be invalid. To fix this, specify argument &#39;[future.]seed&#39;, e.g. &#39;seed=TRUE&#39;.
+## This ensures that proper, parallel-safe random numbers are produced via the
+## L&#39;Ecuyer-CMRG method. To disable this check, use [future].seed=NULL, or set
+## option &#39;future.rng.onMisuse&#39; to &quot;ignore&quot;.</code></pre>
+<pre><code>## Warning: UNRELIABLE VALUE: Future (&#39;future_lapply-1&#39;) unexpectedly generated
+## random numbers without specifying argument &#39;[future.]seed&#39;. There is a risk that
+## those random numbers are not statistically sound and the overall results might
+## be invalid. To fix this, specify argument &#39;[future.]seed&#39;, e.g. &#39;seed=TRUE&#39;.
+## This ensures that proper, parallel-safe random numbers are produced via the
+## L&#39;Ecuyer-CMRG method. To disable this check, use [future].seed=NULL, or set
+## option &#39;future.rng.onMisuse&#39; to &quot;ignore&quot;.</code></pre>
+<pre><code>## Warning: UNRELIABLE VALUE: Future (&#39;future_lapply-2&#39;) unexpectedly generated
+## random numbers without specifying argument &#39;[future.]seed&#39;. There is a risk that
+## those random numbers are not statistically sound and the overall results might
+## be invalid. To fix this, specify argument &#39;[future.]seed&#39;, e.g. &#39;seed=TRUE&#39;.
+## This ensures that proper, parallel-safe random numbers are produced via the
+## L&#39;Ecuyer-CMRG method. To disable this check, use [future].seed=NULL, or set
+## option &#39;future.rng.onMisuse&#39; to &quot;ignore&quot;.</code></pre>
+<pre><code>## Warning: UNRELIABLE VALUE: Future (&#39;future_lapply-3&#39;) unexpectedly generated
+## random numbers without specifying argument &#39;[future.]seed&#39;. There is a risk that
+## those random numbers are not statistically sound and the overall results might
+## be invalid. To fix this, specify argument &#39;[future.]seed&#39;, e.g. &#39;seed=TRUE&#39;.
+## This ensures that proper, parallel-safe random numbers are produced via the
+## L&#39;Ecuyer-CMRG method. To disable this check, use [future].seed=NULL, or set
+## option &#39;future.rng.onMisuse&#39; to &quot;ignore&quot;.</code></pre>
+<pre><code>## Warning: UNRELIABLE VALUE: Future (&#39;future_lapply-4&#39;) unexpectedly generated
+## random numbers without specifying argument &#39;[future.]seed&#39;. There is a risk that
+## those random numbers are not statistically sound and the overall results might
+## be invalid. To fix this, specify argument &#39;[future.]seed&#39;, e.g. &#39;seed=TRUE&#39;.
+## This ensures that proper, parallel-safe random numbers are produced via the
+## L&#39;Ecuyer-CMRG method. To disable this check, use [future].seed=NULL, or set
+## option &#39;future.rng.onMisuse&#39; to &quot;ignore&quot;.</code></pre>
+<pre><code>## Warning: UNRELIABLE VALUE: Future (&#39;future_lapply-1&#39;) unexpectedly generated
+## random numbers without specifying argument &#39;[future.]seed&#39;. There is a risk that
+## those random numbers are not statistically sound and the overall results might
+## be invalid. To fix this, specify argument &#39;[future.]seed&#39;, e.g. &#39;seed=TRUE&#39;.
+## This ensures that proper, parallel-safe random numbers are produced via the
+## L&#39;Ecuyer-CMRG method. To disable this check, use [future].seed=NULL, or set
+## option &#39;future.rng.onMisuse&#39; to &quot;ignore&quot;.
+
+## Warning: UNRELIABLE VALUE: Future (&#39;future_lapply-1&#39;) unexpectedly generated
+## random numbers without specifying argument &#39;[future.]seed&#39;. There is a risk that
+## those random numbers are not statistically sound and the overall results might
+## be invalid. To fix this, specify argument &#39;[future.]seed&#39;, e.g. &#39;seed=TRUE&#39;.
+## This ensures that proper, parallel-safe random numbers are produced via the
+## L&#39;Ecuyer-CMRG method. To disable this check, use [future].seed=NULL, or set
+## option &#39;future.rng.onMisuse&#39; to &quot;ignore&quot;.
+
+## Warning: UNRELIABLE VALUE: Future (&#39;future_lapply-1&#39;) unexpectedly generated
+## random numbers without specifying argument &#39;[future.]seed&#39;. There is a risk that
+## those random numbers are not statistically sound and the overall results might
+## be invalid. To fix this, specify argument &#39;[future.]seed&#39;, e.g. &#39;seed=TRUE&#39;.
+## This ensures that proper, parallel-safe random numbers are produced via the
+## L&#39;Ecuyer-CMRG method. To disable this check, use [future].seed=NULL, or set
+## option &#39;future.rng.onMisuse&#39; to &quot;ignore&quot;.
+
+## Warning: UNRELIABLE VALUE: Future (&#39;future_lapply-1&#39;) unexpectedly generated
+## random numbers without specifying argument &#39;[future.]seed&#39;. There is a risk that
+## those random numbers are not statistically sound and the overall results might
+## be invalid. To fix this, specify argument &#39;[future.]seed&#39;, e.g. &#39;seed=TRUE&#39;.
+## This ensures that proper, parallel-safe random numbers are produced via the
+## L&#39;Ecuyer-CMRG method. To disable this check, use [future].seed=NULL, or set
+## option &#39;future.rng.onMisuse&#39; to &quot;ignore&quot;.
+
+## Warning: UNRELIABLE VALUE: Future (&#39;future_lapply-1&#39;) unexpectedly generated
+## random numbers without specifying argument &#39;[future.]seed&#39;. There is a risk that
+## those random numbers are not statistically sound and the overall results might
+## be invalid. To fix this, specify argument &#39;[future.]seed&#39;, e.g. &#39;seed=TRUE&#39;.
+## This ensures that proper, parallel-safe random numbers are produced via the
+## L&#39;Ecuyer-CMRG method. To disable this check, use [future].seed=NULL, or set
+## option &#39;future.rng.onMisuse&#39; to &quot;ignore&quot;.</code></pre>
+<pre><code>## Warning: Adding a command log without an assay associated with it</code></pre>
+<pre><code>## Warning: UNRELIABLE VALUE: Future (&#39;future_lapply-1&#39;) unexpectedly generated
+## random numbers without specifying argument &#39;[future.]seed&#39;. There is a risk that
+## those random numbers are not statistically sound and the overall results might
+## be invalid. To fix this, specify argument &#39;[future.]seed&#39;, e.g. &#39;seed=TRUE&#39;.
+## This ensures that proper, parallel-safe random numbers are produced via the
+## L&#39;Ecuyer-CMRG method. To disable this check, use [future].seed=NULL, or set
+## option &#39;future.rng.onMisuse&#39; to &quot;ignore&quot;.
+
+## Warning: UNRELIABLE VALUE: Future (&#39;future_lapply-1&#39;) unexpectedly generated
+## random numbers without specifying argument &#39;[future.]seed&#39;. There is a risk that
+## those random numbers are not statistically sound and the overall results might
+## be invalid. To fix this, specify argument &#39;[future.]seed&#39;, e.g. &#39;seed=TRUE&#39;.
+## This ensures that proper, parallel-safe random numbers are produced via the
+## L&#39;Ecuyer-CMRG method. To disable this check, use [future].seed=NULL, or set
+## option &#39;future.rng.onMisuse&#39; to &quot;ignore&quot;.</code></pre>
+<pre><code>## Warning: The default method for RunUMAP has changed from calling Python UMAP via reticulate to the R-native UWOT using the cosine metric
+## To use Python UMAP via reticulate, set umap.method to &#39;umap-learn&#39; and metric to &#39;correlation&#39;
+## This message will be shown once per session</code></pre>
+<pre class="r"><code>#saveRDS(integratedSamples, &quot;./data/integratedSamples_HCC6_pseudo.rds&quot;)
+#sendEmail(&quot;Seurat is done!&quot;)
+#integratedSamples = readRDS(&quot;./data/integratedSamples_HCC6_pseudo.rds&quot;)
+conf.mat&lt;-table(Idents(integratedSamples), origLabels)
+print(conf.mat)</code></pre>
+<pre><code>##    origLabels
+##     Group1 Group2 Group3 Group4 Group5 Group6
+##   A   6438      1      4      4      9      4
+##   B   4323    277    559     43     36    458
+##   C      4      1   5370      2      9     11
+##   D   4751      0      0      0      0      0
+##   E     12     22      7    244    259   4059
+##   F      0   3080      8      0      2      3</code></pre>
+<pre class="r"><code>plot = DimPlot(integratedSamples, ncol = 3, reduction = &quot;umap&quot;, split.by = &quot;batch&quot;) + ggtitle(&quot;Cluster Results of Different Clusters in Different Samples&quot;)
+print(plot)</code></pre>
+<p><img src="data:image/png;base64,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" width="672" /></p>
+<pre class="r"><code>Res = getPandTimeFSDD6(integratedSamples, sim_list, batch_size)</code></pre>
+<pre><code>## `summarise()` regrouping output by &#39;condition&#39; (override with `.groups` argument)</code></pre>
+<pre><code>## group variable has 2 levels, t-tests will be performed</code></pre>
+<pre><code>## FlowSOM clustering completed in 2 seconds</code></pre>
+<pre class="r"><code>print(Res)</code></pre>
+<pre><code>## $Res_df
+##   cluster dcats_pvalsT speckle_pvals  dcats_pvalsI dcats_pvalsU dcats_pvalsK
+## 1       A  0.005625841   0.293986904  6.589446e-29 4.632318e-03 3.908392e-04
+## 2       B  0.115383629   0.006932232 2.067702e-307 8.321552e-25 2.547527e-38
+## 3       C  0.604291498   0.133156269  4.948815e-03 4.346907e-01 2.140554e-01
+## 4       D  0.371215877   0.142319963 1.103856e-103 4.295470e-09 1.319861e-15
+## 5       E  0.210398675   0.055184452  1.026826e-03 3.990497e-01 2.038420e-01
+## 6       F  0.318734481   0.395904020  2.171949e-01 7.351599e-01 6.106855e-01
+##    fisher_pvals diffcyt_pvals
+## 1  1.036844e-25      3.49e-01
+## 2 1.079656e-305      4.67e-09
+## 3  7.949083e-03      4.27e-01
+## 4  1.666668e-98      7.60e-02
+## 5  1.749915e-03      3.49e-01
+## 6  2.373467e-01      6.20e-01
+## 
+## $time_df
+##   methods       time
+## 1  fisher 0.10094786
+## 2 sepckle 0.02689505
+## 3   dcats 1.56944489
+## 4 diffcyt 0.08377695</code></pre>
 </div>
 <div id="mnnct7" class="section level3">
 <h3>mnnCT7</h3>
@@ -532,7 +862,7 @@ print(plot)</code></pre>
 <pre class="r"><code>Res = getPandTimeFSDD6(integratedSamples, sim_list, batch_size)</code></pre>
 <pre><code>## `summarise()` regrouping output by &#39;condition&#39; (override with `.groups` argument)</code></pre>
 <pre><code>## group variable has 2 levels, t-tests will be performed</code></pre>
-<pre><code>## FlowSOM clustering completed in 1.4 seconds</code></pre>
+<pre><code>## FlowSOM clustering completed in 3.3 seconds</code></pre>
 <pre class="r"><code>print(Res)</code></pre>
 <pre><code>## $Res_df
 ##   cluster dcats_pvalsT speckle_pvals dcats_pvalsI dcats_pvalsU dcats_pvalsK
@@ -552,10 +882,338 @@ print(plot)</code></pre>
 ## 
 ## $time_df
 ##   methods       time
-## 1  fisher 0.10172796
-## 2 sepckle 0.02712202
-## 3   dcats 1.54590321
-## 4 diffcyt 0.02634382</code></pre>
+## 1  fisher 0.26899695
+## 2 sepckle 0.11804891
+## 3   dcats 1.33211398
+## 4 diffcyt 0.08998418</code></pre>
+<p>Decrease cell numbers</p>
+<pre class="r"><code>set.seed(123)
+probNor = c(0.52, 0.11, 0.20, 0.01, 0.01, 0.15)
+probMut = c(0.52, 0.11, 0.20, 0.01, 0.01, 0.15)
+setresolu = 0.4
+batch_size = 1000
+de_prob = runif(6, 0.2, 0.4)</code></pre>
+<p>Simulation</p>
+<pre class="r"><code>mnnCT7params = readRDS(&quot;./data/mnnCT7params.rds&quot;)
+
+set.seed(123)
+param.groups &lt;- setParams(mnnCT7params, batchCells = rep(batch_size, 6), nGenes = 1000)
+simSplat &lt;- splatSimulateGroups(param.groups, group.prob = probNor, de.prob = de_prob, verbose = FALSE)
+
+a = 3*batch_size
+b = 3*batch_size+1
+c = 6*batch_size
+simNor_mat &lt;- counts(simSplat)[,1:a]
+simMut_mat &lt;- counts(simSplat)[,b:c]
+batchSplat = simSplat@colData@listData$Batch %&gt;% 
+  plyr::mapvalues(from = c(&quot;Batch1&quot;, &quot;Batch2&quot;, &quot;Batch3&quot;, &quot;Batch4&quot;, &quot;Batch5&quot;, &quot;Batch6&quot;), to = c(&quot;Nor1&quot;, &quot;Nor2&quot;, &quot;Nor3&quot;, &quot;Mut1&quot;, &quot;Mut2&quot;, &quot;Mut3&quot;))
+batchNor = batchSplat[1:(3*batch_size)]
+batchMut = batchSplat[(3*batch_size+1):(6*batch_size)]
+origLabels = simSplat@colData@listData$Group
+sim_list = list(simNor_mat = simNor_mat, simMut_mat = simMut_mat, batchNor = batchNor, batchMut = batchMut, origLabels = origLabels)</code></pre>
+<p>Clustering</p>
+<pre class="r"><code>integratedSamples = runSeurat(sim_list, batch_size, setresolu)</code></pre>
+<pre><code>## Warning: Cannot find a parent environment called Seurat
+
+## Warning: Cannot find a parent environment called Seurat</code></pre>
+<pre><code>## Warning: UNRELIABLE VALUE: Future (&#39;future_lapply-1&#39;) unexpectedly generated
+## random numbers without specifying argument &#39;[future.]seed&#39;. There is a risk that
+## those random numbers are not statistically sound and the overall results might
+## be invalid. To fix this, specify argument &#39;[future.]seed&#39;, e.g. &#39;seed=TRUE&#39;.
+## This ensures that proper, parallel-safe random numbers are produced via the
+## L&#39;Ecuyer-CMRG method. To disable this check, use [future].seed=NULL, or set
+## option &#39;future.rng.onMisuse&#39; to &quot;ignore&quot;.</code></pre>
+<pre><code>## Warning: UNRELIABLE VALUE: Future (&#39;future_lapply-2&#39;) unexpectedly generated
+## random numbers without specifying argument &#39;[future.]seed&#39;. There is a risk that
+## those random numbers are not statistically sound and the overall results might
+## be invalid. To fix this, specify argument &#39;[future.]seed&#39;, e.g. &#39;seed=TRUE&#39;.
+## This ensures that proper, parallel-safe random numbers are produced via the
+## L&#39;Ecuyer-CMRG method. To disable this check, use [future].seed=NULL, or set
+## option &#39;future.rng.onMisuse&#39; to &quot;ignore&quot;.</code></pre>
+<pre><code>## Warning: UNRELIABLE VALUE: Future (&#39;future_lapply-3&#39;) unexpectedly generated
+## random numbers without specifying argument &#39;[future.]seed&#39;. There is a risk that
+## those random numbers are not statistically sound and the overall results might
+## be invalid. To fix this, specify argument &#39;[future.]seed&#39;, e.g. &#39;seed=TRUE&#39;.
+## This ensures that proper, parallel-safe random numbers are produced via the
+## L&#39;Ecuyer-CMRG method. To disable this check, use [future].seed=NULL, or set
+## option &#39;future.rng.onMisuse&#39; to &quot;ignore&quot;.</code></pre>
+<pre><code>## Warning: UNRELIABLE VALUE: Future (&#39;future_lapply-4&#39;) unexpectedly generated
+## random numbers without specifying argument &#39;[future.]seed&#39;. There is a risk that
+## those random numbers are not statistically sound and the overall results might
+## be invalid. To fix this, specify argument &#39;[future.]seed&#39;, e.g. &#39;seed=TRUE&#39;.
+## This ensures that proper, parallel-safe random numbers are produced via the
+## L&#39;Ecuyer-CMRG method. To disable this check, use [future].seed=NULL, or set
+## option &#39;future.rng.onMisuse&#39; to &quot;ignore&quot;.</code></pre>
+<pre><code>## Warning: Cannot find a parent environment called Seurat</code></pre>
+<pre><code>## Warning: UNRELIABLE VALUE: Future (&#39;future_lapply-1&#39;) unexpectedly generated
+## random numbers without specifying argument &#39;[future.]seed&#39;. There is a risk that
+## those random numbers are not statistically sound and the overall results might
+## be invalid. To fix this, specify argument &#39;[future.]seed&#39;, e.g. &#39;seed=TRUE&#39;.
+## This ensures that proper, parallel-safe random numbers are produced via the
+## L&#39;Ecuyer-CMRG method. To disable this check, use [future].seed=NULL, or set
+## option &#39;future.rng.onMisuse&#39; to &quot;ignore&quot;.</code></pre>
+<pre><code>## Warning: UNRELIABLE VALUE: Future (&#39;future_lapply-2&#39;) unexpectedly generated
+## random numbers without specifying argument &#39;[future.]seed&#39;. There is a risk that
+## those random numbers are not statistically sound and the overall results might
+## be invalid. To fix this, specify argument &#39;[future.]seed&#39;, e.g. &#39;seed=TRUE&#39;.
+## This ensures that proper, parallel-safe random numbers are produced via the
+## L&#39;Ecuyer-CMRG method. To disable this check, use [future].seed=NULL, or set
+## option &#39;future.rng.onMisuse&#39; to &quot;ignore&quot;.</code></pre>
+<pre><code>## Warning: UNRELIABLE VALUE: Future (&#39;future_lapply-3&#39;) unexpectedly generated
+## random numbers without specifying argument &#39;[future.]seed&#39;. There is a risk that
+## those random numbers are not statistically sound and the overall results might
+## be invalid. To fix this, specify argument &#39;[future.]seed&#39;, e.g. &#39;seed=TRUE&#39;.
+## This ensures that proper, parallel-safe random numbers are produced via the
+## L&#39;Ecuyer-CMRG method. To disable this check, use [future].seed=NULL, or set
+## option &#39;future.rng.onMisuse&#39; to &quot;ignore&quot;.</code></pre>
+<pre><code>## Warning: UNRELIABLE VALUE: Future (&#39;future_lapply-4&#39;) unexpectedly generated
+## random numbers without specifying argument &#39;[future.]seed&#39;. There is a risk that
+## those random numbers are not statistically sound and the overall results might
+## be invalid. To fix this, specify argument &#39;[future.]seed&#39;, e.g. &#39;seed=TRUE&#39;.
+## This ensures that proper, parallel-safe random numbers are produced via the
+## L&#39;Ecuyer-CMRG method. To disable this check, use [future].seed=NULL, or set
+## option &#39;future.rng.onMisuse&#39; to &quot;ignore&quot;.</code></pre>
+<pre><code>## Warning: Cannot find a parent environment called Seurat</code></pre>
+<pre><code>## Warning: UNRELIABLE VALUE: Future (&#39;future_lapply-1&#39;) unexpectedly generated
+## random numbers without specifying argument &#39;[future.]seed&#39;. There is a risk that
+## those random numbers are not statistically sound and the overall results might
+## be invalid. To fix this, specify argument &#39;[future.]seed&#39;, e.g. &#39;seed=TRUE&#39;.
+## This ensures that proper, parallel-safe random numbers are produced via the
+## L&#39;Ecuyer-CMRG method. To disable this check, use [future].seed=NULL, or set
+## option &#39;future.rng.onMisuse&#39; to &quot;ignore&quot;.</code></pre>
+<pre><code>## Warning: UNRELIABLE VALUE: Future (&#39;future_lapply-2&#39;) unexpectedly generated
+## random numbers without specifying argument &#39;[future.]seed&#39;. There is a risk that
+## those random numbers are not statistically sound and the overall results might
+## be invalid. To fix this, specify argument &#39;[future.]seed&#39;, e.g. &#39;seed=TRUE&#39;.
+## This ensures that proper, parallel-safe random numbers are produced via the
+## L&#39;Ecuyer-CMRG method. To disable this check, use [future].seed=NULL, or set
+## option &#39;future.rng.onMisuse&#39; to &quot;ignore&quot;.</code></pre>
+<pre><code>## Warning: UNRELIABLE VALUE: Future (&#39;future_lapply-3&#39;) unexpectedly generated
+## random numbers without specifying argument &#39;[future.]seed&#39;. There is a risk that
+## those random numbers are not statistically sound and the overall results might
+## be invalid. To fix this, specify argument &#39;[future.]seed&#39;, e.g. &#39;seed=TRUE&#39;.
+## This ensures that proper, parallel-safe random numbers are produced via the
+## L&#39;Ecuyer-CMRG method. To disable this check, use [future].seed=NULL, or set
+## option &#39;future.rng.onMisuse&#39; to &quot;ignore&quot;.</code></pre>
+<pre><code>## Warning: UNRELIABLE VALUE: Future (&#39;future_lapply-4&#39;) unexpectedly generated
+## random numbers without specifying argument &#39;[future.]seed&#39;. There is a risk that
+## those random numbers are not statistically sound and the overall results might
+## be invalid. To fix this, specify argument &#39;[future.]seed&#39;, e.g. &#39;seed=TRUE&#39;.
+## This ensures that proper, parallel-safe random numbers are produced via the
+## L&#39;Ecuyer-CMRG method. To disable this check, use [future].seed=NULL, or set
+## option &#39;future.rng.onMisuse&#39; to &quot;ignore&quot;.</code></pre>
+<pre><code>## Warning: Cannot find a parent environment called Seurat</code></pre>
+<pre><code>## Warning: UNRELIABLE VALUE: Future (&#39;future_lapply-1&#39;) unexpectedly generated
+## random numbers without specifying argument &#39;[future.]seed&#39;. There is a risk that
+## those random numbers are not statistically sound and the overall results might
+## be invalid. To fix this, specify argument &#39;[future.]seed&#39;, e.g. &#39;seed=TRUE&#39;.
+## This ensures that proper, parallel-safe random numbers are produced via the
+## L&#39;Ecuyer-CMRG method. To disable this check, use [future].seed=NULL, or set
+## option &#39;future.rng.onMisuse&#39; to &quot;ignore&quot;.</code></pre>
+<pre><code>## Warning: UNRELIABLE VALUE: Future (&#39;future_lapply-2&#39;) unexpectedly generated
+## random numbers without specifying argument &#39;[future.]seed&#39;. There is a risk that
+## those random numbers are not statistically sound and the overall results might
+## be invalid. To fix this, specify argument &#39;[future.]seed&#39;, e.g. &#39;seed=TRUE&#39;.
+## This ensures that proper, parallel-safe random numbers are produced via the
+## L&#39;Ecuyer-CMRG method. To disable this check, use [future].seed=NULL, or set
+## option &#39;future.rng.onMisuse&#39; to &quot;ignore&quot;.</code></pre>
+<pre><code>## Warning: UNRELIABLE VALUE: Future (&#39;future_lapply-3&#39;) unexpectedly generated
+## random numbers without specifying argument &#39;[future.]seed&#39;. There is a risk that
+## those random numbers are not statistically sound and the overall results might
+## be invalid. To fix this, specify argument &#39;[future.]seed&#39;, e.g. &#39;seed=TRUE&#39;.
+## This ensures that proper, parallel-safe random numbers are produced via the
+## L&#39;Ecuyer-CMRG method. To disable this check, use [future].seed=NULL, or set
+## option &#39;future.rng.onMisuse&#39; to &quot;ignore&quot;.</code></pre>
+<pre><code>## Warning: UNRELIABLE VALUE: Future (&#39;future_lapply-4&#39;) unexpectedly generated
+## random numbers without specifying argument &#39;[future.]seed&#39;. There is a risk that
+## those random numbers are not statistically sound and the overall results might
+## be invalid. To fix this, specify argument &#39;[future.]seed&#39;, e.g. &#39;seed=TRUE&#39;.
+## This ensures that proper, parallel-safe random numbers are produced via the
+## L&#39;Ecuyer-CMRG method. To disable this check, use [future].seed=NULL, or set
+## option &#39;future.rng.onMisuse&#39; to &quot;ignore&quot;.</code></pre>
+<pre><code>## Warning: Cannot find a parent environment called Seurat</code></pre>
+<pre><code>## Warning: UNRELIABLE VALUE: Future (&#39;future_lapply-1&#39;) unexpectedly generated
+## random numbers without specifying argument &#39;[future.]seed&#39;. There is a risk that
+## those random numbers are not statistically sound and the overall results might
+## be invalid. To fix this, specify argument &#39;[future.]seed&#39;, e.g. &#39;seed=TRUE&#39;.
+## This ensures that proper, parallel-safe random numbers are produced via the
+## L&#39;Ecuyer-CMRG method. To disable this check, use [future].seed=NULL, or set
+## option &#39;future.rng.onMisuse&#39; to &quot;ignore&quot;.</code></pre>
+<pre><code>## Warning: UNRELIABLE VALUE: Future (&#39;future_lapply-2&#39;) unexpectedly generated
+## random numbers without specifying argument &#39;[future.]seed&#39;. There is a risk that
+## those random numbers are not statistically sound and the overall results might
+## be invalid. To fix this, specify argument &#39;[future.]seed&#39;, e.g. &#39;seed=TRUE&#39;.
+## This ensures that proper, parallel-safe random numbers are produced via the
+## L&#39;Ecuyer-CMRG method. To disable this check, use [future].seed=NULL, or set
+## option &#39;future.rng.onMisuse&#39; to &quot;ignore&quot;.</code></pre>
+<pre><code>## Warning: UNRELIABLE VALUE: Future (&#39;future_lapply-3&#39;) unexpectedly generated
+## random numbers without specifying argument &#39;[future.]seed&#39;. There is a risk that
+## those random numbers are not statistically sound and the overall results might
+## be invalid. To fix this, specify argument &#39;[future.]seed&#39;, e.g. &#39;seed=TRUE&#39;.
+## This ensures that proper, parallel-safe random numbers are produced via the
+## L&#39;Ecuyer-CMRG method. To disable this check, use [future].seed=NULL, or set
+## option &#39;future.rng.onMisuse&#39; to &quot;ignore&quot;.</code></pre>
+<pre><code>## Warning: UNRELIABLE VALUE: Future (&#39;future_lapply-4&#39;) unexpectedly generated
+## random numbers without specifying argument &#39;[future.]seed&#39;. There is a risk that
+## those random numbers are not statistically sound and the overall results might
+## be invalid. To fix this, specify argument &#39;[future.]seed&#39;, e.g. &#39;seed=TRUE&#39;.
+## This ensures that proper, parallel-safe random numbers are produced via the
+## L&#39;Ecuyer-CMRG method. To disable this check, use [future].seed=NULL, or set
+## option &#39;future.rng.onMisuse&#39; to &quot;ignore&quot;.</code></pre>
+<pre><code>## Warning: UNRELIABLE VALUE: Future (&#39;future_lapply-1&#39;) unexpectedly generated
+## random numbers without specifying argument &#39;[future.]seed&#39;. There is a risk that
+## those random numbers are not statistically sound and the overall results might
+## be invalid. To fix this, specify argument &#39;[future.]seed&#39;, e.g. &#39;seed=TRUE&#39;.
+## This ensures that proper, parallel-safe random numbers are produced via the
+## L&#39;Ecuyer-CMRG method. To disable this check, use [future].seed=NULL, or set
+## option &#39;future.rng.onMisuse&#39; to &quot;ignore&quot;.</code></pre>
+<pre><code>## Warning: UNRELIABLE VALUE: Future (&#39;future_lapply-2&#39;) unexpectedly generated
+## random numbers without specifying argument &#39;[future.]seed&#39;. There is a risk that
+## those random numbers are not statistically sound and the overall results might
+## be invalid. To fix this, specify argument &#39;[future.]seed&#39;, e.g. &#39;seed=TRUE&#39;.
+## This ensures that proper, parallel-safe random numbers are produced via the
+## L&#39;Ecuyer-CMRG method. To disable this check, use [future].seed=NULL, or set
+## option &#39;future.rng.onMisuse&#39; to &quot;ignore&quot;.</code></pre>
+<pre><code>## Warning: UNRELIABLE VALUE: Future (&#39;future_lapply-3&#39;) unexpectedly generated
+## random numbers without specifying argument &#39;[future.]seed&#39;. There is a risk that
+## those random numbers are not statistically sound and the overall results might
+## be invalid. To fix this, specify argument &#39;[future.]seed&#39;, e.g. &#39;seed=TRUE&#39;.
+## This ensures that proper, parallel-safe random numbers are produced via the
+## L&#39;Ecuyer-CMRG method. To disable this check, use [future].seed=NULL, or set
+## option &#39;future.rng.onMisuse&#39; to &quot;ignore&quot;.</code></pre>
+<pre><code>## Warning: UNRELIABLE VALUE: Future (&#39;future_lapply-4&#39;) unexpectedly generated
+## random numbers without specifying argument &#39;[future.]seed&#39;. There is a risk that
+## those random numbers are not statistically sound and the overall results might
+## be invalid. To fix this, specify argument &#39;[future.]seed&#39;, e.g. &#39;seed=TRUE&#39;.
+## This ensures that proper, parallel-safe random numbers are produced via the
+## L&#39;Ecuyer-CMRG method. To disable this check, use [future].seed=NULL, or set
+## option &#39;future.rng.onMisuse&#39; to &quot;ignore&quot;.</code></pre>
+<pre><code>## Warning: UNRELIABLE VALUE: Future (&#39;future_lapply-1&#39;) unexpectedly generated
+## random numbers without specifying argument &#39;[future.]seed&#39;. There is a risk that
+## those random numbers are not statistically sound and the overall results might
+## be invalid. To fix this, specify argument &#39;[future.]seed&#39;, e.g. &#39;seed=TRUE&#39;.
+## This ensures that proper, parallel-safe random numbers are produced via the
+## L&#39;Ecuyer-CMRG method. To disable this check, use [future].seed=NULL, or set
+## option &#39;future.rng.onMisuse&#39; to &quot;ignore&quot;.</code></pre>
+<pre><code>## Warning: UNRELIABLE VALUE: Future (&#39;future_lapply-2&#39;) unexpectedly generated
+## random numbers without specifying argument &#39;[future.]seed&#39;. There is a risk that
+## those random numbers are not statistically sound and the overall results might
+## be invalid. To fix this, specify argument &#39;[future.]seed&#39;, e.g. &#39;seed=TRUE&#39;.
+## This ensures that proper, parallel-safe random numbers are produced via the
+## L&#39;Ecuyer-CMRG method. To disable this check, use [future].seed=NULL, or set
+## option &#39;future.rng.onMisuse&#39; to &quot;ignore&quot;.</code></pre>
+<pre><code>## Warning: UNRELIABLE VALUE: Future (&#39;future_lapply-3&#39;) unexpectedly generated
+## random numbers without specifying argument &#39;[future.]seed&#39;. There is a risk that
+## those random numbers are not statistically sound and the overall results might
+## be invalid. To fix this, specify argument &#39;[future.]seed&#39;, e.g. &#39;seed=TRUE&#39;.
+## This ensures that proper, parallel-safe random numbers are produced via the
+## L&#39;Ecuyer-CMRG method. To disable this check, use [future].seed=NULL, or set
+## option &#39;future.rng.onMisuse&#39; to &quot;ignore&quot;.</code></pre>
+<pre><code>## Warning: UNRELIABLE VALUE: Future (&#39;future_lapply-4&#39;) unexpectedly generated
+## random numbers without specifying argument &#39;[future.]seed&#39;. There is a risk that
+## those random numbers are not statistically sound and the overall results might
+## be invalid. To fix this, specify argument &#39;[future.]seed&#39;, e.g. &#39;seed=TRUE&#39;.
+## This ensures that proper, parallel-safe random numbers are produced via the
+## L&#39;Ecuyer-CMRG method. To disable this check, use [future].seed=NULL, or set
+## option &#39;future.rng.onMisuse&#39; to &quot;ignore&quot;.</code></pre>
+<pre><code>## Warning: UNRELIABLE VALUE: Future (&#39;future_lapply-1&#39;) unexpectedly generated
+## random numbers without specifying argument &#39;[future.]seed&#39;. There is a risk that
+## those random numbers are not statistically sound and the overall results might
+## be invalid. To fix this, specify argument &#39;[future.]seed&#39;, e.g. &#39;seed=TRUE&#39;.
+## This ensures that proper, parallel-safe random numbers are produced via the
+## L&#39;Ecuyer-CMRG method. To disable this check, use [future].seed=NULL, or set
+## option &#39;future.rng.onMisuse&#39; to &quot;ignore&quot;.
+
+## Warning: UNRELIABLE VALUE: Future (&#39;future_lapply-1&#39;) unexpectedly generated
+## random numbers without specifying argument &#39;[future.]seed&#39;. There is a risk that
+## those random numbers are not statistically sound and the overall results might
+## be invalid. To fix this, specify argument &#39;[future.]seed&#39;, e.g. &#39;seed=TRUE&#39;.
+## This ensures that proper, parallel-safe random numbers are produced via the
+## L&#39;Ecuyer-CMRG method. To disable this check, use [future].seed=NULL, or set
+## option &#39;future.rng.onMisuse&#39; to &quot;ignore&quot;.
+
+## Warning: UNRELIABLE VALUE: Future (&#39;future_lapply-1&#39;) unexpectedly generated
+## random numbers without specifying argument &#39;[future.]seed&#39;. There is a risk that
+## those random numbers are not statistically sound and the overall results might
+## be invalid. To fix this, specify argument &#39;[future.]seed&#39;, e.g. &#39;seed=TRUE&#39;.
+## This ensures that proper, parallel-safe random numbers are produced via the
+## L&#39;Ecuyer-CMRG method. To disable this check, use [future].seed=NULL, or set
+## option &#39;future.rng.onMisuse&#39; to &quot;ignore&quot;.
+
+## Warning: UNRELIABLE VALUE: Future (&#39;future_lapply-1&#39;) unexpectedly generated
+## random numbers without specifying argument &#39;[future.]seed&#39;. There is a risk that
+## those random numbers are not statistically sound and the overall results might
+## be invalid. To fix this, specify argument &#39;[future.]seed&#39;, e.g. &#39;seed=TRUE&#39;.
+## This ensures that proper, parallel-safe random numbers are produced via the
+## L&#39;Ecuyer-CMRG method. To disable this check, use [future].seed=NULL, or set
+## option &#39;future.rng.onMisuse&#39; to &quot;ignore&quot;.
+
+## Warning: UNRELIABLE VALUE: Future (&#39;future_lapply-1&#39;) unexpectedly generated
+## random numbers without specifying argument &#39;[future.]seed&#39;. There is a risk that
+## those random numbers are not statistically sound and the overall results might
+## be invalid. To fix this, specify argument &#39;[future.]seed&#39;, e.g. &#39;seed=TRUE&#39;.
+## This ensures that proper, parallel-safe random numbers are produced via the
+## L&#39;Ecuyer-CMRG method. To disable this check, use [future].seed=NULL, or set
+## option &#39;future.rng.onMisuse&#39; to &quot;ignore&quot;.</code></pre>
+<pre><code>## Warning: Adding a command log without an assay associated with it</code></pre>
+<pre><code>## Warning: UNRELIABLE VALUE: Future (&#39;future_lapply-1&#39;) unexpectedly generated
+## random numbers without specifying argument &#39;[future.]seed&#39;. There is a risk that
+## those random numbers are not statistically sound and the overall results might
+## be invalid. To fix this, specify argument &#39;[future.]seed&#39;, e.g. &#39;seed=TRUE&#39;.
+## This ensures that proper, parallel-safe random numbers are produced via the
+## L&#39;Ecuyer-CMRG method. To disable this check, use [future].seed=NULL, or set
+## option &#39;future.rng.onMisuse&#39; to &quot;ignore&quot;.
+
+## Warning: UNRELIABLE VALUE: Future (&#39;future_lapply-1&#39;) unexpectedly generated
+## random numbers without specifying argument &#39;[future.]seed&#39;. There is a risk that
+## those random numbers are not statistically sound and the overall results might
+## be invalid. To fix this, specify argument &#39;[future.]seed&#39;, e.g. &#39;seed=TRUE&#39;.
+## This ensures that proper, parallel-safe random numbers are produced via the
+## L&#39;Ecuyer-CMRG method. To disable this check, use [future].seed=NULL, or set
+## option &#39;future.rng.onMisuse&#39; to &quot;ignore&quot;.</code></pre>
+<pre class="r"><code>#saveRDS(integratedSamples, &quot;./data/integratedSamples_mnn6_pseudo.rds&quot;)
+#sendEmail(&quot;Seurat is done!&quot;)
+#integratedSamples = readRDS(&quot;./data/integratedSamples_mnn6_pseudo.rds&quot;)
+conf.mat&lt;-table(Idents(integratedSamples), origLabels)
+print(conf.mat)</code></pre>
+<pre><code>##    origLabels
+##     Group1 Group2 Group3 Group4 Group5 Group6
+##   A   1521      2      0      2      4      2
+##   B      0      0   1177      5      3      2
+##   C   1141      0      1      0      2      1
+##   D      6      6      8     44     48    915
+##   E      0    691      1      1      3      1
+##   F    398      1      8      0      3      3</code></pre>
+<pre class="r"><code>plot = DimPlot(integratedSamples, ncol = 3, reduction = &quot;umap&quot;, split.by = &quot;batch&quot;) + ggtitle(&quot;Cluster Results of Different Clusters in Different Samples&quot;)
+print(plot)</code></pre>
+<p><img src="data:image/png;base64,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ADxBQAEAPEFAAQA8QUABADxBQAEAPEFAAQA8QUABADxBQAEAPEFAYRGaS+W4V3i419fMedvuYO5ef6x9zLkobnONMvcTzFXRW5789ut5l4C851I9EA0EFBbhqIC6V8C93fQFtH3Vs/5HOlx9MaMhj5+DgEIsEFBYhKMCOgw33YduBo8MBHTOZXTfc7FIiAgCCotwWECvfuOK3+NDT547cvn4/g/+k/si9yP//m1fYMd496ifCChEAwGFRTgioP/sjuEfn/ujK6CPjzy7dV/U/8jb/hh/SBfsIqAQCwQUFuGIgP6frxy5vNl88D8cAW3G9J808ic+o/+RzWsOauPDt91AHwGFWCCgsAhHBPSbGzk8f3zxs7eOgHb3bpwQc/CRt/15epf2euVP/xkBhXggoLAIxwT0Xg7PH++8dgW0G73fO1nOwUfeHxTQds7p41/uEVCIBwIKi3BMQB29fBzB/+A80I7guw9x4tQTBfTp1+KwAOFBQGERjgmokkj92me1I6A69LyRcerYEP7ANPz7//1r57AA4UFAYRGOCWgtptibEXzdC0m7J50Y8+RJJPewAOFBQGERjgqoEMyb3n375kYjn0195O2sSnoEFCKCgMIiHBVQO4Z/fOljuCkF9NaInhylOx/565uZJfIIKEQEAYVFOCqgdgx/3yqpEFARdzaloCJV2l8Mf6CIaXBYgPAgoLAIxwXU7PJxo+9qARUF9DLPORDQp8cWcjqHBQgPAgqLcFxAG218XesRvJsTtXPvYhrJEdCrF3/466yGIKAQEQQUFuG4gDZj+Ge1HsELAR1Ems+mPnIOCChEBAGFRZB1nh1m7ZGWSjWGvzH3lIDeD1KdVlgRUEgaBBQWYSigt30B7cbwagQvBPSmL6B2th4BhbRBQGEZbvp7zZkHjFS2Y3g1greP9vZgstNICCgkDwIKy3DbEy67rl1K5Qc/3Ng7RladN5o9lxBQSB4EFJZBVnA22JJ4I5WNIv7jq5GB/bP+B7UvQUAheRBQWIgmlWmv+vbjc1kcb7OdT/px6XCLpRslvQgoJA8CCgvRXk7j6dc/1/11l7359l5cejMQvHs1jYSAQvIgoLAU3QWJ+sVIg4pPVTOvHm0e6l3oqHmo0UAEFJIHAYXFePeV0M+X3+uH3TVHvYH92GU6brrHEFBIHgQUFuTX7z573q67/Pxn+6AQUJHwtHs0yStx6qeaBxFQSB4EFADAEwQUAMATBBQAwBMEFADAEwQU8uJ2sPXIZmQiHyAKCCjkBQIKCYGAQl4goJAQCCgAgCcIKACAJwgoAIAnCCgAgCcIKACAJwgoAIAnCCgAgCcIKACAJwgoAIAnCCgAgCcIKACAJwgoAIAnCCgAgCcIKACAJwgoAIAnCCgAgCcIKACAJwgoAIAnCCgAgCcIKACAJwgoAIAnCCgAgCcIKACAJwgoAIAnCCgAgCcIKACAJwgoAIAnCCgAgCcIKACAJwgoAIAnCCgAgCcIKACAJwgoAIAn/z+7qbJ3BsXTSwAAAABJRU5ErkJggg==" width="672" /></p>
+<pre class="r"><code>Res = getPandTimeFSDD6(integratedSamples, sim_list, batch_size)</code></pre>
+<pre><code>## `summarise()` regrouping output by &#39;condition&#39; (override with `.groups` argument)</code></pre>
+<pre><code>## group variable has 2 levels, t-tests will be performed</code></pre>
+<pre><code>## FlowSOM clustering completed in 0.8 seconds</code></pre>
+<pre class="r"><code>print(Res)</code></pre>
+<pre><code>## $Res_df
+##   cluster dcats_pvalsT speckle_pvals dcats_pvalsI dcats_pvalsU dcats_pvalsK
+## 1       A    0.4557516   0.291095979 1.186590e-02 3.341458e-01 4.097962e-01
+## 2       B    0.4955691   0.128609008 1.278045e-01 5.634596e-01 3.655939e-01
+## 3       C    0.9134875   0.046622205 1.203298e-13 3.733458e-03 3.534641e-03
+## 4       D    0.9166210   0.964037160 8.639282e-01 9.272563e-01 9.678843e-01
+## 5       E    0.9631311   0.964037160 9.678618e-01 9.511635e-01 9.619782e-01
+## 6       F    0.6429303   0.000014935 1.075921e-35 2.405424e-07 4.343654e-08
+##   fisher_pvals diffcyt_pvals
+## 1 2.151453e-02      3.30e-01
+## 2 1.595426e-01      3.30e-01
+## 3 1.883420e-12      1.87e-02
+## 4 8.961558e-01      9.74e-01
+## 5 1.000000e+00      9.74e-01
+## 6 2.676819e-44      1.12e-36
+## 
+## $time_df
+##   methods       time
+## 1  fisher 0.05005598
+## 2 sepckle 0.02303910
+## 3   dcats 1.66133308
+## 4 diffcyt 0.10160613</code></pre>
 </div>
 </div>
 
