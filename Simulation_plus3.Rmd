@@ -28,13 +28,13 @@ source("functions.r")
 ```
 
 ```{r}
-sim_list_c = rep(NA, 9)
-integratedSamples_c = rep(NA, 9)
+sim_list_c = vector(mode = "list", length = 9)
+integratedSamples_c = vector(mode = "list", length = 9)
 ```
 
 ```{r}
-sim_list_c = readRDS("./data/sim_list_c.rds")
-integratedSamples_c = readRDS("./data/integratedSamples_c.rds")
+#sim_list_c = readRDS("./data/sim_list_c.rds")
+#integratedSamples_c = readRDS("./data/integratedSamples_c.rds")
 ```
 
 ```{r,warning=FALSE, message=FALSE}
@@ -45,7 +45,7 @@ plan()
 
 ```{r}
 # change the current plan to access parallelization
-plan("multiprocess", workers = 4)
+plan("multiprocess", workers = 8)
 plan()
 options(future.globals.maxSize = 2000 * 1024^2)
 ```
@@ -58,10 +58,10 @@ Batch sizes are 5000, 10000, 15000, 20000.
 set.seed(123)
 probNor = c(0.1, 0.2, 0.1, 0.2, 0.2, 0.2)
 probMut = c(0.1, 0.2, 0.05, 0.1, 0.25, 0.3)
-de_prob = runif(6, 0.2, 0.4)
+de_prob = runif(6, 0.2, 0.5)
 
-batch_size_list = seq(2000,11000,3000)
-setresolu_list = c(0.22, 0.25, 0.25, 0.25)
+batch_size_list = seq(5000,20000,5000)
+setresolu_list = c(0.2, 0.2, 0.14, 0.18)
 ```
 
 ```{r,warning=FALSE,message=FALSE}
@@ -99,10 +99,10 @@ When de.prob equals to 0.04, only the fisher's exact test give the "correct" res
 set.seed(123)
 probNor = c(0.1, 0.2, 0.1, 0.2, 0.2, 0.2)
 probMut = c(0.1, 0.2, 0.05, 0.1, 0.25, 0.3)
-batch_size = 10000
+batch_size = 5000
 
-de_prob_list = seq(0.02, 0.10, 0.02)
-setresolu_list = c(0.4, 0.4, 0.4, 0.3, 0.3)
+de_prob_list = seq(0.05, 0.10, 0.01)
+setresolu_list = c(0.25, 0.2, 0.2, 0.2, 0.2)
 ```
 
 ```{r,warning=FALSE,message=FALSE}
@@ -110,7 +110,7 @@ for (i in 1:5) {
   de_prob = c(0.5,0.5,0.1, 0.1, de_prob_list[i], de_prob_list[i])
   setresolu = setresolu_list[i]
   
-  sim_list = simualtionRWD(probNor, probMut, de_prob, batch_size, params = HCCparams)
+  sim_list = simualtionRWD(probNor, probMut, de_prob, batch_size, params = mnnCT7params)
   integratedSamples = runSeurat(sim_list, batch_size, setresolu)
   
   sim_list_c[i+4] = sim_list
@@ -122,16 +122,16 @@ for (i in 1:5) {
   print(conf.mat)
   plot = DimPlot(integratedSamples, ncol = 3, reduction = "umap", split.by = "batch") + ggtitle("Cluster Results of Different Clusters in Different Samples")
   print(plot)
-  Res = getPandTimeFSDD6(integratedSamples, sim_list, batch_size)
-  print(Res)
+  #Res = getPandTimeFSDD6(integratedSamples, sim_list, batch_size)
+  #print(Res)
 }
 
 sendEmail("Simulation is done!")
 ```
 
 ```{r}
-saveRDS(sim_list_c, "./data/sim_list_c.rds")
-saveRDS(integratedSamples_c, "./data/integratedSamples_c.rds")
+saveRDS(integratedSamples_c, "./data/integratedSamples_c1.rds")
+saveRDS(sim_list_c, "./data/sim_list_c1.rds")
 ```
 
 
