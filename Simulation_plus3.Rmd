@@ -7,6 +7,14 @@ output: html_document
 
 Try to use parameters from HCC and mnnCT7 to do simulation.
 
+In this file, I try:
+
+1. Different batch size;
+
+2. Different de.prob(differential expression probability)
+
+3. Different cluster numbers
+
 0.1, 0.2 keep the same, 0.1->0.05, 0.2->0.1, 0.2->0.25, 0.2->0.3
 
 ```{r setup, include=FALSE}
@@ -27,16 +35,6 @@ library(diffcyt)
 source("functions.r")
 ```
 
-```{r}
-sim_list_c = vector(mode = "list", length = 9)
-integratedSamples_c = vector(mode = "list", length = 9)
-```
-
-```{r}
-#sim_list_c = readRDS("./data/sim_list_c.rds")
-#integratedSamples_c = readRDS("./data/integratedSamples_c.rds")
-```
-
 ```{r,warning=FALSE, message=FALSE}
 library(future)
 # check the current active plan
@@ -45,7 +43,7 @@ plan()
 
 ```{r}
 # change the current plan to access parallelization
-plan("multiprocess", workers = 8)
+plan("multiprocess", workers = 4)
 plan()
 options(future.globals.maxSize = 2000 * 1024^2)
 ```
@@ -60,8 +58,8 @@ probNor = c(0.1, 0.2, 0.1, 0.2, 0.2, 0.2)
 probMut = c(0.1, 0.2, 0.05, 0.1, 0.25, 0.3)
 de_prob = runif(6, 0.2, 0.5)
 
-batch_size_list = seq(5000,20000,5000)
-setresolu_list = c(0.2, 0.2, 0.14, 0.18)
+batch_size_list = seq(2500,10000,length = 4)
+setresolu_list = c(0.2, 0.2, 0.15, 0.2)
 ```
 
 ```{r,warning=FALSE,message=FALSE}
@@ -71,27 +69,43 @@ for (i in 1:4) {
   setresolu = setresolu_list[i]
   
   sim_list = simualtionRWD(probNor, probMut, de_prob, batch_size, params = mnnCT7params)
-  integratedSamples = runSeurat(sim_list, batch_size, setresolu)
+  #integratedSamples = runSeurat(sim_list, batch_size, setresolu)
   
-  sim_list_c[i] = sim_list
-  integratedSamples_c[i] = integratedSamples
-  #sim_list = sim_list_c[i]
-  #integratedSamples = integratedSamples_c[i]
+  name = sprintf("./data/simulation_plus3/integratedSamples%d.rds", i)
+  #saveRDS(integratedSamples, name)
+  integratedSamples = readRDS(name)
   
   conf.mat<-table(Idents(integratedSamples), sim_list$origLabels)
   print(conf.mat)
   plot = DimPlot(integratedSamples, ncol = 3, reduction = "umap", split.by = "batch") + ggtitle("Cluster Results of Different Clusters in Different Samples")
   print(plot)
-  #Res = getPandTimeFSDD6(integratedSamples, sim_list, batch_size)
-  #print(Res)
+  Res = getPandTimeFSDD6(integratedSamples, sim_list, batch_size)
+  
+  cluster_map = apply(conf.mat, 2, which.max) %>% 
+    plyr::mapvalues(from = c(1:6), to = c("A", "B", "C", "D", "E", "F")) %>% 
+    as_tibble() %>% 
+    mutate(truth = c("N", "N", "P", "P", "P", "P")) %>% 
+    dplyr::rename(cluster = value)
+  
+  Res$Res_df %>% 
+    merge(cluster_map, by = "cluster") %>% 
+    print()
 }
 
 sendEmail("Simulation is done!")
 ```
 
+```{r}
+cluster_map = apply(conf.mat, 2, which.max) %>% 
+  plyr::mapvalues(from = c(1:6), to = c("A", "B", "C", "D", "E", "F")) %>% 
+  as_tibble() %>% 
+  mutate(truth = c("N", "N", "P", "P", "P", "P")) %>% 
+  dplyr::rename(cluster = value)
+```
+
 ## Different de.prob
 
-The de.prob of cluster B, C are 0.02, 0.04, 0.06, 0.08.
+The de.prob of cluster B, C are 0.05, 0.06, 0.07, 0.08, 0.09.
 
 When de.prob equals to 0.04, only the fisher's exact test give the "correct" result.
 
@@ -111,29 +125,178 @@ for (i in 1:5) {
   setresolu = setresolu_list[i]
   
   sim_list = simualtionRWD(probNor, probMut, de_prob, batch_size, params = mnnCT7params)
-  integratedSamples = runSeurat(sim_list, batch_size, setresolu)
+  #integratedSamples = runSeurat(sim_list, batch_size, setresolu)
   
-  sim_list_c[i+4] = sim_list
-  integratedSamples_c[i+4] = integratedSamples
-  #sim_list = sim_list_c[i+4]
-  #integratedSamples = integratedSamples_c[i+4]
+  name = sprintf("./data/simulation_plus3/integratedSamples%d.rds", i+4)
+  #saveRDS(integratedSamples, name)
+  integratedSamples = readRDS(name)
   
   conf.mat<-table(Idents(integratedSamples), sim_list$origLabels)
   print(conf.mat)
   plot = DimPlot(integratedSamples, ncol = 3, reduction = "umap", split.by = "batch") + ggtitle("Cluster Results of Different Clusters in Different Samples")
   print(plot)
-  #Res = getPandTimeFSDD6(integratedSamples, sim_list, batch_size)
-  #print(Res)
+  Res = getPandTimeFSDD6(integratedSamples, sim_list, batch_size)
+  print(Res)
+  
+  cluster_map = apply(conf.mat, 2, which.max) %>% 
+    plyr::mapvalues(from = c(1:6), to = c("A", "B", "C", "D", "E", "F")) %>% 
+    as_tibble() %>% 
+    mutate(truth = c("N", "N", "P", "P", "P", "P")) %>% 
+    dplyr::rename(cluster = value)
+  
+  Res$Res_df %>% 
+    merge(cluster_map, by = "cluster") %>% 
+    print()
 }
 
 sendEmail("Simulation is done!")
 ```
 
+## Different clusters number
+
+In the following example, there are no small clusters. Cluster numbers are 3, 6, 12.
+
 ```{r}
-saveRDS(integratedSamples_c, "./data/integratedSamples_c1.rds")
-saveRDS(sim_list_c, "./data/sim_list_c1.rds")
+## Three clusters
+set.seed(123)
+probNor = c(0.4, 0.1, 0.5)
+probMut = c(0.4, 0.2, 0.4)
+batch_size = 5000
+de_prob = runif(3, 0.01, 0.4)
+setresolu = 0.1
+
+mnnCT7params = readRDS("./data/mnnCT7params.rds")
+sim_list = simualtionRWD(probNor, probMut, de_prob, batch_size, params = mnnCT7params)
+integratedSamples = runSeurat(sim_list, batch_size, setresolu)
+name = sprintf("./data/simulation_plus3/integratedSamples%d.rds", 10)
+saveRDS(integratedSamples, name)
+integratedSamples = readRDS(name)
+  
+conf.mat<-table(Idents(integratedSamples), sim_list$origLabels)
+print(conf.mat)
+plot = DimPlot(integratedSamples, ncol = 3, reduction = "umap", split.by = "batch") + ggtitle("Cluster Results of Different Clusters in Different Samples")
+print(plot)
+Res = getPandTimeFSDD3(integratedSamples, sim_list, batch_size)
+print(Res)
+  
+cluster_map = apply(conf.mat, 2, which.max) %>% 
+  plyr::mapvalues(from = c(1:6), to = c("A", "B", "C", "D", "E", "F")) %>% 
+  as_tibble() %>% 
+  mutate(truth = c("N", "P", "P")) %>% 
+  dplyr::rename(cluster = value)
+Res$Res_df %>% 
+  merge(cluster_map, by = "cluster") %>% 
+  print()
+
+sendEmail("Simulation is done!")
 ```
 
+```{r}
+## Six clusters
+set.seed(123)
+probNor = c(0.1, 0.2, 0.2, 0.1, 0.2, 0.2)
+probMut = c(0.1, 0.2, 0.3, 0.15, 0.1, 0.15)
+batch_size = 5000
+de_prob = runif(6, 0.01, 0.5)
+setresolu = 0.2
+
+mnnCT7params = readRDS("./data/mnnCT7params.rds")
+sim_list = simualtionRWD(probNor, probMut, de_prob, batch_size, params = mnnCT7params)
+integratedSamples = runSeurat(sim_list, batch_size, setresolu)
+name = sprintf("./data/simulation_plus3/integratedSamples%d.rds", 11)
+saveRDS(integratedSamples, name)
+integratedSamples = readRDS(name)
+  
+conf.mat<-table(Idents(integratedSamples), sim_list$origLabels)
+print(conf.mat)
+plot = DimPlot(integratedSamples, ncol = 3, reduction = "umap", split.by = "batch") + ggtitle("Cluster Results of Different Clusters in Different Samples")
+print(plot)
+Res = getPandTimeFSDD6(integratedSamples, sim_list, batch_size)
+print(Res)
+  
+cluster_map = apply(conf.mat, 2, which.max) %>% 
+  plyr::mapvalues(from = c(1:6), to = c("A", "B", "C", "D", "E", "F")) %>% 
+  as_tibble() %>% 
+  mutate(truth = c("N", "N", "P", "P", "P", "P")) %>% 
+  dplyr::rename(cluster = value)
+Res$Res_df %>% 
+  merge(cluster_map, by = "cluster") %>% 
+  print()
+
+sendEmail("Simulation is done!")
+```
+
+```{r}
+## Twelve clusters
+set.seed(123)
+probNor = c(0.1, 0.1, 0.05, 0.05, 0.1, 0.2, 0.05, 0.05, 0.1, 0.1, 0.05, 0.05)
+probMut = c(0.1, 0.1, 0.05, 0.05, 0.05, 0.1, 0.05, 0.02, 0.15, 0.15, 0.1, 0.07)
+batch_size = 5000
+de_prob = runif(12, 0.01, 0.4)
+setresolu = 0.2
+
+mnnCT7params = readRDS("./data/mnnCT7params.rds")
+sim_list = simualtionRWD(probNor, probMut, de_prob, batch_size, params = mnnCT7params)
+integratedSamples = runSeurat(sim_list, batch_size, setresolu)
+name = sprintf("./data/simulation_plus3/integratedSamples%d.rds", 12)
+saveRDS(integratedSamples, name)
+integratedSamples = readRDS(name)
+  
+conf.mat<-table(Idents(integratedSamples), sim_list$origLabels)
+print(conf.mat)
+plot = DimPlot(integratedSamples, ncol = 3, reduction = "umap", split.by = "batch") + ggtitle("Cluster Results of Different Clusters in Different Samples")
+print(plot)
+Res = getPandTimeFSDD12(integratedSamples, sim_list, batch_size)
+print(Res)
+  
+cluster_map = apply(conf.mat, 2, which.max) %>% 
+  plyr::mapvalues(from = c(1:12), to = c("A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L")) %>% 
+  as_tibble() %>% 
+  mutate(truth = c(rep("N",4), rep("P", 8))) %>% 
+  dplyr::rename(cluster = value)
+Res$Res_df %>% 
+  merge(cluster_map, by = "cluster") %>% 
+  print()
+
+sendEmail("Simulation is done!")
+```
+
+## Different uniform matrix
+
+Test whether different uniform matrix will influence the results, U1 is closer to identity matrix
+
+```{r}
+set.seed(123)
+probNor = c(0.1, 0.2, 0.2, 0.1, 0.2, 0.2)
+probMut = c(0.1, 0.2, 0.3, 0.15, 0.1, 0.15)
+batch_size = 5000
+de_prob = runif(6, 0.01, 0.5)
+setresolu = 0.2
+
+mnnCT7params = readRDS("./data/mnnCT7params.rds")
+sim_list = simualtionRWD(probNor, probMut, de_prob, batch_size, params = mnnCT7params)
+#integratedSamples = runSeurat(sim_list, batch_size, setresolu)
+name = sprintf("./data/simulation_plus3/integratedSamples%d.rds", 11)
+#saveRDS(integratedSamples, name)
+integratedSamples = readRDS(name)
+  
+conf.mat<-table(Idents(integratedSamples), sim_list$origLabels)
+print(conf.mat)
+plot = DimPlot(integratedSamples, ncol = 3, reduction = "umap", split.by = "batch") + ggtitle("Cluster Results of Different Clusters in Different Samples")
+print(plot)
+
+Res = getPandTimeTestU(integratedSamples, sim_list)
+print(Res)
+
+cluster_map = apply(conf.mat, 2, which.max) %>% 
+  plyr::mapvalues(from = c(1:6), to = c("A", "B", "C", "D", "E", "F")) %>% 
+  as_tibble() %>% 
+  mutate(truth = c("N", "N", "P", "P", "P", "P")) %>% 
+  dplyr::rename(cluster = value)
+Res$Res_df %>% 
+  merge(cluster_map, by = "cluster") %>% 
+  print()
+```
 
 ## Codes
 
