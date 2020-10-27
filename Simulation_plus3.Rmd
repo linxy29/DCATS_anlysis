@@ -230,10 +230,10 @@ sendEmail("Simulation is done!")
 ## Twelve clusters
 set.seed(123)
 probNor = c(0.1, 0.1, 0.05, 0.05, 0.1, 0.2, 0.05, 0.05, 0.1, 0.1, 0.05, 0.05)
-probMut = c(0.1, 0.1, 0.05, 0.05, 0.05, 0.1, 0.05, 0.02, 0.15, 0.15, 0.1, 0.07)
+probMut = c(0.1, 0.1, 0.05, 0.05, 0.05, 0.1, 0.05, 0.03, 0.15, 0.15, 0.1, 0.07)
 batch_size = 5000
-de_prob = runif(12, 0.01, 0.4)
-setresolu = 0.2
+de_prob = runif(12, 0.01, 0.5)
+setresolu = 0.7
 
 mnnCT7params = readRDS("./data/mnnCT7params.rds")
 sim_list = simualtionRWD(probNor, probMut, de_prob, batch_size, params = mnnCT7params)
