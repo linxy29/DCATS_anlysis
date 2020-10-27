@@ -1,0 +1,29 @@
+---
+title: "Real word data"
+author: "Xinyi Lin"
+date: "10/27/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+```{r,message=FALSE,warning=FALSE}
+library(splatter)
+library(Seurat)
+library(speckle)
+library(DCATS)
+library(ggplot2)
+library(tidyverse)
+library(diffcyt)
+```
+
+```{r}
+source("functions.r")
+```
+
+## Codes
+
+```{r, ref.label=knitr::all_labels(),echo=TRUE,eval=FALSE}
+```
