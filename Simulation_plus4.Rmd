@@ -149,7 +149,7 @@ probNor = c(0.1, 0.2, 0.2, 0.1, 0.2, 0.2)
 probMut = c(0.1, 0.2, 0.3, 0.15, 0.1, 0.15)
 batch_size = 10000
 de_prob = runif(6, 0.01, 0.6)
-setresolu = 0.3
+setresolu = 0.21
 
 mnnCT7params = readRDS("./data/mnnCT7params.rds")
 sim_list = simualtionRWD(probNor, probMut, de_prob, batch_size, params = mnnCT7params)
@@ -197,6 +197,27 @@ plot = DimPlot(integratedSamples, ncol = 3, reduction = "umap", split.by = "batc
 print(plot)
 ```
 
+```{r}
+Res = getPandTimeFSDD6(integratedSamples, sim_list, batch_size)
+print(Res$time_df)
+print(Res$knn_mat)
+  
+cluster_map = apply(conf.mat, 2, which.max) %>% 
+  plyr::mapvalues(from = c(1:6), to = c("A", "B", "C", "D", "E", "F")) %>% 
+  as_tibble() %>% 
+  mutate(truth = c("N", "N", "P", "P", "P", "P")) %>% 
+  dplyr::rename(cluster = value)
+Res$Res_df %>% 
+    mutate(speckle_res = ifelse(speckle_pvals < 0.05, "P", "N"),
+           dcatsT_res = ifelse(dcats_pvalsT < 0.05, "P", "N"),
+           dcatsI_res = ifelse(dcats_pvalsI < 0.05, "P", "N"),
+           dcatsU_res = ifelse(dcats_pvalsU < 0.05, "P", "N"),
+           dcatsK_res = ifelse(dcats_pvalsK < 0.05, "P", "N"),
+           fisher_res = ifelse(fisher_pvals < 0.05, "P", "N")) %>% 
+    merge(cluster_map, by = "cluster") %>% 
+    print()
+```
+
 Try using HCC parameters
 
 ```{r}
@@ -205,7 +226,7 @@ probNor = c(0.1, 0.2, 0.2, 0.1, 0.2, 0.2)
 probMut = c(0.1, 0.2, 0.3, 0.15, 0.1, 0.15)
 batch_size = 10000
 de_prob = runif(6, 0.01, 0.6)
-setresolu = 0.2
+setresolu = 0.1
 
 HCCparams = readRDS("./data/HCCparams.rds")
 sim_list = simualtionRWD(probNor, probMut, de_prob, batch_size, params = HCCparams)
