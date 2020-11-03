@@ -66,7 +66,6 @@ simNor_mat <- counts(simNor)
 # simulate mutate
 param.groups <- setParams(mnnCT7params, batchCells = round(batch_size*runif(3, 0.8, 1.2)), nGenes = 1000)
 simMut <- splatSimulateGroups(param.groups, group.prob = probMut, de.prob = de_prob, verbose = FALSE)
-#simMut <- splatSimulateGroups(param.groups, group.prob = probMut, verbose = FALSE)
 simMut@colData@rownames = str_replace(simMut@colData@rownames, "Cell", "MutCell")
 simMut_mat <- counts(simMut)
   
@@ -77,6 +76,14 @@ batchMut = simMut@colData@listData$Batch %>%
   str_replace("Batch", "Mut")
   
 origLabels = c(simNor@colData@listData$Group, simMut@colData@listData$Group)
+
+sim_list = list(simNor_mat = simNor_mat, simMut_mat = simMut_mat, batchNor = batchNor, batchMut = batchMut, origLabels = origLabels)
+```
+
+```{r}
+integratedSamples = runSeurat(sim_list, batch_size, setresolu)
+saveRDS(integratedSamples, "./data/integratedSamples_addnoise1.rds")
+integratedSamples = readRDS("./data/integratedSamples_addnoise1.rds")
 ```
 
 ```{r}
@@ -120,7 +127,7 @@ integratedSamples = readRDS("./data/integratedSamples_addnoise1.rds")
 ```
 
 ```{r}
-conf.mat<-table(Idents(integratedSamples), origLabels)
+conf.mat<-table(Idents(integratedSamples), sim_list$origLabels)
 print(conf.mat)
 plot = DimPlot(integratedSamples, ncol = 3, reduction = "umap", split.by = "batch") + ggtitle("Cluster Results of Different Clusters in Different Samples")
 print(plot)
@@ -159,6 +166,14 @@ set.seed(345)
 new_simMut_mat = runif(dim(sim_list$simMut_mat)[1], 0.8, 1.2)*sim_list$simMut_mat
 new_simMut_mat = round(new_simMut_mat*runif(dim(sim_list$simMut_mat)[2], 0.6, 1.4))
 ```
+
+```{r}
+integratedSamples = runSeurat(sim_list, batch_size, setresolu)
+saveRDS(integratedSamples, "./data/integratedSamples_addnoise2.rds")
+integratedSamples = readRDS("./data/integratedSamples_addnoise2.rds")
+sendEmail("Simulation is done!")
+```
+
 
 ```{r}
 batchNor = sim_list$batchNor
@@ -211,6 +226,13 @@ print(conf.mat)
 plot = DimPlot(integratedSamples, ncol = 3, reduction = "umap", split.by = "batch") + ggtitle("Cluster Results of Different Clusters in Different Samples")
 print(plot)
 ```
+
+Try to sample different batch sizes from simulated data. And this also result in different drop-out pattern in different batches.
+
+```{r}
+
+```
+
 
 ## Codes
 
