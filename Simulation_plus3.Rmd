@@ -82,6 +82,8 @@ for (i in 1:4) {
   plot = DimPlot(integratedSamples, ncol = 3, reduction = "umap", split.by = "batch") + ggtitle("Cluster Results of Different Clusters in Different Samples")
   print(plot)
   Res = getPandTimeFSDD6(integratedSamples, sim_list, batch_size)
+  print(Res$time_df)
+  print(Res$knn_mat)
   
   cluster_map = apply(conf.mat, 2, which.max) %>% 
     plyr::mapvalues(from = c(1:6), to = c("A", "B", "C", "D", "E", "F")) %>% 
@@ -90,6 +92,12 @@ for (i in 1:4) {
     dplyr::rename(cluster = value)
   
   Res$Res_df %>% 
+    mutate(speckle_res = ifelse(speckle_pvals < 0.05, "P", "N"),
+           dcatsT_res = ifelse(dcats_pvalsT < 0.05, "P", "N"),
+           dcatsI_res = ifelse(dcats_pvalsI < 0.05, "P", "N"),
+           dcatsU_res = ifelse(dcats_pvalsU < 0.05, "P", "N"),
+           dcatsK_res = ifelse(dcats_pvalsK < 0.05, "P", "N"),
+           fisher_res = ifelse(fisher_pvals < 0.05, "P", "N")) %>% 
     merge(cluster_map, by = "cluster") %>% 
     print()
 }
@@ -138,7 +146,8 @@ for (i in 1:5) {
   plot = DimPlot(integratedSamples, ncol = 3, reduction = "umap", split.by = "batch") + ggtitle("Cluster Results of Different Clusters in Different Samples")
   print(plot)
   Res = getPandTimeFSDD6(integratedSamples, sim_list, batch_size)
-  print(Res)
+  print(Res$time_df)
+  print(Res$knn_mat)
   
   cluster_map = apply(conf.mat, 2, which.max) %>% 
     plyr::mapvalues(from = c(1:6), to = c("A", "B", "C", "D", "E", "F")) %>% 
@@ -147,6 +156,12 @@ for (i in 1:5) {
     dplyr::rename(cluster = value)
   
   Res$Res_df %>% 
+    mutate(speckle_res = ifelse(speckle_pvals < 0.05, "P", "N"),
+           dcatsT_res = ifelse(dcats_pvalsT < 0.05, "P", "N"),
+           dcatsI_res = ifelse(dcats_pvalsI < 0.05, "P", "N"),
+           dcatsU_res = ifelse(dcats_pvalsU < 0.05, "P", "N"),
+           dcatsK_res = ifelse(dcats_pvalsK < 0.05, "P", "N"),
+           fisher_res = ifelse(fisher_pvals < 0.05, "P", "N")) %>% 
     merge(cluster_map, by = "cluster") %>% 
     print()
 }
@@ -179,7 +194,8 @@ print(conf.mat)
 plot = DimPlot(integratedSamples, ncol = 3, reduction = "umap", split.by = "batch") + ggtitle("Cluster Results of Different Clusters in Different Samples")
 print(plot)
 Res = getPandTimeFSDD3(integratedSamples, sim_list, batch_size)
-print(Res)
+print(Res$time_df)
+print(Res$knn_mat)
   
 cluster_map = apply(conf.mat, 2, which.max) %>% 
   plyr::mapvalues(from = c(1:6), to = c("A", "B", "C", "D", "E", "F")) %>% 
@@ -187,8 +203,14 @@ cluster_map = apply(conf.mat, 2, which.max) %>%
   mutate(truth = c("N", "P", "P")) %>% 
   dplyr::rename(cluster = value)
 Res$Res_df %>% 
-  merge(cluster_map, by = "cluster") %>% 
-  print()
+    mutate(speckle_res = ifelse(speckle_pvals < 0.05, "P", "N"),
+           dcatsT_res = ifelse(dcats_pvalsT < 0.05, "P", "N"),
+           dcatsI_res = ifelse(dcats_pvalsI < 0.05, "P", "N"),
+           dcatsU_res = ifelse(dcats_pvalsU < 0.05, "P", "N"),
+           dcatsK_res = ifelse(dcats_pvalsK < 0.05, "P", "N"),
+           fisher_res = ifelse(fisher_pvals < 0.05, "P", "N")) %>% 
+    merge(cluster_map, by = "cluster") %>% 
+    print()
 
 #sendEmail("Simulation is done!")
 ```
@@ -214,7 +236,8 @@ print(conf.mat)
 plot = DimPlot(integratedSamples, ncol = 3, reduction = "umap", split.by = "batch") + ggtitle("Cluster Results of Different Clusters in Different Samples")
 print(plot)
 Res = getPandTimeFSDD6(integratedSamples, sim_list, batch_size)
-print(Res)
+print(Res$time_df)
+print(Res$knn_mat)
   
 cluster_map = apply(conf.mat, 2, which.max) %>% 
   plyr::mapvalues(from = c(1:6), to = c("A", "B", "C", "D", "E", "F")) %>% 
@@ -222,8 +245,14 @@ cluster_map = apply(conf.mat, 2, which.max) %>%
   mutate(truth = c("N", "N", "P", "P", "P", "P")) %>% 
   dplyr::rename(cluster = value)
 Res$Res_df %>% 
-  merge(cluster_map, by = "cluster") %>% 
-  print()
+    mutate(speckle_res = ifelse(speckle_pvals < 0.05, "P", "N"),
+           dcatsT_res = ifelse(dcats_pvalsT < 0.05, "P", "N"),
+           dcatsI_res = ifelse(dcats_pvalsI < 0.05, "P", "N"),
+           dcatsU_res = ifelse(dcats_pvalsU < 0.05, "P", "N"),
+           dcatsK_res = ifelse(dcats_pvalsK < 0.05, "P", "N"),
+           fisher_res = ifelse(fisher_pvals < 0.05, "P", "N")) %>% 
+    merge(cluster_map, by = "cluster") %>% 
+    print()
 
 #sendEmail("Simulation is done!")
 ```
@@ -234,14 +263,14 @@ set.seed(123)
 probNor = c(0.1, 0.1, 0.05, 0.05, 0.1, 0.2, 0.05, 0.05, 0.1, 0.1, 0.05, 0.05)
 probMut = c(0.1, 0.1, 0.05, 0.05, 0.05, 0.1, 0.05, 0.03, 0.15, 0.15, 0.1, 0.07)
 batch_size = 5000
-de_prob = runif(12, 0.01, 0.5)
-setresolu = 0.75
+de_prob = runif(12, 0.3, 0.5)
+setresolu = 0.58
 
 mnnCT7params = readRDS("./data/mnnCT7params.rds")
 sim_list = simualtionRWD(probNor, probMut, de_prob, batch_size, params = mnnCT7params)
-#integratedSamples = runSeurat(sim_list, batch_size, setresolu)
+integratedSamples = runSeurat(sim_list, batch_size, setresolu)
 name = sprintf("./data/simulation_plus3/integratedSamples%d.rds", 12)
-#saveRDS(integratedSamples, name)
+saveRDS(integratedSamples, name)
 integratedSamples = readRDS(name)
   
 conf.mat<-table(Idents(integratedSamples), sim_list$origLabels)
@@ -249,7 +278,8 @@ print(conf.mat)
 plot = DimPlot(integratedSamples, ncol = 3, reduction = "umap", split.by = "batch") + ggtitle("Cluster Results of Different Clusters in Different Samples")
 print(plot)
 Res = getPandTimeFSDD12(integratedSamples, sim_list, batch_size)
-print(Res)
+print(Res$time_df)
+print(Res$knn_mat)
   
 cluster_map = apply(conf.mat, 2, which.max) %>% 
   plyr::mapvalues(from = c(1:12), to = c("A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L")) %>% 
@@ -257,8 +287,14 @@ cluster_map = apply(conf.mat, 2, which.max) %>%
   mutate(truth = c(rep("N",4), rep("P", 8))) %>% 
   dplyr::rename(cluster = value)
 Res$Res_df %>% 
-  merge(cluster_map, by = "cluster") %>% 
-  print()
+    mutate(speckle_res = ifelse(speckle_pvals < 0.05, "P", "N"),
+           dcatsT_res = ifelse(dcats_pvalsT < 0.05, "P", "N"),
+           dcatsI_res = ifelse(dcats_pvalsI < 0.05, "P", "N"),
+           dcatsU_res = ifelse(dcats_pvalsU < 0.05, "P", "N"),
+           dcatsK_res = ifelse(dcats_pvalsK < 0.05, "P", "N"),
+           fisher_res = ifelse(fisher_pvals < 0.05, "P", "N")) %>% 
+    merge(cluster_map, by = "cluster") %>% 
+    print()
 
 #sendEmail("Simulation is done!")
 ```
@@ -288,7 +324,8 @@ plot = DimPlot(integratedSamples, ncol = 3, reduction = "umap", split.by = "batc
 print(plot)
 
 Res = getPandTimeTestU(integratedSamples, sim_list)
-print(Res)
+print(Res$time_df)
+print(Res$knn_mat)
 
 cluster_map = apply(conf.mat, 2, which.max) %>% 
   plyr::mapvalues(from = c(1:6), to = c("A", "B", "C", "D", "E", "F")) %>% 

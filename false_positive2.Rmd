@@ -7,6 +7,10 @@ output: html_document
 
 Based on the problem I find in 'false_positive1.Rmd'. Try to solve them in this files.
 
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
 ```{r,message=FALSE,warning=FALSE}
 library(splatter)
 library(Seurat)
@@ -38,7 +42,7 @@ de_prob = runif(6, 0.2, 0.7)
 
 Simulation
 
-```{r}
+```{r,warning=FALSE,message=FALSE}
 HCCparams = readRDS("./data/HCCparams.rds")
 
 set.seed(123)
@@ -73,7 +77,7 @@ plan()
 options(future.globals.maxSize = 2000 * 1024^2)
 ```
 
-```{r}
+```{r,warning=FALSE,message=FALSE}
 #integratedSamples = runSeurat(sim_list, batch_size, setresolu)
 #saveRDS(integratedSamples, "./data/integratedSamples_HCC6_pseudo.rds")
 #sendEmail("Seurat is done!")
@@ -97,7 +101,7 @@ de_prob = runif(6, 0.2, 0.5)
 
 Simulation
 
-```{r}
+```{r,warning=FALSE,message=FALSE}
 HCCparams = readRDS("./data/HCCparams.rds")
 
 set.seed(123)
@@ -119,11 +123,11 @@ sim_list = list(simNor_mat = simNor_mat, simMut_mat = simMut_mat, batchNor = bat
 
 Clustering
 
-```{r}
-integratedSamples = runSeurat(sim_list, batch_size, setresolu)
-#saveRDS(integratedSamples, "./data/integratedSamples_HCC6_pseudo.rds")
+```{r,warning=FALSE,message=FALSE}
+#integratedSamples = runSeurat(sim_list, batch_size, setresolu)
+#saveRDS(integratedSamples, "./data/integratedSamples_HCC6_pseudo2.rds")
 #sendEmail("Seurat is done!")
-#integratedSamples = readRDS("./data/integratedSamples_HCC6_pseudo.rds")
+integratedSamples = readRDS("./data/integratedSamples_HCC6_pseudo2.rds")
 conf.mat<-table(Idents(integratedSamples), origLabels)
 print(conf.mat)
 plot = DimPlot(integratedSamples, ncol = 3, reduction = "umap", split.by = "batch") + ggtitle("Cluster Results of Different Clusters in Different Samples")
@@ -147,7 +151,7 @@ de_prob = runif(6, 0.2, 0.5)
 
 Simulation
 
-```{r}
+```{r,warning=FALSE,message=FALSE}
 mnnCT7params = readRDS("./data/mnnCT7params.rds")
 
 set.seed(123)
@@ -208,7 +212,7 @@ de_prob = runif(6, 0.2, 0.4)
 
 Simulation
 
-```{r}
+```{r,warning=FALSE,message=FALSE}
 mnnCT7params = readRDS("./data/mnnCT7params.rds")
 
 set.seed(123)
@@ -230,15 +234,20 @@ sim_list = list(simNor_mat = simNor_mat, simMut_mat = simMut_mat, batchNor = bat
 
 Clustering
 
-```{r}
-integratedSamples = runSeurat(sim_list, batch_size, setresolu)
-#saveRDS(integratedSamples, "./data/integratedSamples_mnn6_pseudo.rds")
+```{r,warning=FALSE,message=FALSE}
+#integratedSamples = runSeurat(sim_list, batch_size, setresolu)
+#saveRDS(integratedSamples, "./data/integratedSamples_mnn6_pseudo2.rds")
 #sendEmail("Seurat is done!")
-#integratedSamples = readRDS("./data/integratedSamples_mnn6_pseudo.rds")
+integratedSamples = readRDS("./data/integratedSamples_mnn6_pseudo2.rds")
 conf.mat<-table(Idents(integratedSamples), origLabels)
 print(conf.mat)
 plot = DimPlot(integratedSamples, ncol = 3, reduction = "umap", split.by = "batch") + ggtitle("Cluster Results of Different Clusters in Different Samples")
 print(plot)
 Res = getPandTimeFSDD6(integratedSamples, sim_list, batch_size)
 print(Res)
+```
+
+## Codes
+
+```{r, ref.label=knitr::all_labels(),echo=TRUE,eval=FALSE}
 ```

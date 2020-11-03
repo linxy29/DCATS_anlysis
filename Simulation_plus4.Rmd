@@ -1,0 +1,218 @@
+---
+title: "Simulation_plus4"
+author: "Xinyi Lin"
+date: "10/28/2020"
+output: html_document
+---
+
+Try to add noise by myself.
+
+Question: What kind of noise distribution
+
+1. Different number of cells
+
+2. Amplify(uniform distribution)
+
+3. Different drop-out rate
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+```{r,message=FALSE,warning=FALSE}
+library(splatter)
+library(Seurat)
+library(speckle)
+library(DCATS)
+library(ggplot2)
+library(tidyverse)
+library(diffcyt)
+```
+
+```{r}
+source("functions.r")
+```
+
+```{r,warning=FALSE, message=FALSE}
+library(future)
+# check the current active plan
+plan()
+# change the current plan to access parallelization
+plan("multiprocess", workers = 4)
+plan()
+options(future.globals.maxSize = 2000 * 1024^2)
+```
+
+## different batch size
+
+```{r}
+## Six clusters
+set.seed(123)
+probNor = c(0.1, 0.2, 0.2, 0.1, 0.2, 0.2)
+probMut = c(0.1, 0.2, 0.3, 0.15, 0.1, 0.15)
+batch_size = 5000
+de_prob = runif(6, 0.01, 0.6)
+setresolu = 0.2
+```
+
+```{r}
+mnnCT7params = readRDS("./data/mnnCT7params.rds")
+set.seed(123)
+# simulate normal
+param.groups <- setParams(mnnCT7params, batchCells = round(batch_size*runif(3, 0.8, 1.2)), nGenes = 1000)
+simNor <- splatSimulateGroups(param.groups, group.prob = probNor, de.prob = de_prob, verbose = FALSE)
+simNor@colData@rownames = str_replace(simNor@colData@rownames, "Cell", "NorCell")
+simNor_mat <- counts(simNor)
+# simulate mutate
+param.groups <- setParams(mnnCT7params, batchCells = round(batch_size*runif(3, 0.8, 1.2)), nGenes = 1000)
+simMut <- splatSimulateGroups(param.groups, group.prob = probMut, de.prob = de_prob, verbose = FALSE)
+#simMut <- splatSimulateGroups(param.groups, group.prob = probMut, verbose = FALSE)
+simMut@colData@rownames = str_replace(simMut@colData@rownames, "Cell", "MutCell")
+simMut_mat <- counts(simMut)
+  
+# batch information
+batchNor = simNor@colData@listData$Batch %>% 
+  str_replace("Batch", "Nor")
+batchMut = simMut@colData@listData$Batch %>% 
+  str_replace("Batch", "Mut")
+  
+origLabels = c(simNor@colData@listData$Group, simMut@colData@listData$Group)
+```
+
+```{r}
+# pre-process
+seuratNor <- CreateSeuratObject(counts = simNor_mat, project="Splatter")
+seuratNor <- AddMetaData(object = seuratNor, metadata = batchNor, col.name = 'batch')
+seuratNor <- AddMetaData(object = seuratNor, metadata = rep("Normal", length(batchNor)), col.name = 'condition')
+seuratMut <- CreateSeuratObject(counts = simMut_mat, project="Splatter")
+seuratMut <- AddMetaData(object = seuratMut, metadata = batchMut, col.name = 'batch')
+seuratMut <- AddMetaData(object = seuratMut, metadata = rep("Mutate", length(batchMut)), col.name = 'condition')
+  
+listNor = SplitObject(seuratNor, split.by = "batch")
+listMut = SplitObject(seuratMut, split.by = "batch")
+listSamples = c(listNor, listMut)
+  
+# log-normalization and identify variable features
+for (i in 1:length(listSamples)) {
+  listSamples[[i]] <- NormalizeData(listSamples[[i]], verbose = FALSE)
+  listSamples[[i]] <- FindVariableFeatures(listSamples[[i]], selection.method = "vst", 
+                                             nfeatures = 2000, verbose = FALSE)
+}
+  
+# integrate all batches
+anchors <- FindIntegrationAnchors(object.list = listSamples, dims = 1:30, verbose = FALSE)
+integratedSamples <- IntegrateData(anchorset = anchors, dims = 1:30, verbose = FALSE)
+DefaultAssay(integratedSamples) <- "integrated"
+  
+# clustering
+integratedSamples <- ScaleData(integratedSamples, verbose = FALSE)
+integratedSamples <- RunPCA(integratedSamples, npcs = 30, verbose = FALSE)
+integratedSamples <- FindNeighbors(integratedSamples, dims = 1:5, verbose = FALSE)
+integratedSamples <- FindClusters(integratedSamples, resolution = setresolu, algorithm=2, verbose = FALSE)
+integratedSamples <- RunUMAP(integratedSamples, reduction = "pca", dims = 1:30, verbose = FALSE)
+  
+# change labels to A, B, C
+integratedSamples@active.ident = integratedSamples@active.ident %>% 
+  plyr::mapvalues(from = c(0:11), to = c("A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L"))
+
+saveRDS(integratedSamples, "./data/integratedSamples_addnoise1.rds")
+integratedSamples = readRDS("./data/integratedSamples_addnoise1.rds")
+```
+
+```{r}
+conf.mat<-table(Idents(integratedSamples), origLabels)
+print(conf.mat)
+plot = DimPlot(integratedSamples, ncol = 3, reduction = "umap", split.by = "batch") + ggtitle("Cluster Results of Different Clusters in Different Samples")
+print(plot)
+```
+
+The results is weird.
+
+## Add more noise in expression matrix
+
+```{r}
+set.seed(123)
+probNor = c(0.1, 0.2, 0.2, 0.1, 0.2, 0.2)
+probMut = c(0.1, 0.2, 0.3, 0.15, 0.1, 0.15)
+batch_size = 5000
+de_prob = runif(6, 0.01, 0.6)
+setresolu = 0.2
+
+mnnCT7params = readRDS("./data/mnnCT7params.rds")
+sim_list = simualtionRWD(probNor, probMut, de_prob, batch_size, params = mnnCT7params)
+```
+
+```{r}
+sim_list$simNor_mat[c(1:10), c(1:10)]
+```
+
+Add noise: 1 multiple factors across samples
+
+```{r}
+set.seed(123)
+new_simNor_mat = runif(dim(sim_list$simNor_mat)[1], 0.8, 1.2)*sim_list$simNor_mat
+new_simNor_mat = round(new_simNor_mat*runif(dim(sim_list$simNor_mat)[2], 0.6, 1.4))
+```
+
+```{r}
+set.seed(345)
+new_simMut_mat = runif(dim(sim_list$simMut_mat)[1], 0.8, 1.2)*sim_list$simMut_mat
+new_simMut_mat = round(new_simMut_mat*runif(dim(sim_list$simMut_mat)[2], 0.6, 1.4))
+```
+
+```{r}
+batchNor = sim_list$batchNor
+batchMut = sim_list$batchMut
+  
+# pre-process
+seuratNor <- CreateSeuratObject(counts = new_simNor_mat, project="Splatter")
+seuratNor <- AddMetaData(object = seuratNor, metadata = batchNor, col.name = 'batch')
+seuratNor <- AddMetaData(object = seuratNor, metadata = rep("Normal", length(batchNor)), col.name = 'condition')
+seuratMut <- CreateSeuratObject(counts = new_simMut_mat, project="Splatter")
+seuratMut <- AddMetaData(object = seuratMut, metadata = batchMut, col.name = 'batch')
+seuratMut <- AddMetaData(object = seuratMut, metadata = rep("Mutate", length(batchMut)), col.name = 'condition')
+  
+listNor = SplitObject(seuratNor, split.by = "batch")
+listMut = SplitObject(seuratMut, split.by = "batch")
+listSamples = c(listNor, listMut)
+  
+# log-normalization and identify variable features
+for (i in 1:length(listSamples)) {
+  listSamples[[i]] <- NormalizeData(listSamples[[i]], verbose = FALSE)
+  listSamples[[i]] <- FindVariableFeatures(listSamples[[i]], selection.method = "vst", 
+                                             nfeatures = 2000, verbose = FALSE)
+}
+  
+# integrate all batches
+anchors <- FindIntegrationAnchors(object.list = listSamples, dims = 1:30, verbose = FALSE)
+integratedSamples <- IntegrateData(anchorset = anchors, dims = 1:30, verbose = FALSE)
+DefaultAssay(integratedSamples) <- "integrated"
+  
+# clustering
+integratedSamples <- ScaleData(integratedSamples, verbose = FALSE)
+integratedSamples <- RunPCA(integratedSamples, npcs = 30, verbose = FALSE)
+integratedSamples <- FindNeighbors(integratedSamples, dims = 1:5, verbose = FALSE)
+integratedSamples <- FindClusters(integratedSamples, resolution = setresolu, algorithm=2, verbose = FALSE)
+integratedSamples <- RunUMAP(integratedSamples, reduction = "pca", dims = 1:30, verbose = FALSE)
+  
+# change labels to A, B, C
+integratedSamples@active.ident = integratedSamples@active.ident %>% 
+  plyr::mapvalues(from = c(0:11), to = c("A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L"))
+
+saveRDS(integratedSamples, "./data/integratedSamples_addnoise2.rds")
+integratedSamples = readRDS("./data/integratedSamples_addnoise2.rds")
+
+sendEmail("Simulation is done!")
+```
+
+```{r}
+conf.mat<-table(Idents(integratedSamples), sim_list$origLabels)
+print(conf.mat)
+plot = DimPlot(integratedSamples, ncol = 3, reduction = "umap", split.by = "batch") + ggtitle("Cluster Results of Different Clusters in Different Samples")
+print(plot)
+```
+
+## Codes
+
+```{r, ref.label=knitr::all_labels(),echo=TRUE,eval=FALSE}
+```

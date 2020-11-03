@@ -75,10 +75,10 @@ runSeurat = function(sim_list, batch_size, setresolu){
   # pre-process
   seuratNor <- CreateSeuratObject(counts = simNor_mat, project="Splatter")
   seuratNor <- AddMetaData(object = seuratNor, metadata = batchNor, col.name = 'batch')
-  seuratNor <- AddMetaData(object = seuratNor, metadata = rep("Normal", batch_size*3), col.name = 'condition')
+  seuratNor <- AddMetaData(object = seuratNor, metadata = rep("Normal", length(batchNor)), col.name = 'condition')
   seuratMut <- CreateSeuratObject(counts = simMut_mat, project="Splatter")
   seuratMut <- AddMetaData(object = seuratMut, metadata = batchMut, col.name = 'batch')
-  seuratMut <- AddMetaData(object = seuratMut, metadata = rep("Mutate", batch_size*3), col.name = 'condition')
+  seuratMut <- AddMetaData(object = seuratMut, metadata = rep("Mutate", length(batchNor)), col.name = 'condition')
   
   listNor = SplitObject(seuratNor, split.by = "batch")
   listMut = SplitObject(seuratMut, split.by = "batch")
@@ -304,10 +304,10 @@ getPandTimeFSDD6 = function(integratedSamples, sim_list, batch_size = 1000){
     merge(fisherP, by = "cluster") %>% 
     merge(diffcytP, by = "cluster")
   time_df = data.frame(methods = c("fisher", "sepckle", "dcats", "diffcyt"), time = time)
-  return(list(Res_df = Res_df, time_df = time_df))
+  return(list(Res_df = Res_df, time_df = time_df, knn_mat = knn_mat[order, order]))
 }
 
-# function 6: function to get p-values and time(Fisher, speckle, dcats, diffcyt) for three clusters
+# function 5-1: function to get p-values and time(Fisher, speckle, dcats, diffcyt) for three clusters
 getPandTimeFSDD3 = function(integratedSamples, sim_list, batch_size = 1000){
   time = rep(NA,4)
   dfRes = data.frame(clusterRes = integratedSamples@active.ident, batch = integratedSamples$batch, condition = integratedSamples$condition) %>% 
@@ -427,10 +427,10 @@ getPandTimeFSDD3 = function(integratedSamples, sim_list, batch_size = 1000){
     merge(fisherP, by = "cluster") %>% 
     merge(diffcytP, by = "cluster")
   time_df = data.frame(methods = c("fisher", "sepckle", "dcats", "diffcyt"), time = time)
-  return(list(Res_df = Res_df, time_df = time_df))
+  return(list(Res_df = Res_df, time_df = time_df, knn_mat = knn_mat[order, order]))
 }
 
-# function 7: function to get p-values and time(Fisher, speckle, dcats, diffcyt) for four clusters
+# function 5-2: function to get p-values and time(Fisher, speckle, dcats, diffcyt) for four clusters
 getPandTimeFSDD4 = function(integratedSamples, sim_list, batch_size = 1000){
   time = rep(NA,4)
   dfRes = data.frame(clusterRes = integratedSamples@active.ident, batch = integratedSamples$batch, condition = integratedSamples$condition) %>% 
@@ -554,7 +554,7 @@ getPandTimeFSDD4 = function(integratedSamples, sim_list, batch_size = 1000){
   return(list(Res_df = Res_df, time_df = time_df))
 }
 
-# function 8: function to get p-values and time(Fisher, speckle, dcats, diffcyt) for twelve clusters
+# function 5-3: function to get p-values and time(Fisher, speckle, dcats, diffcyt) for twelve clusters
 getPandTimeFSDD12 = function(integratedSamples, sim_list, batch_size = 1000){
   time = rep(NA,4)
   dfRes = data.frame(clusterRes = integratedSamples@active.ident, batch = integratedSamples$batch, condition = integratedSamples$condition) %>% 
@@ -614,6 +614,7 @@ getPandTimeFSDD12 = function(integratedSamples, sim_list, batch_size = 1000){
   knn_mat = KNN_transition(graphs, labels)
   order = colnames(countNor)
   dcatsResK = dcats_fit(countNor, countMut, knn_mat[order, order])
+  print(knn_mat[order, order])
   #print(dcatsRes)
   dcatsPT = data.frame(cluster = rownames(dcatsResT), dcats_pvalsT = dcatsResT$pvals)
   dcatsPI = data.frame(cluster = rownames(dcatsResI), dcats_pvalsI = dcatsResI$pvals)
@@ -683,10 +684,10 @@ getPandTimeFSDD12 = function(integratedSamples, sim_list, batch_size = 1000){
     merge(fisherP, by = "cluster") %>% 
     merge(diffcytP, by = "cluster")
   time_df = data.frame(methods = c("fisher", "sepckle", "dcats", "diffcyt"), time = time)
-  return(list(Res_df = Res_df, time_df = time_df))
+  return(list(Res_df = Res_df, time_df = time_df, knn_mat = knn_mat[order, order]))
 }
 
-# function 9: function to get p-values and time(test different uniform matrix)
+# function 6: function to get p-values and time(test different uniform matrix)
 getPandTimeTestU = function(integratedSamples, sim_list){
   dfRes = data.frame(clusterRes = integratedSamples@active.ident, batch = integratedSamples$batch, condition = integratedSamples$condition) %>% 
     tibble::rownames_to_column("cellID")
@@ -709,7 +710,7 @@ getPandTimeTestU = function(integratedSamples, sim_list){
   return(Res_df)
 }
 
-# function 10: function to send reminder email
+# function 7: function to send reminder email
 sendEmail = function(subject = "The job is done"){
   library(emayili)
   email <- envelope() %>%
