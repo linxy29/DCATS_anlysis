@@ -78,7 +78,7 @@ runSeurat = function(sim_list, batch_size, setresolu){
   seuratNor <- AddMetaData(object = seuratNor, metadata = rep("Normal", length(batchNor)), col.name = 'condition')
   seuratMut <- CreateSeuratObject(counts = simMut_mat, project="Splatter")
   seuratMut <- AddMetaData(object = seuratMut, metadata = batchMut, col.name = 'batch')
-  seuratMut <- AddMetaData(object = seuratMut, metadata = rep("Mutate", length(batchNor)), col.name = 'condition')
+  seuratMut <- AddMetaData(object = seuratMut, metadata = rep("Mutate", length(batchMut)), col.name = 'condition')
   
   listNor = SplitObject(seuratNor, split.by = "batch")
   listMut = SplitObject(seuratMut, split.by = "batch")
