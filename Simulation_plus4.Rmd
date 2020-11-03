@@ -325,6 +325,21 @@ Res_df = merge(dcatsPT, speckleP, by = "cluster") %>%
   merge(fisherP, by = "cluster") %>% 
   merge(diffcytP, by = "cluster")
 
+print(knn_mat[order, order])
+cluster_map = apply(conf.mat, 2, which.max) %>% 
+  plyr::mapvalues(from = c(1:6), to = c("A", "B", "C", "D", "E", "F")) %>% 
+  as_tibble() %>% 
+  mutate(truth = c("N", "N", "P", "P", "P", "P")) %>% 
+  dplyr::rename(cluster = value)
+Res_df %>% 
+    mutate(speckle_res = ifelse(speckle_pvals < 0.05, "P", "N"),
+           dcatsT_res = ifelse(dcats_pvalsT < 0.05, "P", "N"),
+           dcatsI_res = ifelse(dcats_pvalsI < 0.05, "P", "N"),
+           dcatsU_res = ifelse(dcats_pvalsU < 0.05, "P", "N"),
+           dcatsK_res = ifelse(dcats_pvalsK < 0.05, "P", "N"),
+           fisher_res = ifelse(fisher_pvals < 0.05, "P", "N")) %>% 
+    merge(cluster_map, by = "cluster") %>% 
+    print()
 ```
 
 
@@ -344,8 +359,8 @@ sim_list = simualtionRWD(probNor, probMut, de_prob, batch_size, params = HCCpara
 
 ```{r}
 # normal sample
-set.seed(123)
-sample_sizeNor = runif(3, 0.4, 0.6)
+set.seed(234)
+sample_sizeNor = runif(3, 0.4, 0.6) %>% round(4)
 Norbatch1_idx = sample(batch_size, sample_sizeNor[1]*batch_size)
 Norbatch2_idx = batch_size + sample(batch_size, sample_sizeNor[2]*batch_size)
 Norbatch3_idx = batch_size*2 + sample(batch_size, sample_sizeNor[3]*batch_size)
@@ -356,8 +371,8 @@ batchNor = sim_list$batchNor[Nor_idx]
 origLabels_Nor = sim_list$origLabels[c(1:batch_size*3)][Nor_idx]
 
 # mutate sample
-sample_sizeMut = runif(3, 0.4, 0.6)
-Mutbatch1_idx = sample(batch_size, sample_sizeMut[1]*batch_size)
+sample_sizeMut = runif(3, 0.4, 0.6) %>% round(4)
+Mutbatch1_idx = sample(batch_size, sample_sizeMut[1]*batch_size+1)
 Mutbatch2_idx = batch_size + sample(batch_size, sample_sizeMut[2]*batch_size)
 Mutbatch3_idx = batch_size*2 + sample(batch_size, sample_sizeMut[3]*batch_size)
 Mut_idx = c(Mutbatch1_idx, Mutbatch2_idx, Mutbatch3_idx)
