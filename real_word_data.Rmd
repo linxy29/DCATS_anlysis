@@ -5,8 +5,18 @@ date: "10/27/2020"
 output: html_document
 ---
 
+* Simulation data: experiment 1, 2, 4
+
+* real word data: experiment 3, 5, 6, 7
+
+* no data of exp6
+
+* Exp 3, 5, 7 only fisher works, don’t have batches-> speckle and diffcyt don’t work
+
+* Exp5: BM1, BM2, BM3 have far more less cells than AML
+
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = FALSE)
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
 ```
 
 ```{r,message=FALSE,warning=FALSE}
@@ -21,6 +31,32 @@ library(diffcyt)
 
 ```{r}
 source("functions.r")
+```
+
+Fisher's exact test
+
+```{r}
+get_fisherP = function(data = data, sumL = sumL){
+  data_sum = data %>% 
+    group_by(condition) %>% 
+    summarise(n = n())
+  
+  data_count = data %>% 
+    group_by(cluster, condition) %>% 
+    summarise(n = n()) %>% 
+    pivot_wider(names_from = "cluster", values_from = "n") %>% 
+    mutate_all(~replace(., is.na(.), 0))
+
+  fisher_pvals = rep(NA,ncol(data_count)-1)
+  cluster_name = colnames(data_count)[-1]
+  for (i in 2:ncol(data_count)) {
+    cot_table = cbind(data_count[, i], data_sum$n-data_count[, i])
+    fisher_pvals[i-1] = fisher.test(cot_table)$p.value
+    }
+  
+  fisherP = data.frame(cluster = cluster_name, fisher_pvals = fisher_pvals)
+  return(fisherP)
+}
 ```
 
 ## Experiment 3
@@ -38,31 +74,6 @@ head(exp3_GFP)
 head(exp3_TIP)
 summary(exp3_GFP)
 summary(exp3_TIP)
-```
-
-Fisher's exact test
-
-```{r}
-get_fisherP = function(data = data, sumL = sumL){
-  data_sum = data %>% 
-    group_by(conditions) %>% 
-    summarise(n = n())
-  
-  data_count = data %>% 
-    group_by(cluster, conditions) %>% 
-    summarise(n = n()) %>% 
-    pivot_wider(names_from = "cluster", values_from = "n")
-
-  fisher_pvals = rep(NA,ncol(data_count)-1)
-  cluster_name = colnames(data_count)[-1]
-  for (i in 2:ncol(data_count)) {
-    cot_table = cbind(data_count[, i], data_sum$n-data_count[, i])
-    fisher_pvals[i-1] = fisher.test(cot_table)$p.value
-    }
-  
-  fisherP = data.frame(cluster = cluster_name, fisher_pvals = fisher_pvals)
-  return(fisherP)
-}
 ```
 
 diffcyt cannot works without batch
@@ -120,31 +131,86 @@ diffcytP = topTable(res_DA, format_vals = TRUE) %>%
 ## MI-Day3 vs MI-Day7
 exp3_TIP_37 = exp3_TIP %>% 
   filter(experiment != "Sham") %>% 
-  dplyr::rename(conditions = experiment)
+  dplyr::rename(condition = experiment)
 fisherP = get_fisherP(exp3_TIP_37)
 print(fisherP)
 
 ## Sham vs MI-Day7
 exp3_TIP_S3 = exp3_TIP %>% 
   filter(experiment != "MI-Day 7") %>% 
-  dplyr::rename(conditions = experiment)
+  dplyr::rename(condition = experiment)
 fisherP = get_fisherP(exp3_TIP_S3)
 print(fisherP)
 
 ## Sham vs MI-Day3
 exp3_TIP_S7 = exp3_TIP %>% 
   filter(experiment != "MI-Day 3") %>% 
-  dplyr::rename(conditions = experiment)
+  dplyr::rename(condition = experiment)
 fisherP = get_fisherP(exp3_TIP_S7)
 print(fisherP)
 ```
 
 ## Experiment 5
 
-Don't know which data is used in exp5
+```{r}
+exp5_AML <- read.delim("./data/real_word/Exp5_Galen/GSM3587924_AML1012-D0.anno.txt") %>% 
+  select(Cell, CellType) %>% 
+  mutate(cluster = as.factor(CellType),
+         condition = "AML")
+head(exp5_AML)
+summary(exp5_AML)
+
+exp5_BM1 <- read.delim("./data/real_word/Exp5_Galen/GSM3587996_BM1.anno.txt") %>% 
+  select(Cell, CellType) %>% 
+  mutate(cluster = as.factor(CellType),
+         condition = "BM1")
+head(exp5_BM1)
+summary(exp5_BM1)
+
+exp5_BM2 <- read.delim("./data/real_word/Exp5_Galen/GSM3587997_BM2.anno.txt") %>% 
+  select(Cell, CellType) %>% 
+  mutate(cluster = as.factor(CellType),
+         condition = "BM2")
+head(exp5_BM2)
+summary(exp5_BM2)
+
+exp5_BM3 <- read.delim("./data/real_word/Exp5_Galen/GSM3587999_BM3.anno.txt") %>% 
+  select(Cell, CellType) %>% 
+  mutate(cluster = as.factor(CellType),
+         condition = "BM3")
+head(exp5_BM3)
+summary(exp5_BM3)
+
+exp5_BM4 <- read.delim("./data/real_word/Exp5_Galen/GSM3588001_BM4.anno.txt") %>% 
+  select(Cell, CellType) %>% 
+  mutate(cluster = as.factor(CellType),
+         condition = "BM4")
+head(exp5_BM4)
+summary(exp5_BM4)
+```
+
+BM1, BM2, BM3 have far more less cells than AML
 
 ```{r}
+## AML vs BM1
+exp5_A1 = rbind(exp5_AML, exp5_BM1)
+fisherP = get_fisherP(exp5_A1)
+print(fisherP)
 
+## AML vs BM2
+exp5_A2 = rbind(exp5_AML, exp5_BM2)
+fisherP = get_fisherP(exp5_A2)
+print(fisherP)
+
+## AML vs BM3
+exp5_A3 = rbind(exp5_AML, exp5_BM3)
+fisherP = get_fisherP(exp5_A3)
+print(fisherP)
+
+## AML vs BM4
+exp5_A4 = rbind(exp5_AML, exp5_BM4)
+fisherP = get_fisherP(exp5_A4)
+print(fisherP)
 ```
 
 ## Experiment 6
@@ -176,7 +242,26 @@ exp7_data %>%
 ```
 
 ```{r}
+## control vs Hpoly.Day3
+exp7_C3 = exp7_data %>% 
+  filter(condition == "Control" | condition == "Hpoly.Day3") %>% 
+  select(condition, cluster)
+fisherP = get_fisherP(exp7_C3)
+print(fisherP)
 
+## control vs Hpoly.Day10
+exp7_C10 = exp7_data %>% 
+  filter(condition == "Control" | condition == "Hpoly.Day10") %>% 
+  select(condition, cluster)
+fisherP = get_fisherP(exp7_C10)
+print(fisherP)
+
+## control vs Salmonella
+exp7_CS = exp7_data %>% 
+  filter(condition == "Control" | condition == "Salmonella") %>% 
+  select(condition, cluster)
+fisherP = get_fisherP(exp7_CS)
+print(fisherP)
 ```
 
 
