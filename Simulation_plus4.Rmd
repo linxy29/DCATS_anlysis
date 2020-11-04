@@ -9,11 +9,13 @@ Try to add noise by myself.
 
 Question: What kind of noise distribution
 
-1. Different number of cells
+1. Different number of cells(Don't work)
 
-2. Amplify(uniform distribution)
+2. Amplify(uniform distribution)(Don't work)
 
-3. Different drop-out rate
+3. Different drop-out rate(have no influence on results)
+
+Since fisher and DCATS don't consider batch effec. The changes on batch effect won't influence the results.
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = FALSE, message=FALSE, warning=FALSE)
@@ -131,7 +133,7 @@ new_simMut_mat = round(new_simMut_mat*runif(dim(sim_list$simMut_mat)[2], 0.6, 1.
 #integratedSamples = runSeurat(sim_list, batch_size, setresolu)
 #saveRDS(integratedSamples, "./data/integratedSamples_addnoise2.rds")
 integratedSamples = readRDS("./data/integratedSamples_addnoise2.rds")
-sendEmail("Simulation is done!")
+#sendEmail("Simulation is done!")
 ```
 
 ```{r}
@@ -139,6 +141,28 @@ conf.mat<-table(Idents(integratedSamples), sim_list$origLabels)
 print(conf.mat)
 plot = DimPlot(integratedSamples, ncol = 3, reduction = "umap", split.by = "batch") + ggtitle("Cluster Results of Different Clusters in Different Samples")
 print(plot)
+```
+
+```{r}
+Res = getPandTimeFSDD6(integratedSamples, sim_list, batch_size)
+print(Res$time_df)
+print(Res$knn_mat)
+  
+cluster_map = apply(conf.mat, 2, which.max) %>% 
+  plyr::mapvalues(from = c(1:6), to = c("A", "B", "C", "D", "E", "F")) %>% 
+  as_tibble() %>% 
+  mutate(truth = c("N", "N", "P", "P", "P", "P")) %>% 
+  dplyr::rename(cluster = value)
+Res$Res_df %>% 
+    mutate(speckle_res = ifelse(speckle_pvals < 0.05, "P", "N"),
+           dcatsT_res = ifelse(dcats_pvalsT < 0.05, "P", "N"),
+           dcatsI_res = ifelse(dcats_pvalsI < 0.05, "P", "N"),
+           dcatsU_res = ifelse(dcats_pvalsU < 0.05, "P", "N"),
+           dcatsK_res = ifelse(dcats_pvalsK < 0.05, "P", "N"),
+           fisher_res = ifelse(fisher_pvals < 0.05, "P", "N")) %>% 
+    merge(cluster_map, by = "cluster") %>% 
+    print()
+
 ```
 
 Try to sample different batch sizes from simulated data. And this also result in different drop-out pattern in different batches.
@@ -184,10 +208,10 @@ sim_list = list(simNor_mat = simNor_mat, simMut_mat = simMut_mat, batchNor = bat
 ```
 
 ```{r}
-integratedSamples = runSeurat(sim_list, batch_size, setresolu)
-saveRDS(integratedSamples, "./data/integratedSamples_addnoise3.rds")
+#integratedSamples = runSeurat(sim_list, batch_size, setresolu)
+#saveRDS(integratedSamples, "./data/integratedSamples_addnoise3.rds")
 integratedSamples = readRDS("./data/integratedSamples_addnoise3.rds")
-sendEmail("Simulation is done!")
+#sendEmail("Simulation is done!")
 ```
 
 ```{r}

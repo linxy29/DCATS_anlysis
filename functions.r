@@ -99,7 +99,7 @@ runSeurat = function(sim_list, batch_size, setresolu){
   # clustering
   integratedSamples <- ScaleData(integratedSamples, verbose = FALSE)
   integratedSamples <- RunPCA(integratedSamples, npcs = 30, verbose = FALSE)
-  integratedSamples <- FindNeighbors(integratedSamples, dims = 1:5, verbose = FALSE)
+  integratedSamples <- FindNeighbors(integratedSamples, dims = 1:30, verbose = FALSE)
   integratedSamples <- FindClusters(integratedSamples, resolution = setresolu, algorithm=2, verbose = FALSE)
   integratedSamples <- RunUMAP(integratedSamples, reduction = "pca", dims = 1:30, verbose = FALSE)
   
