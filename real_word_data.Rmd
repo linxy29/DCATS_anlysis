@@ -25,6 +25,8 @@ source("functions.r")
 
 ## Experiment 3
 
+TIP is the one Hepheas used
+
 ```{r}
 exp3_GFP <- read.delim("./data/real_word/Farbehi_2019/GFP_tSNE_cluster_ID_table.txt") %>% 
   mutate(cluster = as.factor(cluster),
