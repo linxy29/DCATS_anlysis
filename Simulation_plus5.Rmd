@@ -1,0 +1,70 @@
+---
+title: "Simulation_plus5"
+author: "Xinyi Lin"
+date: "11/11/2020"
+output: html_document
+---
+
+Following steps will be done in this files:
+
+1. extract parameters from a better real_word data. Sample GSM4878537(https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM4878537)
+
+2. Use splatter to generate a large cells pool.
+
+3. Use Dirichlet Distribution to generate 100/1000 proportions vectors and selected cell clusters with related proportions.
+
+4 Use Seurat(or other clusering methods) to do reclustering.
+
+* Start from a lower sample sizes(1000)?
+
+* build an automatic process to define resolution
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message=FALSE, warning=FALSE)
+```
+
+```{r,message=FALSE,warning=FALSE}
+library(splatter)
+library(Seurat)
+library(speckle)
+library(DCATS)
+library(ggplot2)
+library(tidyverse)
+library(diffcyt)
+```
+
+## Simulate cells pool
+
+```{r}
+set.seed(123)
+probNor = c(1/3, 1/3, 1/3)
+probMut = c(1/3, 1/2, 1/6)
+batch_size = 6000
+de_prob = runif(6, 0.01, 0.6)
+setresolu = 0.2
+```
+
+```{r}
+set.seed(123)
+  # simulate normal
+  # nGenes=2000 is too large
+  param.groups <- setParams(params, batchCells = c(batch_size, batch_size, batch_size), nGenes = 1000)
+  simNor <- splatSimulateGroups(param.groups, group.prob = probNor, de.prob = de_prob, verbose = FALSE)
+  #simNor <- splatSimulateGroups(param.groups, group.prob = probNor, verbose = FALSE)
+  simNor@colData@rownames = str_replace(simNor@colData@rownames, "Cell", "NorCell")
+  simNor_mat <- counts(simNor)
+  set.seed(345)
+  # simulate mutate
+  simMut <- splatSimulateGroups(param.groups, group.prob = probMut, de.prob = de_prob, verbose = FALSE)
+  #simMut <- splatSimulateGroups(param.groups, group.prob = probMut, verbose = FALSE)
+  simMut@colData@rownames = str_replace(simMut@colData@rownames, "Cell", "MutCell")
+  simMut_mat <- counts(simMut)
+```
+
+
+
+
+## Codes
+
+```{r, ref.label=knitr::all_labels(),echo=TRUE,eval=FALSE}
+```
