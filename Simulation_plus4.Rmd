@@ -159,7 +159,8 @@ Res$Res_df %>%
            dcatsI_res = ifelse(dcats_pvalsI < 0.05, "P", "N"),
            dcatsU_res = ifelse(dcats_pvalsU < 0.05, "P", "N"),
            dcatsK_res = ifelse(dcats_pvalsK < 0.05, "P", "N"),
-           fisher_res = ifelse(fisher_pvals < 0.05, "P", "N")) %>% 
+           fisher_res = ifelse(fisher_pvals < 0.05, "P", "N"),
+           diffcyt_res = ifelse(diffcyt_pvals < 0.05, "P", "N")) %>% 
     merge(cluster_map, by = "cluster") %>% 
     print()
 
@@ -340,7 +341,8 @@ Res_df %>%
            dcatsI_res = ifelse(dcats_pvalsI < 0.05, "P", "N"),
            dcatsU_res = ifelse(dcats_pvalsU < 0.05, "P", "N"),
            dcatsK_res = ifelse(dcats_pvalsK < 0.05, "P", "N"),
-           fisher_res = ifelse(fisher_pvals < 0.05, "P", "N")) %>% 
+           fisher_res = ifelse(fisher_pvals < 0.05, "P", "N"),
+           diffcyt_res = ifelse(diffcyt_pvals < 0.05, "P", "N")) %>% 
     merge(cluster_map, by = "cluster") %>% 
     print()
 ```
@@ -521,7 +523,8 @@ Res_df %>%
            dcatsI_res = ifelse(dcats_pvalsI < 0.05, "P", "N"),
            dcatsU_res = ifelse(dcats_pvalsU < 0.05, "P", "N"),
            dcatsK_res = ifelse(dcats_pvalsK < 0.05, "P", "N"),
-           fisher_res = ifelse(fisher_pvals < 0.05, "P", "N")) %>% 
+           fisher_res = ifelse(fisher_pvals < 0.05, "P", "N"),
+           diffcyt_res = ifelse(diffcyt_pvals < 0.05, "P", "N")) %>% 
     merge(cluster_map, by = "cluster") %>% 
     print()
 ```
@@ -699,7 +702,8 @@ Res_df %>%
            dcatsI_res = ifelse(dcats_pvalsI < 0.05, "P", "N"),
            dcatsU_res = ifelse(dcats_pvalsU < 0.05, "P", "N"),
            dcatsK_res = ifelse(dcats_pvalsK < 0.05, "P", "N"),
-           fisher_res = ifelse(fisher_pvals < 0.05, "P", "N")) %>% 
+           fisher_res = ifelse(fisher_pvals < 0.05, "P", "N"),
+           diffcyt_res = ifelse(diffcyt_pvals < 0.05, "P", "N")) %>% 
     merge(cluster_map, by = "cluster") %>% 
     print()
 ```

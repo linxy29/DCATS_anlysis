@@ -268,9 +268,9 @@ setresolu = 0.58
 
 mnnCT7params = readRDS("./data/mnnCT7params.rds")
 sim_list = simualtionRWD(probNor, probMut, de_prob, batch_size, params = mnnCT7params)
-integratedSamples = runSeurat(sim_list, batch_size, setresolu)
+#integratedSamples = runSeurat(sim_list, batch_size, setresolu)
 name = sprintf("./data/simulation_plus3/integratedSamples%d.rds", 12)
-saveRDS(integratedSamples, name)
+#saveRDS(integratedSamples, name)
 integratedSamples = readRDS(name)
   
 conf.mat<-table(Idents(integratedSamples), sim_list$origLabels)
