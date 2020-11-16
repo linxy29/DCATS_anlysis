@@ -1,3 +1,5 @@
+# functions used before 'simulation_plus4' and 'false_positive2' 
+
 if(FALSE){
   library(splatter)
   library(Seurat)
