@@ -36,7 +36,7 @@ source("functions.r")
 Fisher's exact test
 
 ```{r}
-get_fisherP = function(data = data, sumL = sumL){
+get_fisherP = function(data = data){
   data_sum = data %>% 
     group_by(condition) %>% 
     summarise(n = n())
@@ -64,10 +64,10 @@ get_fisherP = function(data = data, sumL = sumL){
 TIP is the one Hepheas used
 
 ```{r}
-exp3_GFP <- read.delim("./data/real_word/Farbehi_2019/GFP_tSNE_cluster_ID_table.txt") %>% 
+exp3_GFP <- read.delim("./data/real_word/Exp3_Farbehi_2019/GFP_tSNE_cluster_ID_table.txt") %>% 
   mutate(cluster = as.factor(cluster),
          experiment = as.factor(experiment))
-exp3_TIP <- read.delim("./data/real_word/Farbehi_2019/TIP_tSNE_cluster_ID_table.txt") %>% 
+exp3_TIP <- read.delim("./data/real_word/Exp3_Farbehi_2019/TIP_tSNE_cluster_ID_table.txt") %>% 
   mutate(cluster = as.factor(cluster),
          experiment = as.factor(experiment))
 head(exp3_GFP)

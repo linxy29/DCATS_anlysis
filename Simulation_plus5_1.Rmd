@@ -1,0 +1,398 @@
+---
+title: "Simulation_plus5_1"
+author: "Xinyi Lin"
+date: "11/11/2020"
+output: html_document
+---
+
+This is the version create only one duplicate in each sample.
+
+Questions:
+
+* When using beta-binLRT, do we need more than one duplicates to get a realiable p-value?
+
+* When using beta-binLRT, why get NA for p-value after bias correction?
+
+* speckle can only be used when there is at least one duplicate.
+
+Following steps will be done in this files:
+
+1. extract parameters from a better real_word data. Sample GSM4878537(https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM4878537)
+
+2. Use splatter to generate a large cells pool.
+
+3. Use Dirichlet Distribution to generate 100/1000 proportions vectors and selected cell clusters with related proportions.
+
+4 Use Seurat(or other clusering methods) to do reclustering.
+
+* Start from a lower sample sizes(1000)?
+
+* build an automatic process to define resolution
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message=FALSE)
+```
+
+```{r,message=FALSE,warning=FALSE}
+library(splatter)
+library(Seurat)
+library(speckle)
+library(DCATS)
+library(ggplot2)
+library(tidyverse)
+library(diffcyt)
+library(MCMCpack)
+```
+
+```{r}
+source("functionsV2.r")
+```
+
+```{r}
+cluster_num = 3
+probC1 = c(1/3, 1/3, 1/3)
+probC2 = c(1/3, 1/2, 1/6)
+magnitude = 50 # indicate how simulated proportion far away from true, the larger the closer
+```
+
+## Simulate cells pool
+
+```{r}
+set.seed(123)
+prob = c(1/3, 1/3, 1/3)
+batch_size = 10000
+de_prob = runif(3, 0.2, 0.6)
+setresolu = 0.2
+sample_size = 1000
+```
+
+```{r}
+set.seed(123)
+params = readRDS("./data/ovarian_params.rds")
+#params = readRDS("./data/mnnCT7params.rds")
+param.groups <- setParams(params, batchCells = batch_size, nGenes = 1000)
+sim <- splatSimulateGroups(param.groups, group.prob = prob, de.prob = de_prob, de.facLoc = 0.01, verbose = FALSE)
+sim_mat <- counts(sim)
+origLabels = sim@colData@listData$Group
+```
+
+
+## simulate proportions
+
+```{r}
+set.seed(123)
+proporC1 = rdirichlet(10, probC1*magnitude)
+proporC2 = rdirichlet(10, probC2*magnitude)
+print(proporC1)
+print(proporC2)
+```
+
+## Select cells for each simulation and do the test(one time)
+
+Cells selection
+
+```{r, eval=FALSE}
+# simulate cells numbers
+set.seed(123)
+i = 1
+cell_numC1 = (sample_size*proporC1[i,]) %>% ceiling()
+cell_numC2 = (sample_size*proporC2[i,]) %>% ceiling()
+## condition 1
+group1_idx = c(1:length(origLabels))[origLabels == "Group1"] %>% sample(cell_numC1[1])
+group2_idx = c(1:length(origLabels))[origLabels == "Group2"] %>% sample(cell_numC1[2])
+group3_idx = c(1:length(origLabels))[origLabels == "Group3"] %>% sample(cell_numC1[3])
+indexC1 = c(group1_idx, group2_idx, group3_idx) %>% sort()
+summary(indexC1)
+simC1_mat = sim_mat[,indexC1]
+origLabelsC1 = origLabels[indexC1]
+## condition 2
+group1_idx = c(1:length(origLabels))[origLabels == "Group1"] %>% sample(cell_numC2[1])
+group2_idx = c(1:length(origLabels))[origLabels == "Group2"] %>% sample(cell_numC2[2])
+group3_idx = c(1:length(origLabels))[origLabels == "Group3"] %>% sample(cell_numC2[3])
+indexC2 = c(group1_idx, group2_idx, group3_idx) %>% sort()
+summary(indexC2)
+simC2_mat = sim_mat[,indexC2]
+origLabelsC2 = origLabels[indexC2]
+```
+
+```{r}
+set.seed(123)
+i = 2
+cell_sltL = cellSelect(sim_mat, origLabels, proporC1[i,], proporC2[i,], sample_size)
+```
+
+Seurat
+
+```{r, eval=FALSE}
+# set input
+simC1_mat = cell_sltL$simC1_mat
+simC2_mat = cell_sltL$simC2_mat
+
+# pre-process
+seuratC1 <- CreateSeuratObject(counts = simC1_mat, project="Splatter")
+seuratC1 <- AddMetaData(object = seuratC1, metadata = rep("Cond1", dim(simC1_mat)[2]), col.name = 'condition')
+seuratC2 <- CreateSeuratObject(counts = simC2_mat, project="Splatter")
+seuratC2 <- AddMetaData(object = seuratC2, metadata = rep("Cond2", dim(simC1_mat)[2]), col.name = 'condition')
+
+listSamples = list(cond1 = seuratC1, cond2 = seuratC2)
+# log-normalization and identify variable features
+for (i in 1:length(listSamples)) {
+  listSamples[[i]] <- NormalizeData(listSamples[[i]], verbose = FALSE)
+  listSamples[[i]] <- FindVariableFeatures(listSamples[[i]], selection.method = "vst", nfeatures = 2000, verbose = FALSE)
+  }
+  
+# integrate all batches
+anchors <- FindIntegrationAnchors(object.list = listSamples, dims = 1:30, verbose = FALSE)
+integratedSamples <- IntegrateData(anchorset = anchors, dims = 1:30, verbose = FALSE)
+DefaultAssay(integratedSamples) <- "integrated"
+
+# clustering
+integratedSamples <- ScaleData(integratedSamples, verbose = FALSE)
+integratedSamples <- RunPCA(integratedSamples, npcs = 30, verbose = FALSE)
+integratedSamples <- FindNeighbors(integratedSamples, dims = 1:30, verbose = FALSE)
+integratedSamples <- FindClusters(integratedSamples, resolution = setresolu, algorithm=2, verbose = FALSE)
+integratedSamples <- RunUMAP(integratedSamples, reduction = "pca", dims = 1:30, verbose = FALSE)
+
+# change labels to A, B, C
+integratedSamples@active.ident = integratedSamples@active.ident %>% 
+  #plyr::mapvalues(from = c("0", "1", "2", "3", "4", "5"), to = c("A", "B", "C", "D", "E", "F"))
+  plyr::mapvalues(from = c(0:11), to = c("A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L"))
+
+plot = DimPlot(integratedSamples, reduction = "umap", split.by = "condition") + ggtitle("Cluster Results of Different Clusters in Different Samples")
+print(plot)
+```
+
+```{r}
+integratedSamples = runSeurat(cell_sltL, setresolu)
+plot = DimPlot(integratedSamples, reduction = "umap", split.by = "condition") + ggtitle("Cluster Results of Different Clusters in Different Samples")
+print(plot)
+conf.mat<-table(Idents(integratedSamples), c(cell_sltL$origLabelsC1, cell_sltL$origLabelsC2))
+print(conf.mat)
+```
+
+Test process
+
+```{r}
+cond1 = integratedSamples@active.ident[integratedSamples$condition == "Cond1"]
+cond2 = integratedSamples@active.ident[integratedSamples$condition == "Cond2"]
+countC1 = table(cond1)
+print(countC1)
+countC2 = table(cond2)
+print(countC2)
+```
+
+Need some replicates to get one group of p-values??????????
+
+NA when using bias correction????????
+
+Error "" sometimes occurs
+
+```{r}
+## DCATS---betabinLRT
+betabin_noBC = betabinLRT_rw(countC1, countC2, bias_corr = FALSE)
+print(betabin_noBC)
+##  DCATS---betabinLRT with Bias correction from similarity matrix
+simil_matI = get_similarity_mat(length(probC1), confuse_rate=0)
+simil_matU = get_similarity_mat(length(probC1), confuse_rate=0.1)
+betabin_wBC_I = betabinLRT_rw(countC1, countC2, bias_corr = TRUE, similarity_mat = simil_matI)
+print(betabin_wBC_I)
+betabin_wBC_U = betabinLRT_rw(countC1, countC2, bias_corr = TRUE, similarity_mat = simil_matU)
+print(betabin_wBC_U)
+## DCATS---betabin with similarity matrix (backward-forward)
+betabin_wMI = dcats_betabin(countC1, countC2, similarity_mat = simil_matI, n_samples = 100, binom_only = FALSE)
+print(betabin_wMI)
+betabin_wMU = dcats_betabin(countC1, countC2, similarity_mat = simil_matU, n_samples = 100, binom_only = FALSE)
+print(betabin_wMU)
+bin_wMI = dcats_betabin(countC1, countC2, similarity_mat = simil_matI, n_samples = 100)
+print(bin_wMI)
+bin_wMU = dcats_betabin(countC1, countC2, similarity_mat = simil_matU, n_samples = 100)
+print(bin_wMU)
+```
+
+```{r, eval=FALSE}
+##  DCATS---betabinLRT with Bias correction from similarity matrix
+countC1 = matrix(countC1, nrow=1)
+countC2 = matrix(countC2, nrow=1)
+countC1_latent = countC1
+countC2_latent = countC2
+for (i in seq_len(nrow(countC1))) {
+  countC1_latent[i, ] <- sum(countC1[i, ]) * multinom_EM(countC1[i, ], similarity_mat, verbose = FALSE)$mu
+  }
+for (i in seq_len(nrow(countC2))) {
+  countC2_latent[i, ] <- sum(countC2[i, ]) * multinom_EM(countC2[i, ], similarity_mat, verbose = FALSE)$mu
+}
+DCATS::betabinLRT(countC1_latent, countC2_latent)
+```
+
+```{r}
+## fisher's exact test
+counts1 = countC1
+counts2 = countC2
+### Check counts1 and counts2 shape
+if (length(counts1) == 1 || is.null(dim(counts1)) || length(dim(counts1)) < 2) {
+  counts1 = matrix(counts1, nrow=1)
+}
+if (length(counts2) == 1 || is.null(dim(counts2)) ||
+      length(dim(counts2)) < 2) {
+  counts2 = matrix(counts2, nrow=1)
+}
+### set up
+totalCounts1 = colSums(counts1)
+totalCounts2 = colSums(counts2)
+count_mtrx = rbind(totalCounts1, totalCounts2)
+### test 
+fisher_pvals = rep(NA,ncol(count_mtrx))
+for (i in 1:ncol(count_mtrx)) {
+  tested_table = cbind(count_mtrx[, i], rowSums(count_mtrx)-count_mtrx[, i])
+  fisher_pvals[i] = fisher.test(tested_table)$p.value
+}
+#fisher = data.frame(cluster = c("A", "B", "C", "D", "E", "F")[1:ncol(count_mtrx)], fisher_pvals = fisher_pvals)
+print(fisher_pvals)
+```
+
+"Hence propeller is only suitable to use in single cell experiments where there are multiple groups and multiple biological replicates in at least one of the groups. "
+
+```{r,eval=FALSE}
+## speckle
+groups = sample(c("group1", "group2"), sum(countC1)+sum(countC2), replace = TRUE)
+speckle_df = data.frame(clusters = integratedSamples@active.ident, sample = integratedSamples$condition, group = groups)
+propeller(clusters = speckle_df$clusters, sample = speckle_df$sample, group = speckle_df$group)
+```
+
+```{r, eval=FALSE}
+## diffcyt
+### Function to create random data (one sample)
+d_random <- function(sample_size, mean = 0, sd = 1, ncol = 20, cofactor = 5) {
+    d <- sinh(matrix(rnorm(20*sample_size, mean, sd), ncol = ncol)) * cofactor
+    colnames(d) <- paste0("marker", sprintf("%02d", 1:ncol))
+    return(d)
+}
+# Create random data (without differential signal)
+set.seed(123)
+d_input <- list(
+  sample1 = d_random(sum(countC1)),
+  sample2 = d_random(sum(countC2))
+)
+experiment_info <- data.frame(
+  sample_id = factor(paste0("sample", 1:2)), 
+  group_id = factor(c("group1", "group2")),
+  stringsAsFactors = FALSE)
+marker_info <- data.frame(channel_name = paste0("channel", sprintf("%03d", 1:20)),
+                          marker_name = paste0("marker", sprintf("%02d", 1:20)),
+                          marker_class = factor(c(rep("type", 10), rep("state", 10)),levels = c("type", "state", "none")),
+                          stringsAsFactors = FALSE)
+# Prepare data
+d_se <- prepareData(d_input, experiment_info, marker_info)
+# Transform data
+d_se <- transformData(d_se)
+# Generate clusters
+d_se <- generateClusters(d_se)
+# Replace with our simulated data info
+d_se@elementMetadata$group_id = c(rep("Cond1", sum(countC1)), rep("Cond2", sum(countC2)))
+d_se@elementMetadata$cluster_id = c(cell_sltL$origLabelsC1, cell_sltL$origLabelsC2)
+# Calculate counts
+d_counts <- calcCounts(d_se)
+# Create design matrix
+design <- createDesignMatrix(experiment_info, cols_design = "group_id")
+# Create contrast matrix
+contrast <- createContrast(c(0, 1))
+# Test for differential abundance (DA) of clusters
+res_DA <- testDA_edgeR(d_counts, design, contrast)
+```
+
+```{r}
+cluster_map = apply(conf.mat, 2, which.max) %>% 
+  plyr::mapvalues(from = c(1:cluster_num), to = c("A", "B", "C", "D", "E", "F")[1:cluster_num]) %>% 
+  as_tibble() %>% 
+  mutate(truth = c("N", "P", "P")) %>% 
+  dplyr::rename(cluster = value) %>% 
+  arrange(cluster)
+cluster_map %>% 
+  mutate(betabin_noBC_pvals = betabin_noBC$pvals,
+         betabin_wBCI_pvals = betabin_wBC_I$pvals,
+         betabin_wBCU_pvals = betabin_wBC_U$pvals,
+         betabin_wMI_pvals = betabin_wMI$pvals,
+         betabin_wMU_pvals = betabin_wMU$pvals,
+         bin_wMI_pvals = bin_wMI$pvals,
+         bin_wMU_pvals = bin_wMU$pvals,
+         fisher_pvals = fisher_pvals)
+```
+
+## Run simulation ten times
+
+```{r}
+set.seed(123)
+for (i in 1:nrow(proporC1)){
+  ## cell selection
+  cell_sltL = cellSelect(sim_mat, origLabels, proporC1[i,], proporC2[i,], sample_size)
+  ## clustering
+  integratedSamples = runSeurat(cell_sltL, setresolu)
+  plot = DimPlot(integratedSamples, reduction = "umap", split.by = "condition") + ggtitle("Cluster Results of Different Clusters in Different Samples")
+  print(plot)
+  
+  ## DCATS
+  conf.mat<-table(Idents(integratedSamples), c(cell_sltL$origLabelsC1, cell_sltL$origLabelsC2))
+  cond1 = integratedSamples@active.ident[integratedSamples$condition == "Cond1"]
+  cond2 = integratedSamples@active.ident[integratedSamples$condition == "Cond2"]
+  countC1 = table(cond1)
+  countC2 = table(cond2)
+  ## DCATS---betabinLRT
+  betabin_noBC = betabinLRT_rw(countC1, countC2, bias_corr = FALSE)
+  ##  DCATS---betabinLRT with Bias correction from similarity matrix
+  simil_matI = get_similarity_mat(length(probC1), confuse_rate=0)
+  simil_matU = get_similarity_mat(length(probC1), confuse_rate=0.1)
+  betabin_wBC_I = betabinLRT_rw(countC1, countC2, bias_corr = TRUE, similarity_mat = simil_matI)
+  betabin_wBC_U = betabinLRT_rw(countC1, countC2, bias_corr = TRUE, similarity_mat = simil_matU)
+  ## DCATS---betabin with similarity matrix (backward-forward)
+  betabin_wMI = dcats_betabin(countC1, countC2, similarity_mat = simil_matI, n_samples = 100, binom_only = FALSE)
+  betabin_wMU = dcats_betabin(countC1, countC2, similarity_mat = simil_matU, n_samples = 100, binom_only = FALSE)
+  bin_wMI = dcats_betabin(countC1, countC2, similarity_mat = simil_matI, n_samples = 100)
+  bin_wMU = dcats_betabin(countC1, countC2, similarity_mat = simil_matU, n_samples = 100)
+  
+  ## fisher's exact test
+  counts1 = countC1
+  counts2 = countC2
+  ### Check counts1 and counts2 shape
+  if (length(counts1) == 1 || is.null(dim(counts1)) || length(dim(counts1)) < 2) {
+    counts1 = matrix(counts1, nrow=1)
+  }
+  if (length(counts2) == 1 || is.null(dim(counts2)) || length(dim(counts2)) < 2) {
+    counts2 = matrix(counts2, nrow=1)
+  }
+  ### set up
+  totalCounts1 = colSums(counts1)
+  totalCounts2 = colSums(counts2)
+  count_mtrx = rbind(totalCounts1, totalCounts2)
+  ### test 
+  fisher_pvals = rep(NA,ncol(count_mtrx))
+  for (i in 1:ncol(count_mtrx)) {
+    tested_table = cbind(count_mtrx[, i], rowSums(count_mtrx)-count_mtrx[, i])
+    fisher_pvals[i] = fisher.test(tested_table)$p.value
+  }
+  
+  ## combind results
+  cluster_map = apply(conf.mat, 2, which.max) %>% 
+    plyr::mapvalues(from = c(1:cluster_num), to = c("A", "B", "C", "D", "E", "F")[1:cluster_num]) %>% 
+    as_tibble() %>% 
+    mutate(truth = c("N", "P", "P")) %>% 
+    dplyr::rename(cluster = value) %>% 
+    arrange(cluster)
+  cluster_map %>% 
+    mutate(betabin_noBC_pvals = betabin_noBC$pvals,
+           betabin_wBCI_pvals = betabin_wBC_I$pvals,
+           betabin_wBCU_pvals = betabin_wBC_U$pvals,
+           betabin_wMI_pvals = betabin_wMI$pvals,
+           betabin_wMU_pvals = betabin_wMU$pvals,
+           bin_wMI_pvals = bin_wMI$pvals,
+           bin_wMU_pvals = bin_wMU$pvals,
+           fisher_pvals = fisher_pvals)
+}
+```
+
+
+
+
+## Codes
+
+```{r, ref.label=knitr::all_labels(),echo=TRUE,eval=FALSE}
+```

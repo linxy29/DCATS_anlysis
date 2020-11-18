@@ -1,0 +1,49 @@
+---
+title: "Simulation_plus5_2"
+output: html_document
+---
+
+Try theoretical simulation for figure 1
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message=FALSE)
+```
+
+```{r,message=FALSE,warning=FALSE}
+library(splatter)
+library(Seurat)
+library(speckle)
+library(DCATS)
+library(ggplot2)
+library(tidyverse)
+library(diffcyt)
+library(MCMCpack)
+```
+
+```{r}
+source("functionsV2.r")
+```
+
+Fig 1 (theoretical simulation might be enough): the usefulness of using similarity matrix to correct the bias;
+
+```{r}
+set.seed(123)
+K = sample(3:6, 1)
+totals1 = ceiling(runif(1, 300, 1000))
+totals2 = ceiling(runif(1, 300, 1000))
+diri_s1 = rep(1, K) * 20
+diri_s2 = rep(1, K) * 20
+simil_mat = get_similarity_mat(K, confuse_rate=0.2)
+sim_dat <- DCATS::simulator_base(totals1, totals2, diri_s1, diri_s2, simil_mat)
+```
+
+```{r}
+betabin_noBC = betabinLRT_rw(sim_dat[[1]], sim_dat[[2]], bias_corr = FALSE)
+simil_matU = get_similarity_mat(K, confuse_rate=0.1)
+betabin_wBC_U = betabinLRT_rw(sim_dat[[1]], sim_dat[[2]], bias_corr = TRUE, similarity_mat = simil_matU)
+```
+
+```{r}
+
+```
+

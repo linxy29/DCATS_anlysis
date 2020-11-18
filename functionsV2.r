@@ -11,42 +11,42 @@ if(FALSE){
 }
 
 ## function1: cell selection
-cellSelect = function(sim_mat, origLabels, ppNor, ppMut, sample_size){
+cellSelect = function(sim_mat, origLabels, ppC1, ppC2, sample_size){
   set.seed(123)
-  cell_numNor = (sample_size*ppNor) %>% ceiling()
-  cell_numMut = (sample_size*ppNor) %>% ceiling()
+  cell_numC1 = (sample_size*ppC1) %>% ceiling()
+  cell_numC2 = (sample_size*ppC2) %>% ceiling()
   ## condition 1
-  group1_idx = c(1:length(origLabels))[origLabels == "Group1"] %>% sample(cell_numNor[1])
-  group2_idx = c(1:length(origLabels))[origLabels == "Group2"] %>% sample(cell_numNor[2])
-  group3_idx = c(1:length(origLabels))[origLabels == "Group3"] %>% sample(cell_numNor[3])
-  indexNor = c(group1_idx, group2_idx, group3_idx) %>% sort()
-  summary(indexNor)
-  simNor_mat = sim_mat[,indexNor]
-  origLabelsNor = origLabels[indexNor]
+  group1_idx = c(1:length(origLabels))[origLabels == "Group1"] %>% sample(cell_numC1[1])
+  group2_idx = c(1:length(origLabels))[origLabels == "Group2"] %>% sample(cell_numC1[2])
+  group3_idx = c(1:length(origLabels))[origLabels == "Group3"] %>% sample(cell_numC1[3])
+  indexC1 = c(group1_idx, group2_idx, group3_idx) %>% sort()
+  summary(indexC1)
+  simC1_mat = sim_mat[,indexC1]
+  origLabelsC1 = origLabels[indexC1]
   ## condition 2
-  group1_idx = c(1:length(origLabels))[origLabels == "Group1"] %>% sample(cell_numMut[1])
-  group2_idx = c(1:length(origLabels))[origLabels == "Group2"] %>% sample(cell_numMut[2])
-  group3_idx = c(1:length(origLabels))[origLabels == "Group3"] %>% sample(cell_numMut[3])
-  indexMut = c(group1_idx, group2_idx, group3_idx) %>% sort()
-  summary(indexMut)
-  simMut_mat = sim_mat[,indexMut]
-  origLabelsMut = origLabels[indexMut]
-  return(cell_sltL = list(simNor_mat = simNor_mat, simMut_mat = simMut_mat, origLabelsNor = origLabelsNor, origLabelsMut = origLabelsMut))
+  group1_idx = c(1:length(origLabels))[origLabels == "Group1"] %>% sample(cell_numC2[1])
+  group2_idx = c(1:length(origLabels))[origLabels == "Group2"] %>% sample(cell_numC2[2])
+  group3_idx = c(1:length(origLabels))[origLabels == "Group3"] %>% sample(cell_numC2[3])
+  indexC2 = c(group1_idx, group2_idx, group3_idx) %>% sort()
+  summary(indexC2)
+  simC2_mat = sim_mat[,indexC2]
+  origLabelsC2 = origLabels[indexC2]
+  return(cell_sltL = list(simC1_mat = simC1_mat, simC2_mat = simC2_mat, origLabelsC1 = origLabelsC1, origLabelsC2 = origLabelsC2))
 }
 
 ## function2: Seurat process(might need few minutes)
 runSeurat = function(cell_sltL, setresolu){
   # set input
-  simNor_mat = cell_sltL$simNor_mat
-  simMut_mat = cell_sltL$simMut_mat
+  simC1_mat = cell_sltL$simC1_mat
+  simC2_mat = cell_sltL$simC2_mat
   
   # pre-process
-  seuratNor <- CreateSeuratObject(counts = simNor_mat, project="Splatter")
-  seuratNor <- AddMetaData(object = seuratNor, metadata = rep("Normal", dim(simNor_mat)[2]), col.name = 'condition')
-  seuratMut <- CreateSeuratObject(counts = simMut_mat, project="Splatter")
-  seuratMut <- AddMetaData(object = seuratMut, metadata = rep("Mutate", dim(simNor_mat)[2]), col.name = 'condition')
+  seuratC1 <- CreateSeuratObject(counts = simC1_mat, project="Splatter")
+  seuratC1 <- AddMetaData(object = seuratC1, metadata = rep("Cond1", dim(simC1_mat)[2]), col.name = 'condition')
+  seuratC2 <- CreateSeuratObject(counts = simC2_mat, project="Splatter")
+  seuratC2 <- AddMetaData(object = seuratC2, metadata = rep("Cond2", dim(simC2_mat)[2]), col.name = 'condition')
   
-  listSamples = list(normal = seuratNor, mutate = seuratMut)
+  listSamples = list(cond2 = seuratC1, cond2 = seuratC2)
   # log-normalization and identify variable features
   for (i in 1:length(listSamples)) {
     listSamples[[i]] <- NormalizeData(listSamples[[i]], verbose = FALSE)
@@ -112,10 +112,12 @@ betabinLRT_rw <- function(counts1, counts2, pseudo_count=NULL, binom_only=FALSE,
     for (i in seq_len(nrow(counts1))) {
       counts1_latent[i, ] <- sum(counts1[i, ]) *
         multinom_EM(counts1[i, ], similarity_mat, verbose = FALSE)$mu
+      counts1_latent[i, ] = ceiling(counts1_latent[i, ])
     }
     for (i in seq_len(nrow(counts2))) {
       counts2_latent[i, ] <- sum(counts2[i, ]) *
         multinom_EM(counts2[i, ], similarity_mat, verbose = FALSE)$mu
+      counts2_latent[i, ] = ceiling(counts2_latent[i, ])
     }
   }
   
