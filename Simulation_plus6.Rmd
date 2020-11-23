@@ -1,0 +1,106 @@
+---
+title: "Simulation_plus6"
+output: html_document
+---
+
+This is the version create more than one duplicate in each sample.
+
+Questions:
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message=FALSE)
+```
+
+```{r,message=FALSE,warning=FALSE}
+library(splatter)
+library(Seurat)
+library(speckle)
+library(DCATS)
+library(ggplot2)
+library(tidyverse)
+library(diffcyt)
+library(MCMCpack)
+```
+
+## get seed files
+
+```{r, eval=FALSE}
+## Kang's data
+exp6_cond1 = read.delim("C:/#Code/R/Ho_DCATS/data/real_word/Exp6_Kang/GSE96583_batch1.total.tsne.df.tsv")
+exp6_cond2 = read.delim("C:/#Code/R/Ho_DCATS/data/real_word/Exp6_Kang/GSE96583_batch2.total.tsne.df.tsv")
+exp6_totals = list(totals1 = table(exp6_cond1$batch), totals2 = table(exp6_cond2$stim))
+saveRDS(exp6_totals, "./data/real_word/exp6_totals.rds")
+exp6_totals = readRDS("./data/real_word/exp6_totals.rds")
+print(exp6_totals)
+
+##AML data
+exp5_AML <- read.delim("./data/real_word/Exp5_Galen/GSM3587924_AML1012-D0.anno.txt")
+exp5_BM1 <- read.delim("./data/real_word/Exp5_Galen/GSM3587996_BM1.anno.txt")
+exp5_BM2 <- read.delim("./data/real_word/Exp5_Galen/GSM3587997_BM2.anno.txt")
+exp5_BM3 <- read.delim("./data/real_word/Exp5_Galen/GSM3587999_BM3.anno.txt")
+exp5_BM4 <- read.delim("./data/real_word/Exp5_Galen/GSM3588001_BM4.anno.txt")
+exp5_totals = list(totals1 = nrow(exp5_AML), totals2 = c(nrow(exp5_BM1), nrow(exp5_BM2), nrow(exp5_BM3), nrow(exp5_BM4)))
+saveRDS(exp5_totals, "./data/real_word/exp5_totals.rds")
+exp5_totals = readRDS("./data/real_word/exp5_totals.rds")
+print(exp5_totals)
+```
+
+```{r}
+## input seed file
+exp6_totals = readRDS("./data/real_word/exp6_totals.rds")
+print(exp6_totals)
+exp5_totals = readRDS("./data/real_word/exp5_totals.rds")
+print(exp5_totals)
+```
+
+```{r}
+cluster_num = 3
+probC1 = c(1/3, 1/3, 1/3)
+probC2 = c(1/3, 1/2, 1/6)
+magnitude = 50 # indicate how simulated proportion far away from true, the larger the closer
+```
+
+## Simulate cells pool
+
+```{r}
+set.seed(123)
+prob = c(1/3, 1/3, 1/3)
+batch_size = 10000
+de_prob = runif(3, 0.2, 0.6)
+setresolu = 0.2
+sample_size = 1000
+```
+
+```{r}
+set.seed(123)
+params = readRDS("./data/ovarian_params.rds")
+#params = readRDS("./data/mnnCT7params.rds")
+param.groups <- setParams(params, batchCells = batch_size, nGenes = 1000)
+sim <- splatSimulateGroups(param.groups, group.prob = prob, de.prob = de_prob, de.facLoc = 0.01, verbose = FALSE)
+sim_mat <- counts(sim)
+origLabels = sim@colData@listData$Group
+```
+
+## simulate proportions
+
+```{r}
+totals1 = exp6_totals[[1]]
+totals2 = exp6_totals[[2]]
+```
+
+```{r}
+K = length(probC1)
+n_rep1 = length(totals1)
+n_rep2 = length(totals2)
+
+prop_cond1 = matrix(0, n_rep1, K)
+prop_cond2 = matrix(0, n_rep2, K)
+numb_cond1 <- matrix(0, n_rep1, K)
+numb_cond2 <- matrix(0, n_rep2, K)
+
+for (i in seq_len(n_rep1)) {
+        prop_cond1[i, ] <- MCMCpack::rdirichlet(1, dirichlet_s1)
+        numb_cond1[i, ] <- rmultinom(1, totals_cond1[i], prop_cond1[i, ])
+    }
+```
+
