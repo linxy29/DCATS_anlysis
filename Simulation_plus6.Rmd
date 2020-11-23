@@ -26,8 +26,8 @@ library(MCMCpack)
 
 ```{r, eval=FALSE}
 ## Kang's data
-exp6_cond1 = read.delim("C:/#Code/R/Ho_DCATS/data/real_word/Exp6_Kang/GSE96583_batch1.total.tsne.df.tsv")
-exp6_cond2 = read.delim("C:/#Code/R/Ho_DCATS/data/real_word/Exp6_Kang/GSE96583_batch2.total.tsne.df.tsv")
+exp6_cond1 = read.delim("./data/real_word/Exp6_Kang/GSE96583_batch1.total.tsne.df.tsv")
+exp6_cond2 = read.delim("./data/real_word/Exp6_Kang/GSE96583_batch2.total.tsne.df.tsv")
 exp6_totals = list(totals1 = table(exp6_cond1$batch), totals2 = table(exp6_cond2$stim))
 saveRDS(exp6_totals, "./data/real_word/exp6_totals.rds")
 exp6_totals = readRDS("./data/real_word/exp6_totals.rds")
@@ -79,6 +79,9 @@ param.groups <- setParams(params, batchCells = batch_size, nGenes = 1000)
 sim <- splatSimulateGroups(param.groups, group.prob = prob, de.prob = de_prob, de.facLoc = 0.01, verbose = FALSE)
 sim_mat <- counts(sim)
 origLabels = sim@colData@listData$Group
+# Save multiple objects
+save(sim_mat, origLabels, file = "./data/cells_pool.RData")
+load("./data/cells_pool.RData")
 ```
 
 ## simulate proportions
