@@ -76,7 +76,6 @@ sim_mat <- counts(sim)
 origLabels = sim@colData@listData$Group
 ```
 
-
 ## simulate proportions
 
 ```{r}
