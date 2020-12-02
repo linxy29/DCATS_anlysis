@@ -357,3 +357,128 @@ pancreas.list <- SplitObject(panc8, split.by = "tech")
 pancreas.list <- pancreas.list[c("celseq", "celseq2", "fluidigmc1", "smartseq2")]
 ```
 
+## fastMNN
+
+```{r}
+library(Seurat)
+library(SeuratData)
+library(SeuratWrappers)
+
+InstallData("pbmcsca")
+data("pbmcsca")
+pbmcsca <- NormalizeData(pbmcsca)
+pbmcsca <- FindVariableFeatures(pbmcsca)
+pbmcsca <- RunFastMNN(object.list = SplitObject(pbmcsca, split.by = "Method"))
+pbmcsca <- RunUMAP(pbmcsca, reduction = "mnn", dims = 1:30)
+pbmcsca <- FindNeighbors(pbmcsca, reduction = "mnn", dims = 1:30)
+pbmcsca <- FindClusters(pbmcsca)
+DimPlot(pbmcsca, group.by = c("Method", "ident", "CellType"), ncol = 3)
+```
+
+
+```{r}
+library(scRNAseq)
+sce <- GrunPancreasData()
+print(sce)
+```
+
+```{r}
+library(scuttle)
+qcstats <- perCellQCMetrics(sce)
+qcfilter <- quickPerCellQC(qcstats, percent_subsets="altexps_ERCC_percent")
+sce <- sce[,!qcfilter$discard]
+summary(qcfilter$discard)
+```
+
+```{r}
+library(scran)
+clusters <- quickCluster(sce)
+sce <- computeSumFactors(sce, clusters=clusters)
+summary(sizeFactors(sce))
+sce2 <- computeSpikeFactors(sce, "ERCC")
+summary(sizeFactors(sce2))
+sce <- logNormCounts(sce)
+```
+
+```{r}
+dec <- modelGeneVar(sce)
+plot(dec$mean, dec$total, xlab="Mean log-expression", ylab="Variance")
+curve(metadata(dec)$trend(x), col="blue", add=TRUE)
+## with spike-ins
+dec2 <- modelGeneVarWithSpikes(sce, 'ERCC')
+plot(dec2$mean, dec2$total, xlab="Mean log-expression", ylab="Variance")
+points(metadata(dec2)$mean, metadata(dec2)$var, col="red")
+curve(metadata(dec2)$trend(x), col="blue", add=TRUE)
+```
+
+```{r}
+dec3 <- modelGeneVar(sce, block=sce$donor)
+per.block <- dec3$per.block
+par(mfrow=c(3, 2))
+for (i in seq_along(per.block)) {
+    decX <- per.block[[i]]
+    plot(decX$mean, decX$total, xlab="Mean log-expression", 
+        ylab="Variance", main=names(per.block)[i])
+    curve(metadata(decX)$trend(x), col="blue", add=TRUE)
+}
+```
+
+## ROCR
+
+```{r}
+library(ROCR)
+data(ROCR.simple)
+df <- data.frame(ROCR.simple)
+pred <- prediction(df$predictions, df$labels)
+perf <- performance(pred,"tpr","fpr")
+plot(perf,colorize=TRUE)
+```
+
+```{r}
+# Create a basic roc object
+data(aSAH)
+rocobj <- roc(aSAH$outcome, aSAH$s100b)
+rocobj2 <- roc(aSAH$outcome, aSAH$wfns)
+
+library(ggplot2)
+g <- ggroc(rocobj)
+g
+# with additional aesthetics:
+ggroc(rocobj, alpha = 0.5, colour = "red", linetype = 2, size = 2)
+
+# You can then your own theme, etc.
+g + theme_minimal() + ggtitle("My ROC curve") + 
+    geom_segment(aes(x = 1, xend = 0, y = 0, yend = 1), color="grey", linetype="dashed")
+
+# And change axis labels to FPR/FPR
+gl <- ggroc(rocobj, legacy.axes = TRUE)
+gl
+gl + xlab("FPR") + ylab("TPR") + 
+    geom_segment(aes(x = 0, xend = 1, y = 0, yend = 1), color="darkgrey", linetype="dashed")
+
+# Multiple curves:
+g2 <- ggroc(list(s100b=rocobj, wfns=rocobj2, ndka=roc(aSAH$outcome, aSAH$ndka)))
+g2
+
+# This is equivalent to using roc.formula:
+roc.list <- roc(outcome ~ s100b + ndka + wfns, data = aSAH)
+g.list <- ggroc(roc.list)
+g.list
+
+# with additional aesthetics:
+g3 <- ggroc(roc.list, linetype=2)
+g3
+g4 <- ggroc(roc.list, aes="linetype", color="red")
+g4
+# changing multiple aesthetics:
+g5 <- ggroc(roc.list, aes=c("linetype", "color"))
+g5
+
+# OR faceting
+g.list + facet_grid(.~name) + theme(legend.position="none")
+# To have all the curves of the same color, use aes="group":
+g.group <- ggroc(roc.list, aes="group")
+g.group
+g.group + facet_grid(.~name)
+```
+

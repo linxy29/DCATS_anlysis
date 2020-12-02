@@ -29,8 +29,8 @@ Fig 1 (theoretical simulation might be enough): the usefulness of using similari
 ```{r}
 set.seed(123)
 K = sample(3:6, 1)
-totals1 = ceiling(runif(1, 300, 1000))
-totals2 = ceiling(runif(1, 300, 1000))
+totals1 = ceiling(runif(4, 300, 1000))
+totals2 = ceiling(runif(2, 300, 1000))
 diri_s1 = rep(1, K) * 20
 diri_s2 = rep(1, K) * 20
 simil_mat = get_similarity_mat(K, confuse_rate=0.2)
