@@ -73,7 +73,7 @@ print(exp5_totals)
 cluster_num = 3
 probC1 = c(1/3, 1/3, 1/3)
 probC2 = c(1/3, 1/2, 1/6)
-magnitude = 50 # indicate how simulated proportion far away from true, the larger the closer
+magnitude = 30 # indicate how simulated proportion far away from true, the larger the closer
 setresolu = 0.2
 ```
 
@@ -259,7 +259,7 @@ cluster_map %>%
 
 ```{r}
 ## do 50 times
-simulation_times = 20
+simulation_times = 50
 set.seed(123)
 simulationDF = data.frame()
 for (i in 1:simulation_times){

@@ -1,0 +1,277 @@
+---
+title: "Try milo data"
+output: html_document
+---
+
+Try simulated data getting from milo, see whether there is different 
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message=FALSE)
+```
+
+```{r,message=FALSE,warning=FALSE}
+library(splatter)
+library(Seurat)
+library(speckle)
+library(DCATS)
+library(ggplot2)
+library(tidyverse)
+library(diffcyt)
+library(MCMCpack)
+```
+
+```{r}
+source("functionsV2.r")
+```
+
+```{r}
+setresolu = 0.5
+```
+
+## Data Input
+
+```{r}
+load("./data/Milo/sim_trajectory.RData")
+head(sim_trajectory$meta, 20)
+## group_id: the true cluster
+## Condition: the same us our condition
+## Replicate: duplicates
+## Sample: the same as our batch
+sim_trajectory$meta %>% 
+  group_by(group_id, Condition) %>% 
+  summarise(n = n()) %>% 
+  ggplot(mapping = aes(x = factor(group_id), y = n, fill = Condition)) +
+  geom_bar(stat = 'identity', position = 'dodge')
+```
+
+### Using the whole data
+
+```{r}
+trueLabels = sim_trajectory$meta$group_id
+seuratMilo = as.Seurat(sim_trajectory$SCE)
+seuratMilo <- AddMetaData(object = seuratMilo, metadata = sim_trajectory$meta$Sample, col.name = 'batch')
+seuratMilo <- AddMetaData(object = seuratMilo, metadata = sim_trajectory$meta$Condition, col.name = 'condition')
+```
+
+Seem no need to do integration
+
+```{r}
+seuratMilo = NormalizeData(seuratMilo, verbose = FALSE)
+seuratMilo = FindVariableFeatures(seuratMilo, selection.method = "vst", nfeatures = 2000, verbose = FALSE)
+
+# clustering
+seuratMilo <- ScaleData(seuratMilo, verbose = FALSE)
+seuratMilo <- RunPCA(seuratMilo, npcs = 30, verbose = FALSE)
+seuratMilo <- FindNeighbors(seuratMilo, dims = 1:30, verbose = FALSE)
+seuratMilo <- FindClusters(seuratMilo, resolution = setresolu, algorithm=2, verbose = FALSE)
+seuratMilo <- RunUMAP(seuratMilo, reduction = "pca", dims = 1:30, verbose = FALSE)
+  
+# change labels to A, B, C
+seuratMilo@active.ident = seuratMilo@active.ident %>% 
+  plyr::mapvalues(from = c(0:11), to = c("C1", "C2", "C3", "C4", "C5", "F", "G", "H", "I", "J", "K", "L"))
+
+plot = DimPlot(seuratMilo, reduction = "umap", split.by = "condition") + ggtitle("Cluster Results of Different Clusters in Different Samples")
+print(plot)
+
+conf.mat<-table(Idents(seuratMilo),trueLabels)
+print(conf.mat)
+```
+
+```{r}
+# get count data
+  dfRes = data.frame(clusterRes = seuratMilo@active.ident, batch = seuratMilo$batch, condition = seuratMilo$condition) %>% 
+    tibble::rownames_to_column("cellID")
+```
+
+```{r}
+## data convert
+numb_cond1 = dfRes %>% 
+  filter(condition == "A") %>% 
+  group_by(clusterRes, batch) %>% 
+  summarise(n = n()) %>% 
+  pivot_wider(names_from = "clusterRes", values_from = "n") %>%
+  column_to_rownames(var = "batch")
+numb_cond2 = dfRes %>% 
+  filter(condition == "B") %>% 
+  group_by(clusterRes, batch) %>% 
+  summarise(n = n()) %>% 
+  pivot_wider(names_from = "clusterRes", values_from = "n") %>%
+  column_to_rownames(var = "batch")
+conf.mat<-table(Idents(seuratMilo),trueLabels)
+```
+
+```{r}
+## test
+## DCATS---betabinLRT
+betabin_noBC = betabinLRT_rw(as.matrix(numb_cond1), as.matrix(numb_cond2), bias_corr = FALSE)
+## DCATS---betabinLRT with Bias correction from similarity matrix
+simil_matI = get_similarity_mat(dim(numb_cond1)[2], confuse_rate=0)
+simil_matU = get_similarity_mat(dim(numb_cond1)[2], confuse_rate=0.1)
+betabin_wBC_I = betabinLRT_rw(as.matrix(numb_cond1), as.matrix(numb_cond2), bias_corr = TRUE, similarity_mat = simil_matI)
+betabin_wBC_U = betabinLRT_rw(as.matrix(numb_cond1), as.matrix(numb_cond2), bias_corr = TRUE, similarity_mat = simil_matU)
+  ## DCATS---betabin with similarity matrix (backward-forward)
+  betabin_wMI = dcats_betabin(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = simil_matI, n_samples = 100, binom_only = FALSE)
+  betabin_wMU = dcats_betabin(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = simil_matU, n_samples = 100, binom_only = FALSE)
+  bin_wMI = dcats_betabin(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = simil_matI, n_samples = 100)
+  bin_wMU = dcats_betabin(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = simil_matU, n_samples = 100)
+  ## Fisher's exact test
+  fisher_pvals = getFisher(as.matrix(numb_cond1), as.matrix(numb_cond2))
+  ## speckle
+  speckleRes = propeller(clusters = dfRes$clusterRes, sample = dfRes$batch, group = dfRes$condition) %>% 
+    dplyr::rename(cluster = BaselineProp.clusters,
+                speckle_pvals = FDR) %>% 
+    dplyr::select(cluster, speckle_pvals)
+  ## diffcyt
+  diffcytP = getDiffcyt(numb_cond1, numb_cond2, seuratMilo)
+  ## results
+  cluster_map = apply(conf.mat, 2, which.max) %>% 
+    plyr::mapvalues(from = c(1:dim(numb_cond1)[2]), to = c("C1", "C2", "C3", "C4", "C5", "C6")[1:dim(numb_cond1)[2]]) %>% 
+    as_tibble() %>% 
+    mutate(truth = c("N", "P", "N")) %>% 
+    dplyr::rename(cluster = value) %>% 
+    arrange(cluster)
+  all_res = cluster_map %>% 
+    mutate(betabin_noBC_pvals = betabin_noBC$pvals,
+           betabin_wBCI_pvals = betabin_wBC_I$pvals,
+           betabin_wBCU_pvals = betabin_wBC_U$pvals,
+           betabin_wMI_pvals = betabin_wMI$pvals,
+           betabin_wMU_pvals = betabin_wMU$pvals,
+           bin_wMI_pvals = bin_wMI$pvals,
+           bin_wMU_pvals = bin_wMU$pvals,
+           fisher_pvals = fisher_pvals) %>% 
+    merge(speckleRes, by = "cluster") %>% 
+    merge(diffcytP, by = "cluster")
+```
+
+True cluster and predicted cluster cannot be map to each other.
+
+```{r}
+print(all_res)
+```
+
+Not sure whether Block are actually cluster ID
+
+```{r}
+load("./data/Milo/sim_discrete.RData")
+head(sim_discrete$meta, 20)
+## group_id: the true cluster
+## Condition: the same us our condition
+## Replicate: duplicates
+## Sample: the same as our batch
+sim_discrete$meta %>% 
+  group_by(Block, Condition) %>% 
+  summarise(n = n()) %>% 
+  ggplot(mapping = aes(x = factor(Block), y = n, fill = Condition)) +
+  geom_bar(stat = 'identity', position = 'dodge')
+```
+
+### Using the whole data
+
+```{r}
+library(Matrix)
+sim_discrete$SCE@assays@data$logcounts = Matrix(sim_discrete$SCE@assays@data$logcounts, sparse = TRUE)
+```
+
+```{r}
+trueLabels = sim_discrete$meta$Block
+seuratMilo = as.Seurat(sim_discrete$SCE, counts = "counts", data = "logcounts",)
+seuratMilo <- AddMetaData(object = seuratMilo, metadata = sim_discrete$meta$Sample, col.name = 'batch')
+seuratMilo <- AddMetaData(object = seuratMilo, metadata = sim_discrete$meta$Condition, col.name = 'condition')
+```
+
+Seem no need to do integration
+
+```{r}
+seuratMilo = NormalizeData(seuratMilo, verbose = FALSE)
+seuratMilo = FindVariableFeatures(seuratMilo, selection.method = "vst", nfeatures = 2000, verbose = FALSE)
+
+# clustering
+seuratMilo <- ScaleData(seuratMilo, verbose = FALSE)
+seuratMilo <- RunPCA(seuratMilo, npcs = 30, verbose = FALSE)
+seuratMilo <- FindNeighbors(seuratMilo, dims = 1:30, verbose = FALSE)
+seuratMilo <- FindClusters(seuratMilo, resolution = setresolu, algorithm=2, verbose = FALSE)
+seuratMilo <- RunUMAP(seuratMilo, reduction = "pca", dims = 1:30, verbose = FALSE)
+  
+# change labels to A, B, C
+seuratMilo@active.ident = seuratMilo@active.ident %>% 
+  plyr::mapvalues(from = c(0:11), to = c("C1", "C2", "C3", "C4", "C5", "F", "G", "H", "I", "J", "K", "L"))
+
+plot = DimPlot(seuratMilo, reduction = "umap", split.by = "condition") + ggtitle("Cluster Results of Different Clusters in Different Samples")
+print(plot)
+
+conf.mat<-table(Idents(seuratMilo),trueLabels)
+print(conf.mat)
+```
+
+```{r}
+# get count data
+  dfRes = data.frame(clusterRes = seuratMilo@active.ident, batch = seuratMilo$batch, condition = seuratMilo$condition) %>% 
+    tibble::rownames_to_column("cellID")
+```
+
+```{r}
+## data convert
+numb_cond1 = dfRes %>% 
+  filter(condition == "A") %>% 
+  group_by(clusterRes, batch) %>% 
+  summarise(n = n()) %>% 
+  pivot_wider(names_from = "clusterRes", values_from = "n") %>%
+  column_to_rownames(var = "batch")
+numb_cond2 = dfRes %>% 
+  filter(condition == "B") %>% 
+  group_by(clusterRes, batch) %>% 
+  summarise(n = n()) %>% 
+  pivot_wider(names_from = "clusterRes", values_from = "n") %>%
+  column_to_rownames(var = "batch")
+conf.mat<-table(Idents(seuratMilo),trueLabels)
+```
+
+```{r}
+## test
+## DCATS---betabinLRT
+betabin_noBC = betabinLRT_rw(as.matrix(numb_cond1), as.matrix(numb_cond2), bias_corr = FALSE)
+## DCATS---betabinLRT with Bias correction from similarity matrix
+simil_matI = get_similarity_mat(dim(numb_cond1)[2], confuse_rate=0)
+simil_matU = get_similarity_mat(dim(numb_cond1)[2], confuse_rate=0.1)
+betabin_wBC_I = betabinLRT_rw(as.matrix(numb_cond1), as.matrix(numb_cond2), bias_corr = TRUE, similarity_mat = simil_matI)
+betabin_wBC_U = betabinLRT_rw(as.matrix(numb_cond1), as.matrix(numb_cond2), bias_corr = TRUE, similarity_mat = simil_matU)
+  ## DCATS---betabin with similarity matrix (backward-forward)
+  betabin_wMI = dcats_betabin(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = simil_matI, n_samples = 100, binom_only = FALSE)
+  betabin_wMU = dcats_betabin(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = simil_matU, n_samples = 100, binom_only = FALSE)
+  bin_wMI = dcats_betabin(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = simil_matI, n_samples = 100)
+  bin_wMU = dcats_betabin(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = simil_matU, n_samples = 100)
+  ## Fisher's exact test
+  fisher_pvals = getFisher(as.matrix(numb_cond1), as.matrix(numb_cond2))
+  ## speckle
+  speckleRes = propeller(clusters = dfRes$clusterRes, sample = dfRes$batch, group = dfRes$condition) %>% 
+    dplyr::rename(cluster = BaselineProp.clusters,
+                speckle_pvals = FDR) %>% 
+    dplyr::select(cluster, speckle_pvals)
+  ## diffcyt
+  diffcytP = getDiffcyt(numb_cond1, numb_cond2, seuratMilo)
+  ## results
+  cluster_map = apply(conf.mat, 2, which.max) %>% 
+    plyr::mapvalues(from = c(1:dim(numb_cond1)[2]), to = c("C1", "C2", "C3", "C4", "C5", "C6")[1:dim(numb_cond1)[2]]) %>% 
+    as_tibble() %>% 
+    mutate(truth = c("N", "P", "N")) %>% 
+    dplyr::rename(cluster = value) %>% 
+    arrange(cluster)
+  all_res = cluster_map %>% 
+    mutate(betabin_noBC_pvals = betabin_noBC$pvals,
+           betabin_wBCI_pvals = betabin_wBC_I$pvals,
+           betabin_wBCU_pvals = betabin_wBC_U$pvals,
+           betabin_wMI_pvals = betabin_wMI$pvals,
+           betabin_wMU_pvals = betabin_wMU$pvals,
+           bin_wMI_pvals = bin_wMI$pvals,
+           bin_wMU_pvals = bin_wMU$pvals,
+           fisher_pvals = fisher_pvals) %>% 
+    #merge(speckleRes, by = "cluster") %>% 
+    merge(diffcytP, by = "cluster")
+```
+
+True cluster and predicted cluster cannot be map to each other.
+
+```{r}
+print(all_res)
+```
+
