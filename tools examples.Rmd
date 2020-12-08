@@ -290,6 +290,23 @@ table(cond, cellTypes)
 Perform scDC (without clustering)
 
 ```{r}
+data(GSE82187.sample)
+mat <- GSE82187
+
+mat <- log2(mat+1)
+
+# set number of clusters (classes defined in colnames)
+nCs <- length(table(colnames(mat)))
+
+# SIMLR
+simlr.result <- scClust(mat, nCs, similarity = "pearson", method = "simlr", seed = 1, cores.ratio = 0)
+
+# K-means
+kmeans.result <- scClust(mat, nCs, similarity = "pearson", method = "kmeans", seed = 1, nstart = 10, iter.max = 10)
+```
+
+
+```{r}
 res_scDC_noClust <- scDC_noClustering(cellTypes, subject, calCI = TRUE, 
                                      calCI_method = c("percentile", "BCa", "multinom"),
                                      nboot = 50)
@@ -307,10 +324,11 @@ densityCI(res_scDC_noClust, c("cond1","cond1","cond1","cond1",
 ```
 
 ```{r}
+#sessionInfo()
 source("glm.R")
-res_GLM <- fitGLM_fixed(res_scDC_noClust, c("cond1","cond1","cond1","cond1",
-                                      "cond2","cond2","cond2","cond2"), 
-                  pairwise = FALSE)
+res_GLM <- fitGLM_fixed(res_scDC_noClust, c("cond1","cond1","cond1","cond1","cond2","cond2","cond2","cond2"), 
+                  pairwise = FALSE, fixed_only = TRUE)
+res_GLM$fit_fixed
 ```
 
 with clustering

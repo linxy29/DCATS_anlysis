@@ -263,12 +263,12 @@ fastMNN = function(slt_sim_matC1, slt_sim_matC2, slt_batchesC1, slt_batchesC2, s
   seuratObj <- CreateSeuratObject(counts = cbind(simNor_mat, simMut_mat), project="Splatter")
   seuratObj <- AddMetaData(object = seuratObj, metadata = c(batchNor, batchMut), col.name = 'batch')
   seuratObj <- AddMetaData(object = seuratObj, metadata = c(rep("Cond1", length(batchNor)), rep("Cond2", length(batchMut))), col.name = 'condition')
-  seuratObj <- NormalizeData(seuratObj)
-  seuratObj <- FindVariableFeatures(seuratObj)
+  seuratObj <- NormalizeData(seuratObj, verbose = FALSE)
+  seuratObj <- FindVariableFeatures(seuratObj, verbose = FALSE)
   integratedSamples <- RunFastMNN(object.list = SplitObject(seuratObj, split.by = "batch"), verbose = FALSE)
-  integratedSamples <- RunUMAP(integratedSamples, reduction = "mnn", dims = 1:30)
-  integratedSamples <- FindNeighbors(integratedSamples, reduction = "mnn", dims = 1:30)
-  integratedSamples <- FindClusters(integratedSamples, resolution = setresolu)
+  integratedSamples <- RunUMAP(integratedSamples, reduction = "mnn", dims = 1:30, verbose = FALSE)
+  integratedSamples <- FindNeighbors(integratedSamples, reduction = "mnn", dims = 1:30, verbose = FALSE)
+  integratedSamples <- FindClusters(integratedSamples, resolution = setresolu, verbose = FALSE)
   
   # change labels to A, B, C
   integratedSamples@active.ident = integratedSamples@active.ident %>% 
@@ -294,7 +294,7 @@ simulator_fastMNN = function(totals1, totals2, probC1, probC2, setresolu){
   slt_origLabelsC1 = vector()
   slt_batchesC1 = character()
   for (i in seq_len(n_rep1)) {
-    prop_cond1[i, ] <- MCMCpack::rdirichlet(1, probC1 * magnitude)
+    prop_cond1[i, ] <- MCMCpack::rdirichlet(1, probC1 * concentration)
     numb_cond1[i, ] <- rmultinom(1, totals1[i], prop_cond1[i, ])
     #numb_cond1[i, ] = (totals1[i] * prop_cond1[i, ]) %>% ceiling()
     cell_slt = cell_slt_dup(numb_cond1[i,], sim_mat, origLabels)
@@ -307,7 +307,7 @@ simulator_fastMNN = function(totals1, totals2, probC1, probC2, setresolu){
   slt_origLabelsC2 = factor()
   slt_batchesC2 = character()
   for (i in seq_len(n_rep2)) {
-    prop_cond2[i, ] <- MCMCpack::rdirichlet(1, probC2 * magnitude)
+    prop_cond2[i, ] <- MCMCpack::rdirichlet(1, probC2 * concentration)
     numb_cond2[i, ] <- rmultinom(1, totals2[i], prop_cond2[i, ])
     cell_slt = cell_slt_dup(numb_cond2[i,], sim_mat, origLabels)
     slt_sim_matC2 = cbind(slt_sim_matC2, cell_slt$sub_sim_mat)
@@ -321,9 +321,11 @@ simulator_fastMNN = function(totals1, totals2, probC1, probC2, setresolu){
   Kprep = integratedSamples@active.ident %>% as.factor() %>% summary() %>% length()
   str_c("Kprep: ", as.character(Kprep)) %>% print()
   str_c("setresolu: ", as.character(setresolu)) %>% print()
-  while (Kprep != 3) {
+  while (Kprep != K & setresolu > 0.03) {
+  #while (Kprep != K) {
     if (Kprep > K){
       setresolu = setresolu - 0.03
+      #if (setresolu <= 0) {setresolu = setresolu + 0.02}
       integratedSamples = fastMNN(slt_sim_matC1, slt_sim_matC2, slt_batchesC1, slt_batchesC2, setresolu)
       Kprep = integratedSamples@active.ident %>% as.factor() %>% summary() %>% length()
       str_c("Kprep: ", as.character(Kprep)) %>% print()
@@ -340,8 +342,13 @@ simulator_fastMNN = function(totals1, totals2, probC1, probC2, setresolu){
   # get count data
   dfRes = data.frame(clusterRes = integratedSamples@active.ident, batch = integratedSamples$batch, condition = integratedSamples$condition) %>% 
     tibble::rownames_to_column("cellID")
-  
-  return(list(integratedSamples = integratedSamples, dfRes = dfRes, trueLabels = c(slt_origLabelsC1, slt_origLabelsC2)))
+  if(Kprep == K){
+    Res = list(integratedSamples = integratedSamples, dfRes = dfRes, trueLabels = c(slt_origLabelsC1, slt_origLabelsC2))
+    return(Res)
+  } else {
+    return(NA)
+  }
+
 }
 
 # function 8: calculate p-values of fisher's exact test

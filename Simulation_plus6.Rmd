@@ -73,7 +73,7 @@ print(exp5_totals)
 cluster_num = 3
 probC1 = c(1/3, 1/3, 1/3)
 probC2 = c(1/3, 1/2, 1/6)
-magnitude = 30 # indicate how simulated proportion far away from true, the larger the closer
+concentration = 30 # indicate how simulated proportion far away from true, the larger the closer
 setresolu = 0.2
 ```
 
@@ -126,7 +126,7 @@ slt_sim_matC1 = matrix(NA, ncol = 0, nrow = 1000)
 slt_origLabelsC1 = vector()
 slt_batchesC1 = character()
 for (i in seq_len(n_rep1)) {
-  prop_cond1[i, ] <- MCMCpack::rdirichlet(1, probC1 * magnitude)
+  prop_cond1[i, ] <- MCMCpack::rdirichlet(1, probC1 * concentration)
   numb_cond1[i, ] <- rmultinom(1, totals1[i], prop_cond1[i, ])
   #numb_cond1[i, ] = (totals1[i] * prop_cond1[i, ]) %>% ceiling()
   cell_slt = cell_slt_dup(numb_cond1[i,], sim_mat, origLabels)
@@ -139,7 +139,7 @@ slt_sim_matC2 = matrix(NA, ncol = 0, nrow = 1000)
 slt_origLabelsC2 = factor()
 slt_batchesC2 = character()
 for (i in seq_len(n_rep2)) {
-  prop_cond2[i, ] <- MCMCpack::rdirichlet(1, probC2 * magnitude)
+  prop_cond2[i, ] <- MCMCpack::rdirichlet(1, probC2 * concentration)
   numb_cond2[i, ] <- rmultinom(1, totals2[i], prop_cond2[i, ])
   cell_slt = cell_slt_dup(numb_cond2[i,], sim_mat, origLabels)
   slt_sim_matC2 = cbind(slt_sim_matC2, cell_slt$sub_sim_mat)
@@ -221,6 +221,7 @@ print(bin_wMU)
 fisher_pvals = getFisher(as.matrix(numb_cond1), as.matrix(numb_cond2))
 print(fisher_pvals)
 ```
+
 ```{r, echo=FALSE, eval=FALSE}
 ## speckle
 speckleRes = propeller(clusters = simulation$dfRes$clusterRes, sample = simulation$dfRes$batch, group = simulation$dfRes$condition) %>% 
@@ -257,7 +258,7 @@ cluster_map %>%
   merge(diffcytP, by = "cluster")
 ```
 
-```{r}
+```{r, message=FALSE, warning=FALSE}
 ## do 50 times
 simulation_times = 50
 set.seed(123)
