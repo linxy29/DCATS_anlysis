@@ -545,7 +545,7 @@ errorRate[rank(errorRate)]
 set.seed(123)
 prob = rep(1/7, 7)
 batch_size = 20000
-de_prob = runif(3, 0.2, 0.6)
+de_prob = runif(7, 0.2, 0.6)
 setresolu = 0.2
 sample_size = 1000
 ```
@@ -560,7 +560,7 @@ sim <- splatSimulateGroups(param.groups, group.prob = prob, de.prob = de_prob, d
 sim_mat <- counts(sim)
 origLabels = sim@colData@listData$Group
 # Save multiple objects
-save(sim_mat, origLabels, file = "./data/cells_pool.RData")
+save(sim_mat, origLabels, file = "./data/cells_pool7.RData")
 ```
 
 ```{r}
