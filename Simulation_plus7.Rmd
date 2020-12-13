@@ -230,13 +230,13 @@ simulationRes = simulationDF %>%
          speckle_Res = ifelse(speckle_pvals < 0.05, 1, 0),
          diffcyt_Res = ifelse(diffcyt_pvals < 0.05, 1, 0))
 
-for (i in 14:23){
+for (i in 14:24){
   simulationRes[,i] = (simulationRes[,i] - simulationRes$truth) %>% 
     abs()
 }
 
 print("errorRate0.05")
-errorRate = colSums(simulationRes[,14:23])/dim(simulationRes[,14:23])[1]
+errorRate = colSums(simulationRes[,14:24])/dim(simulationRes[,14:24])[1]
 errorRate[order(errorRate)]
 ```
 
@@ -378,13 +378,13 @@ simulationRes = simulationDF %>%
          speckle_Res = ifelse(speckle_pvals < 0.05, 1, 0),
          diffcyt_Res = ifelse(diffcyt_pvals < 0.05, 1, 0))
 
-for (i in 14:23){
+for (i in 14:24){
   simulationRes[,i] = (simulationRes[,i] - simulationRes$truth) %>% 
     abs()
 }
 
 print("errorRate0.05")
-errorRate = colSums(simulationRes[,14:23])/dim(simulationRes[,14:23])[1]
+errorRate = colSums(simulationRes[,14:24])/dim(simulationRes[,14:24])[1]
 errorRate[order(errorRate)]
 ```
 
@@ -526,13 +526,13 @@ simulationRes = simulationDF %>%
          speckle_Res = ifelse(speckle_pvals < 0.05, 1, 0),
          diffcyt_Res = ifelse(diffcyt_pvals < 0.05, 1, 0))
 
-for (i in 14:23){
+for (i in 14:24){
   simulationRes[,i] = (simulationRes[,i] - simulationRes$truth) %>% 
     abs()
 }
 
 print("errorRate0.05")
-errorRate = colSums(simulationRes[,14:23])/dim(simulationRes[,14:23])[1]
+errorRate = colSums(simulationRes[,14:24])/dim(simulationRes[,14:24])[1]
 errorRate[order(errorRate)]
 ```
 
@@ -682,13 +682,13 @@ simulationRes = simulationDF %>%
          speckle_Res = ifelse(speckle_pvals < 0.05, 1, 0),
          diffcyt_Res = ifelse(diffcyt_pvals < 0.05, 1, 0))
 
-for (i in 14:23){
+for (i in 14:24){
   simulationRes[,i] = (simulationRes[,i] - simulationRes$truth) %>% 
     abs()
 }
 
 print("errorRate0.05")
-errorRate = colSums(simulationRes[,14:23])/dim(simulationRes[,14:23])[1]
+errorRate = colSums(simulationRes[,14:24])/dim(simulationRes[,14:24])[1]
 errorRate[order(errorRate)]
 ```
 
@@ -699,7 +699,7 @@ errorRate[order(errorRate)]
 set.seed(123)
 prob = rep(1/12, 12)
 batch_size = 30000
-de_prob = runif(3, 0.2, 0.6)
+de_prob = runif(12, 0.2, 0.6)
 setresolu = 0.2
 sample_size = 1000
 ```
@@ -719,6 +719,184 @@ save(sim_mat, origLabels, file = "./data/cells_pool12.RData")
 
 ```{r,eval=FALSE}
 load("./data/cells_pool12.RData")
+```
+
+```{r}
+cluster_num = 12
+probC1 = c(rep(0.1, 4), rep(0.2, 2), rep(0.05, 2), rep(0.025, 4))
+probC2 = c(0.1, 0.1, 0.15, 0.05, 0.2, 0.1, 0.05, 0.1, 0.025, 0.025, 0.05, 0.05)
+concentration = 70 # indicate how simulated proportion far away from true, the larger the closer
+setresolu = 0.7
+rep1 = 3
+rep2 = 2
+```
+
+```{r, message=FALSE, warning=FALSE}
+## do 50 times
+simulation_times = 50
+set.seed(123)
+simulationDF = data.frame()
+time = matrix(NA, nrow = simulation_times, ncol = 6)
+for (i in 1:simulation_times){
+  timeL = rep(NA, 6) # DCATS w/wto simularity matrix, fisher, speckle, diffcyt, scDC
+  ## simulation
+  simulation = simulator_fastMNN(totals1 = runif(rep1, 3000, 4000), totals2 = runif(rep2, 3000, 4000), probC1, probC2, setresolu)
+  ## data convert
+  numb_cond1 = simulation$dfRes %>% 
+    filter(condition == "Cond1") %>% 
+    group_by(clusterRes, batch) %>% 
+    summarise(n = n()) %>% 
+    pivot_wider(names_from = "clusterRes", values_from = "n") %>%
+    column_to_rownames(var = "batch")
+  numb_cond2 = simulation$dfRes %>% 
+    filter(condition == "Cond2") %>% 
+    group_by(clusterRes, batch) %>% 
+    summarise(n = n()) %>% 
+    pivot_wider(names_from = "clusterRes", values_from = "n") %>%
+    column_to_rownames(var = "batch")
+  numb_cond1[is.na(numb_cond1)] <- 0
+  numb_cond2[is.na(numb_cond2)] <- 0
+  L_sum1 = colSums(numb_cond1)[cluster_num]
+  L_sum2 = colSums(numb_cond2)[cluster_num]
+  if (L_sum1 > 10 & L_sum2 > 10){
+    conf.mat<-table(Idents(simulation$integratedSamples), simulation$trueLabels)
+    ## test
+    ## DCATS---betabinLRT
+    t1start = Sys.time()
+    betabin_noBC = betabinLRT_rw(as.matrix(numb_cond1), as.matrix(numb_cond2), bias_corr = FALSE)
+    timeL[1] = Sys.time() - t1start
+    ##  DCATS---betabinLRT with Bias correction from similarity matrix
+    simil_matI = get_similarity_mat(cluster_num, confuse_rate=0)
+    simil_matU = get_similarity_mat(cluster_num, confuse_rate=0.1)
+    betabin_wBC_I = betabinLRT_rw(as.matrix(numb_cond1), as.matrix(numb_cond2), bias_corr = TRUE, similarity_mat = simil_matI)
+    betabin_wBC_U = betabinLRT_rw(as.matrix(numb_cond1), as.matrix(numb_cond2), bias_corr = TRUE, similarity_mat = simil_matU)
+    ## DCATS---betabin with similarity matrix (backward-forward)
+    t2start = Sys.time()
+    betabin_wMI = dcats_betabin(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = simil_matI, n_samples = 100, binom_only = FALSE)
+    timeL[2] = Sys.time() - t2start
+    betabin_wMU = dcats_betabin(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = simil_matU, n_samples = 100, binom_only = FALSE)
+    bin_wMI = dcats_betabin(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = simil_matI, n_samples = 100)
+    bin_wMU = dcats_betabin(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = simil_matU, n_samples = 100)
+    ## Fisher's exact test
+    t3start = Sys.time()
+    fisher_pvals = getFisher(as.matrix(numb_cond1), as.matrix(numb_cond2))
+    timeL[3] = Sys.time() - t3start
+    ## speckle
+    t4start = Sys.time()
+    speckleRes = propeller(clusters = simulation$dfRes$clusterRes, sample = simulation$dfRes$batch, group = simulation$dfRes$condition) %>% 
+      dplyr::rename(cluster = BaselineProp.clusters,
+                    speckle_pvals = FDR) %>%
+      dplyr::select(cluster, speckle_pvals)
+    timeL[4] = Sys.time() - t4start
+    ## diffcyt
+    t5start = Sys.time()
+    diffcytP = getDiffcyt(numb_cond1, numb_cond2, simulation$integratedSamples)
+    timeL[5] = Sys.time() - t5start
+    ## scDC
+    t6start = Sys.time()
+    res_scDC <- scDC_noClustering(cellTypes = simulation$dfRes$clusterRes, simulation$dfRes$batch, calCI = TRUE, calCI_method = c("percentile", "BCa", "multinom"),nboot = 1000, verbose = FALSE)
+    res_GLM <- fitGLM(res_scDC, c(rep("cond1",rep1*cluster_num),rep("cond2",rep2*cluster_num)), pairwise = FALSE, fixed_only = TRUE, verbose = FALSE)
+    timeL[6] = Sys.time() - t6start
+    scDCRes_temp = summary(res_GLM$pool_res_fixed)
+    scDCRes = scDCRes_temp[c(cluster_num+1,(dim(scDCRes_temp)[1]-cluster_num+2):dim(scDCRes_temp)[1]),]
+    ## results
+    cluster_map = apply(conf.mat, 2, which.max) %>%
+      plyr::mapvalues(from = c(1:cluster_num), to = c("A", "B", "C", "D", "E", "F", "G ","H", "I", "J", "K", "L")[1:cluster_num]) %>% 
+      as_tibble() %>% 
+      mutate(truth = c("N", "N", "P", "P", "N", "P", "N", "P", "N", "N", "P", "P")) %>%
+      dplyr::rename(cluster = value) %>% 
+      arrange(cluster)
+    all_res = cluster_map %>% 
+      mutate(betabin_noBC_pvals = betabin_noBC$pvals,
+             betabin_wBCI_pvals = betabin_wBC_I$pvals,
+             betabin_wBCU_pvals = betabin_wBC_U$pvals,
+             betabin_wMI_pvals = betabin_wMI$pvals,
+             betabin_wMU_pvals = betabin_wMU$pvals,
+             bin_wMI_pvals = bin_wMI$pvals,
+             bin_wMU_pvals = bin_wMU$pvals,
+             fisher_pvals = fisher_pvals,
+             scDC_pvals = scDCRes$p.value) %>%
+      merge(speckleRes, by = "cluster") %>% 
+      merge(diffcytP, by = "cluster")
+    simulationDF = rbind(simulationDF, all_res)
+    time[i,] = timeL
+  }
+}
+
+## send email after finishing
+sendEmail("Simulation is done!!")
+
+colnames(time) = c("DCATS_wtoM", "DCATS_wM", "fisher", "speckle", "diffcyt", "scDC")
+save(simulationDF, time, file = "./data/simulationDF/clusters12.RData")
+load("./data/simulationDF/clusters12.RData")
+head(simulationDF)
+```
+
+```{r, message=FALSE}
+library(pROC)
+methods = colnames(simulationDF)[3:13]
+roc_rose <- plot(roc(simulationDF$truth, simulationDF[,3]), legacy.axes = TRUE, print.auc = TRUE, print.auc.y = .7, print.auc.x = .5, col = 1)
+graphics::text(0.05, 0.69, paste(methods[1]), col=1)
+for (i in 2:11){
+  roc_rose <- plot(roc(simulationDF$truth, simulationDF[,i+2]), legacy.axes = TRUE, print.auc = TRUE, print.auc.y = .7-(i-1)*0.07, print.auc.x = .5, col = i, add = TRUE)
+  graphics::text(0.05, 0.69-(i-1)*0.07, paste(methods[i]), col=i)
+}
+
+print("Time")
+apply(na.omit(time), 2, mean)
+```
+
+```{r}
+simulationRes = simulationDF %>% 
+  mutate(truth = ifelse(truth == "P", 1, 0),
+         betabin_noBC_Res = ifelse(betabin_noBC_pvals < 0.05, 1, 0),
+         betabin_wBCI_Res = ifelse(betabin_wBCI_pvals < 0.05, 1, 0),
+         betabin_wBCU_Res = ifelse(betabin_wBCU_pvals < 0.05, 1, 0),
+         betabin_wMI_Res = ifelse(betabin_wMI_pvals < 0.05, 1, 0),
+         betabin_wMU_Res = ifelse(betabin_wMU_pvals < 0.05, 1, 0),
+         bin_wMI_Res = ifelse(bin_wMI_pvals < 0.05, 1, 0),
+         bin_wMU_Res = ifelse(bin_wMU_pvals < 0.05, 1, 0),
+         fisher_Res = ifelse(fisher_pvals < 0.05, 1, 0),
+         scDC_Res = ifelse(scDC_pvals < 0.05, 1, 0),
+         speckle_Res = ifelse(speckle_pvals < 0.05, 1, 0),
+         diffcyt_Res = ifelse(diffcyt_pvals < 0.05, 1, 0))
+
+for (i in 14:24){
+  simulationRes[,i] = (simulationRes[,i] - simulationRes$truth) %>% 
+    abs()
+}
+
+print("errorRate0.05")
+errorRate = colSums(simulationRes[,14:24])/dim(simulationRes[,14:24])[1]
+errorRate[order(errorRate)]
+```
+
+## Different coverage
+
+Using 7 clusters and 6/4 replicates
+
+decrease number to 2/3
+
+7 clusters
+
+```{r,eval=FALSE}
+load("./data/cells_pool7.RData")
+```
+
+```{r}
+bin_sum = function(sizeL, prob = 2/3) {
+  res = rep(NA, length(sizeL))
+  for (i in 1:length(sizeL)){
+    res[i] = sum(rbinom(1, sizeL[i], prob))
+  }
+  return(res)
+}
+```
+
+```{r}
+set.seed(123)
+sim_mat_adj = apply(sim_mat, 2, bin_sum)
+rownames(sim_mat_adj) = rownames(sim_mat)
 ```
 
 ```{r}
@@ -823,8 +1001,8 @@ for (i in 1:simulation_times){
 sendEmail("Simulation is done!!")
 
 colnames(time) = c("DCATS_wtoM", "DCATS_wM", "fisher", "speckle", "diffcyt", "scDC")
-save(simulationDF, time, file = "./data/simulationDF/clusters7.RData")
-load("./data/simulationDF/clusters7.RData")
+save(simulationDF, time, file = "./data/simulationDF/coverage1.RData")
+load("./data/simulationDF/coverage1.RData")
 head(simulationDF)
 ```
 
@@ -857,15 +1035,184 @@ simulationRes = simulationDF %>%
          speckle_Res = ifelse(speckle_pvals < 0.05, 1, 0),
          diffcyt_Res = ifelse(diffcyt_pvals < 0.05, 1, 0))
 
-for (i in 14:23){
+for (i in 14:24){
   simulationRes[,i] = (simulationRes[,i] - simulationRes$truth) %>% 
     abs()
 }
 
 print("errorRate0.05")
-errorRate = colSums(simulationRes[,14:23])/dim(simulationRes[,14:23])[1]
+errorRate = colSums(simulationRes[,14:24])/dim(simulationRes[,14:24])[1]
 errorRate[order(errorRate)]
 ```
 
+decrease number to 1/2
+
+7 clusters
+
+```{r,eval=FALSE}
+load("./data/cells_pool7.RData")
+```
+
+```{r}
+bin_sum = function(sizeL, prob = 1/2) {
+  res = rep(NA, length(sizeL))
+  for (i in 1:length(sizeL)){
+    res[i] = sum(rbinom(1, sizeL[i], prob))
+  }
+  return(res)
+}
+```
+
+```{r}
+set.seed(123)
+sim_mat_adj = apply(sim_mat, 2, bin_sum)
+rownames(sim_mat_adj) = rownames(sim_mat)
+```
+
+```{r}
+cluster_num = 7
+probC1 = c(rep(0.1, 4), rep(0.2, 3))
+probC2 = c(0.1, 0.1, 0.2, 0.05, 0.2, 0.3, 0.05)
+concentration = 50 # indicate how simulated proportion far away from true, the larger the closer
+setresolu = 0.3
+rep1 = 3
+rep2 = 2
+```
+
+```{r, message=FALSE, warning=FALSE}
+## do 50 times
+simulation_times = 50
+set.seed(123)
+simulationDF = data.frame()
+time = matrix(NA, nrow = simulation_times, ncol = 6)
+for (i in 1:simulation_times){
+  timeL = rep(NA, 6) # DCATS w/wto simularity matrix, fisher, speckle, diffcyt, scDC
+  ## simulation
+  simulation = simulator_fastMNN(totals1 = runif(rep1, 1000, 2000), totals2 = runif(rep2, 1000, 2500), probC1, probC2, setresolu)
+  if (is.na(simulation)[1] == FALSE){
+    ## data convert
+    numb_cond1 = simulation$dfRes %>% 
+      filter(condition == "Cond1") %>% 
+      group_by(clusterRes, batch) %>% 
+      summarise(n = n()) %>% 
+      pivot_wider(names_from = "clusterRes", values_from = "n") %>% 
+      column_to_rownames(var = "batch")
+    numb_cond2 = simulation$dfRes %>% 
+      filter(condition == "Cond2") %>% 
+      group_by(clusterRes, batch) %>% 
+      summarise(n = n()) %>% 
+      pivot_wider(names_from = "clusterRes", values_from = "n") %>% 
+      column_to_rownames(var = "batch")
+    conf.mat<-table(Idents(simulation$integratedSamples), simulation$trueLabels)
+    ## test
+    ## DCATS---betabinLRT
+    t1start = Sys.time()
+    betabin_noBC = betabinLRT_rw(as.matrix(numb_cond1), as.matrix(numb_cond2), bias_corr = FALSE)
+    timeL[1] = Sys.time() - t1start
+    ##  DCATS---betabinLRT with Bias correction from similarity matrix
+    simil_matI = get_similarity_mat(cluster_num, confuse_rate=0)
+    simil_matU = get_similarity_mat(cluster_num, confuse_rate=0.1)
+    betabin_wBC_I = betabinLRT_rw(as.matrix(numb_cond1), as.matrix(numb_cond2), bias_corr = TRUE, similarity_mat = simil_matI)
+    betabin_wBC_U = betabinLRT_rw(as.matrix(numb_cond1), as.matrix(numb_cond2), bias_corr = TRUE, similarity_mat = simil_matU)
+    ## DCATS---betabin with similarity matrix (backward-forward)
+    t2start = Sys.time()
+    betabin_wMI = dcats_betabin(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = simil_matI, n_samples = 100, binom_only = FALSE)
+    timeL[2] = Sys.time() - t2start
+    betabin_wMU = dcats_betabin(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = simil_matU, n_samples = 100, binom_only = FALSE)
+    bin_wMI = dcats_betabin(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = simil_matI, n_samples = 100)
+    bin_wMU = dcats_betabin(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = simil_matU, n_samples = 100)
+    ## Fisher's exact test
+    t3start = Sys.time()
+    fisher_pvals = getFisher(as.matrix(numb_cond1), as.matrix(numb_cond2))
+    timeL[3] = Sys.time() - t3start
+    ## speckle
+    t4start = Sys.time()
+    speckleRes = propeller(clusters = simulation$dfRes$clusterRes, sample = simulation$dfRes$batch, group = simulation$dfRes$condition) %>% 
+      dplyr::rename(cluster = BaselineProp.clusters,
+                    speckle_pvals = FDR) %>%
+      dplyr::select(cluster, speckle_pvals)
+    timeL[4] = Sys.time() - t4start
+    ## diffcyt
+    t5start = Sys.time()
+    diffcytP = getDiffcyt(numb_cond1, numb_cond2, simulation$integratedSamples)
+    timeL[5] = Sys.time() - t5start
+    ## scDC
+    t6start = Sys.time()
+    res_scDC <- scDC_noClustering(cellTypes = simulation$dfRes$clusterRes, simulation$dfRes$batch, calCI = TRUE, calCI_method = c("percentile", "BCa", "multinom"),nboot = 1000, verbose = FALSE)
+    res_GLM <- fitGLM(res_scDC, c(rep("cond1",rep1*cluster_num),rep("cond2",rep2*cluster_num)), pairwise = FALSE, fixed_only = TRUE, verbose = FALSE)
+    timeL[6] = Sys.time() - t6start
+    scDCRes_temp = summary(res_GLM$pool_res_fixed)
+    scDCRes = scDCRes_temp[c(cluster_num+1,(dim(scDCRes_temp)[1]-cluster_num+2):dim(scDCRes_temp)[1]),]
+    ## results
+    cluster_map = apply(conf.mat, 2, which.max) %>%
+      plyr::mapvalues(from = c(1:cluster_num), to = c("A", "B", "C", "D", "E", "F")[1:cluster_num]) %>% 
+      as_tibble() %>% 
+      mutate(truth = c("N", "N", "P", "P", "N", "P", "P")) %>%
+      dplyr::rename(cluster = value) %>% 
+      arrange(cluster)
+    all_res = cluster_map %>% 
+      mutate(betabin_noBC_pvals = betabin_noBC$pvals,
+             betabin_wBCI_pvals = betabin_wBC_I$pvals,
+             betabin_wBCU_pvals = betabin_wBC_U$pvals,
+             betabin_wMI_pvals = betabin_wMI$pvals,
+             betabin_wMU_pvals = betabin_wMU$pvals,
+             bin_wMI_pvals = bin_wMI$pvals,
+             bin_wMU_pvals = bin_wMU$pvals,
+             fisher_pvals = fisher_pvals,
+             scDC_pvals = scDCRes$p.value) %>%
+      merge(speckleRes, by = "cluster") %>% 
+      merge(diffcytP, by = "cluster")
+    simulationDF = rbind(simulationDF, all_res)
+    time[i,] = timeL
+  }
+}
+
+## send email after finishing
+sendEmail("Simulation is done!!")
+
+colnames(time) = c("DCATS_wtoM", "DCATS_wM", "fisher", "speckle", "diffcyt", "scDC")
+save(simulationDF, time, file = "./data/simulationDF/coverage2.RData")
+load("./data/simulationDF/coverage2.RData")
+head(simulationDF)
+```
+
+```{r, message=FALSE}
+library(pROC)
+methods = colnames(simulationDF)[3:13]
+roc_rose <- plot(roc(simulationDF$truth, simulationDF[,3]), legacy.axes = TRUE, print.auc = TRUE, print.auc.y = .7, print.auc.x = .5, col = 1)
+graphics::text(0.05, 0.69, paste(methods[1]), col=1)
+for (i in 2:11){
+  roc_rose <- plot(roc(simulationDF$truth, simulationDF[,i+2]), legacy.axes = TRUE, print.auc = TRUE, print.auc.y = .7-(i-1)*0.07, print.auc.x = .5, col = i, add = TRUE)
+  graphics::text(0.05, 0.69-(i-1)*0.07, paste(methods[i]), col=i)
+}
+
+print("Time")
+apply(na.omit(time), 2, mean)
+```
+
+```{r}
+simulationRes = simulationDF %>% 
+  mutate(truth = ifelse(truth == "P", 1, 0),
+         betabin_noBC_Res = ifelse(betabin_noBC_pvals < 0.05, 1, 0),
+         betabin_wBCI_Res = ifelse(betabin_wBCI_pvals < 0.05, 1, 0),
+         betabin_wBCU_Res = ifelse(betabin_wBCU_pvals < 0.05, 1, 0),
+         betabin_wMI_Res = ifelse(betabin_wMI_pvals < 0.05, 1, 0),
+         betabin_wMU_Res = ifelse(betabin_wMU_pvals < 0.05, 1, 0),
+         bin_wMI_Res = ifelse(bin_wMI_pvals < 0.05, 1, 0),
+         bin_wMU_Res = ifelse(bin_wMU_pvals < 0.05, 1, 0),
+         fisher_Res = ifelse(fisher_pvals < 0.05, 1, 0),
+         scDC_Res = ifelse(scDC_pvals < 0.05, 1, 0),
+         speckle_Res = ifelse(speckle_pvals < 0.05, 1, 0),
+         diffcyt_Res = ifelse(diffcyt_pvals < 0.05, 1, 0))
+
+for (i in 14:24){
+  simulationRes[,i] = (simulationRes[,i] - simulationRes$truth) %>% 
+    abs()
+}
+
+print("errorRate0.05")
+errorRate = colSums(simulationRes[,14:24])/dim(simulationRes[,14:24])[1]
+errorRate[order(errorRate)]
+```
 ```{r, ref.label=knitr::all_labels(),echo=TRUE,eval=FALSE}
 ```
