@@ -52,6 +52,14 @@ change_num = (sim_dat$numb_cond2[,1]*rate2) %>% round()
 sim_dat$numb_cond2[,1] = sim_dat$numb_cond2[,1] - change_num
 sim_dat$numb_cond2[,3] = sim_dat$numb_cond2[,3] + change_num
 print(sim_dat$numb_cond2)
+
+change_rate = (sum(rate1*sim_dat$numb_cond1[,1]) + sum(rate2*sim_dat$numb_cond2[,2]))/(sum(sim_dat$numb_cond1[,1]) + sum(sim_dat$numb_cond2[,1]))
+if (change_rate > 0){
+  simil_matT = rbind(c(1-change_rate, 0, change_rate), c(0, 1, 0), c(0, 0, 1))
+} else {
+  simil_matUT = rbind(c(1, 0, 0), c(0, 1, 0), c(-change_rate, 0, 1+change_rate))
+}
+print(simil_matT)
 ```
 
 ```{r}
@@ -62,23 +70,42 @@ print(sim_dat$numb_cond2)
   simil_matU = get_similarity_mat(K, confuse_rate=0.1)
   betabin_wBC_I = betabinLRT_rw(as.matrix(sim_dat$numb_cond1), as.matrix(sim_dat$numb_cond2), bias_corr = TRUE, similarity_mat = simil_matI)
   betabin_wBC_U = betabinLRT_rw(as.matrix(sim_dat$numb_cond1), as.matrix(sim_dat$numb_cond2), bias_corr = TRUE, similarity_mat = simil_matU)
+  betabin_wBC_T = betabinLRT_rw(as.matrix(sim_dat$numb_cond1), as.matrix(sim_dat$numb_cond2), bias_corr = TRUE, similarity_mat = simil_matT)
   ## DCATS---betabin with similarity matrix (backward-forward)
   betabin_wMI = dcats_betabin(as.matrix(sim_dat$numb_cond1), as.matrix(sim_dat$numb_cond2), similarity_mat = simil_matI, n_samples = 100, binom_only = FALSE)
   betabin_wMU = dcats_betabin(as.matrix(sim_dat$numb_cond1), as.matrix(sim_dat$numb_cond2), similarity_mat = simil_matU, n_samples = 100, binom_only = FALSE)
+  betabin_wMT = dcats_betabin(as.matrix(sim_dat$numb_cond1), as.matrix(sim_dat$numb_cond2), similarity_mat = simil_matT, n_samples = 100, binom_only = FALSE)
   bin_wMI = dcats_betabin(as.matrix(sim_dat$numb_cond1), as.matrix(sim_dat$numb_cond2), similarity_mat = simil_matI, n_samples = 100)
   bin_wMU = dcats_betabin(as.matrix(sim_dat$numb_cond1), as.matrix(sim_dat$numb_cond2), similarity_mat = simil_matU, n_samples = 100)
+  bin_wMT = dcats_betabin(as.matrix(sim_dat$numb_cond1), as.matrix(sim_dat$numb_cond2), similarity_mat = simil_matT, n_samples = 100)
   ## Fisher's exact test
   fisher_pvals = getFisher(as.matrix(sim_dat$numb_cond1), as.matrix(sim_dat$numb_cond2))
   all_res = data.frame(cluster = c("A", "B", "C"), truth = c("N", "P", "P")) %>% 
     mutate(betabin_noBC_pvals = betabin_noBC$pvals,
            betabin_wBCI_pvals = betabin_wBC_I$pvals,
            betabin_wBCU_pvals = betabin_wBC_U$pvals,
+           betabin_wBCT_pvals = betabin_wBC_T$pvals,
            betabin_wMI_pvals = betabin_wMI$pvals,
            betabin_wMU_pvals = betabin_wMU$pvals,
+           betabin_wMT_pvals = betabin_wMT$pvals,
            bin_wMI_pvals = bin_wMI$pvals,
            bin_wMU_pvals = bin_wMU$pvals,
+           bin_wMT_pvals = bin_wMT$pvals,
            fisher_pvals = fisher_pvals)
   print(all_res)
+```
+
+### 3 clusters
+
+```{r}
+set.seed(123)
+K = 3
+totals1 = ceiling(runif(4, 500, 2000))
+totals2 = ceiling(runif(2, 500, 2000))
+diri_s1 = c(1/3, 1/3, 1/3) * 20
+diri_s2 = c(1/3, 1/2, 1/6) * 20
+simil_mat = get_similarity_mat(K, confuse_rate=0.2)
+sim_dat <- DCATS::simulator_base(totals1, totals2, diri_s1, diri_s2, simil_mat)
 ```
 
 ```{r}
@@ -86,7 +113,126 @@ simulationDF = data.frame()
 for (i in 1:20){
   simil_mat = get_similarity_mat(K, confuse_rate=0.2)
   sim_dat <- DCATS::simulator_base(totals1, totals2, diri_s1, diri_s2, simil_mat)
-  ## get count table
+  
+  ## DCATS---betabinLRT
+  betabin_noBC = betabinLRT_rw(as.matrix(sim_dat$numb_cond1), as.matrix(sim_dat$numb_cond2), bias_corr = FALSE)
+  ##  DCATS---betabinLRT with Bias correction from similarity matrix
+  simil_matI = get_similarity_mat(K, confuse_rate=0)
+  betabin_wBC_I = betabinLRT_rw(as.matrix(sim_dat$numb_cond1), as.matrix(sim_dat$numb_cond2), bias_corr = TRUE, similarity_mat = simil_matI)
+  betabin_wBC_T = betabinLRT_rw(as.matrix(sim_dat$numb_cond1), as.matrix(sim_dat$numb_cond2), bias_corr = TRUE, similarity_mat = simil_mat)
+  ## DCATS---betabin with similarity matrix (backward-forward)
+  betabin_wMI = dcats_betabin(as.matrix(sim_dat$numb_cond1), as.matrix(sim_dat$numb_cond2), similarity_mat = simil_matI, n_samples = 100, binom_only = FALSE)
+  betabin_wMT = dcats_betabin(as.matrix(sim_dat$numb_cond1), as.matrix(sim_dat$numb_cond2), similarity_mat = simil_mat, n_samples = 100, binom_only = FALSE)
+  bin_wMI = dcats_betabin(as.matrix(sim_dat$numb_cond1), as.matrix(sim_dat$numb_cond2), similarity_mat = simil_matI, n_samples = 100)
+  bin_wMT = dcats_betabin(as.matrix(sim_dat$numb_cond1), as.matrix(sim_dat$numb_cond2), similarity_mat = simil_mat, n_samples = 100)
+  ## Fisher's exact test
+  fisher_pvals = getFisher(as.matrix(sim_dat$numb_cond1), as.matrix(sim_dat$numb_cond2))
+  all_res = data.frame(cluster = c("A", "B", "C"), truth = c("N", "P", "P")) %>% 
+    mutate(betabin_noBC_pvals = betabin_noBC$pvals,
+           betabin_wBCI_pvals = betabin_wBC_I$pvals,
+           betabin_wBCT_pvals = betabin_wBC_T$pvals,
+           betabin_wMI_pvals = betabin_wMI$pvals,
+           betabin_wMT_pvals = betabin_wMT$pvals,
+           bin_wMI_pvals = bin_wMI$pvals,
+           bin_wMT_pvals = bin_wMT$pvals,
+           fisher_pvals = fisher_pvals)
+  simulationDF = rbind(simulationDF, all_res)
+}
+head(simulationDF)
+
+## send email after finishing
+sendEmail("Simulation is done!!")
+```
+
+```{r}
+library(pROC)
+methods = colnames(simulationDF)[3:10]
+roc_rose <- plot(roc(simulationDF$truth, simulationDF[,3]), legacy.axes = TRUE, print.auc = TRUE, print.auc.y = .7, print.auc.x = .7, col = 1)
+graphics::text(0.2, 0.7, paste(methods[1]), col=1)
+for (i in 2:8){
+  roc_rose <- plot(roc(simulationDF$truth, simulationDF[,i+2]), legacy.axes = TRUE, print.auc = TRUE, print.auc.y = .7-(i-1)*0.07, print.auc.x = .7, col = i, add = TRUE)
+  graphics::text(0.2, 0.7-(i-1)*0.07, paste(methods[i]), col=i)
+}
+```
+
+### 7 clusters
+
+```{r}
+set.seed(123)
+K = 7
+totals1 = ceiling(runif(4, 1000, 2000))
+totals2 = ceiling(runif(2, 1000, 2000))
+diri_s1 = c(rep(0.1, 4), rep(0.2, 3)) * 20
+diri_s2 = c(0.1, 0.1, 0.2, 0.05, 0.2, 0.3, 0.05) * 20
+```
+
+```{r}
+set.seed(123)
+simulationDF = data.frame()
+for (i in 1:50){
+  simil_mat = get_similarity_mat(K, confuse_rate=0.3)
+  sim_dat <- DCATS::simulator_base(totals1, totals2, diri_s1, diri_s2, simil_mat)
+  
+  ## DCATS---betabinLRT
+  betabin_noBC = betabinLRT_rw(as.matrix(sim_dat$numb_cond1), as.matrix(sim_dat$numb_cond2), bias_corr = FALSE)
+  ##  DCATS---betabinLRT with Bias correction from similarity matrix
+  simil_matI = get_similarity_mat(K, confuse_rate=0)
+  betabin_wBC_I = betabinLRT_rw(as.matrix(sim_dat$numb_cond1), as.matrix(sim_dat$numb_cond2), bias_corr = TRUE, similarity_mat = simil_matI)
+  betabin_wBC_T = betabinLRT_rw(as.matrix(sim_dat$numb_cond1), as.matrix(sim_dat$numb_cond2), bias_corr = TRUE, similarity_mat = simil_mat)
+  ## DCATS---betabin with similarity matrix (backward-forward)
+  betabin_wMI = dcats_betabin(as.matrix(sim_dat$numb_cond1), as.matrix(sim_dat$numb_cond2), similarity_mat = simil_matI, n_samples = 100, binom_only = FALSE)
+  betabin_wMT = dcats_betabin(as.matrix(sim_dat$numb_cond1), as.matrix(sim_dat$numb_cond2), similarity_mat = simil_mat, n_samples = 100, binom_only = FALSE)
+  bin_wMI = dcats_betabin(as.matrix(sim_dat$numb_cond1), as.matrix(sim_dat$numb_cond2), similarity_mat = simil_matI, n_samples = 100)
+  bin_wMT = dcats_betabin(as.matrix(sim_dat$numb_cond1), as.matrix(sim_dat$numb_cond2), similarity_mat = simil_mat, n_samples = 100)
+  ## Fisher's exact test
+  fisher_pvals = getFisher(as.matrix(sim_dat$numb_cond1), as.matrix(sim_dat$numb_cond2))
+  all_res = data.frame(cluster = c("A", "B", "C", "D", "E", "F", "G"), truth = c("N", "N", "P", "P", "N", "P", "P")) %>% 
+    mutate(betabin_noBC_pvals = betabin_noBC$pvals,
+           betabin_wBCI_pvals = betabin_wBC_I$pvals,
+           betabin_wBCT_pvals = betabin_wBC_T$pvals,
+           betabin_wMI_pvals = betabin_wMI$pvals,
+           betabin_wMT_pvals = betabin_wMT$pvals,
+           bin_wMI_pvals = bin_wMI$pvals,
+           bin_wMT_pvals = bin_wMT$pvals,
+           fisher_pvals = fisher_pvals)
+  simulationDF = rbind(simulationDF, all_res)
+}
+head(simulationDF)
+
+## send email after finishing
+sendEmail("Simulation is done!!")
+```
+
+```{r}
+library(pROC)
+methods = colnames(simulationDF)[3:10]
+roc_rose <- plot(roc(simulationDF$truth, simulationDF[,3]), legacy.axes = TRUE, print.auc = TRUE, print.auc.y = .7, print.auc.x = .6, col = 1)
+graphics::text(0.2, 0.68, paste(methods[1]), col=1)
+for (i in 2:8){
+  roc_rose <- plot(roc(simulationDF$truth, simulationDF[,i+2]), legacy.axes = TRUE, print.auc = TRUE, print.auc.y = .7-(i-1)*0.07, print.auc.x = .6, col = i, add = TRUE)
+  graphics::text(0.2, 0.68-(i-1)*0.07, paste(methods[i]), col=i)
+}
+```
+
+### 3 clusters(add misclassification twice)
+
+```{r}
+set.seed(123)
+K = 3
+totals1 = ceiling(runif(4, 500, 2000))
+totals2 = ceiling(runif(2, 500, 2000))
+diri_s1 = c(1/3, 1/3, 1/3) * 50
+diri_s2 = c(1/3, 1/2, 1/6) * 50
+simil_mat = get_similarity_mat(K, confuse_rate=0.2)
+sim_dat <- DCATS::simulator_base(totals1, totals2, diri_s1, diri_s2, simil_mat)
+```
+
+```{r}
+simulationDF = data.frame()
+for (i in 1:20){
+  simil_mat = get_similarity_mat(K, confuse_rate=0.2)
+  sim_dat <- DCATS::simulator_base(totals1, totals2, diri_s1, diri_s2, simil_mat)
+  ## update count table
   rate1 = runif(dim(sim_dat$numb_cond1)[1], -0.2, 0.2)
   change_num = (sim_dat$numb_cond1[,1]*rate1) %>% round()
   sim_dat$numb_cond1[,1] = sim_dat$numb_cond1[,1] - change_num
@@ -96,7 +242,13 @@ for (i in 1:20){
   change_num = (sim_dat$numb_cond2[,1]*rate2) %>% round()
   sim_dat$numb_cond2[,1] = sim_dat$numb_cond2[,1] - change_num
   sim_dat$numb_cond2[,3] = sim_dat$numb_cond2[,3] + change_num
-
+  ## calculate true matrix
+  change_rate = (sum(rate1*sim_dat$numb_cond1[,1]) + sum(rate2*sim_dat$numb_cond2[,2]))/(sum(sim_dat$numb_cond1[,1]) + sum(sim_dat$numb_cond2[,1]))
+  if (change_rate > 0){
+    simil_matT = rbind(c(1-change_rate, 0, change_rate), c(0, 1, 0), c(0, 0, 1))
+} else {
+  simil_matUT = rbind(c(1, 0, 0), c(0, 1, 0), c(-change_rate, 0, 1+change_rate))
+}
   ## DCATS---betabinLRT
   betabin_noBC = betabinLRT_rw(as.matrix(sim_dat$numb_cond1), as.matrix(sim_dat$numb_cond2), bias_corr = FALSE)
   ##  DCATS---betabinLRT with Bias correction from similarity matrix
@@ -104,21 +256,27 @@ for (i in 1:20){
   simil_matU = get_similarity_mat(K, confuse_rate=0.1)
   betabin_wBC_I = betabinLRT_rw(as.matrix(sim_dat$numb_cond1), as.matrix(sim_dat$numb_cond2), bias_corr = TRUE, similarity_mat = simil_matI)
   betabin_wBC_U = betabinLRT_rw(as.matrix(sim_dat$numb_cond1), as.matrix(sim_dat$numb_cond2), bias_corr = TRUE, similarity_mat = simil_matU)
+  betabin_wBC_T = betabinLRT_rw(as.matrix(sim_dat$numb_cond1), as.matrix(sim_dat$numb_cond2), bias_corr = TRUE, similarity_mat = simil_matT)
   ## DCATS---betabin with similarity matrix (backward-forward)
   betabin_wMI = dcats_betabin(as.matrix(sim_dat$numb_cond1), as.matrix(sim_dat$numb_cond2), similarity_mat = simil_matI, n_samples = 100, binom_only = FALSE)
   betabin_wMU = dcats_betabin(as.matrix(sim_dat$numb_cond1), as.matrix(sim_dat$numb_cond2), similarity_mat = simil_matU, n_samples = 100, binom_only = FALSE)
+  betabin_wMT = dcats_betabin(as.matrix(sim_dat$numb_cond1), as.matrix(sim_dat$numb_cond2), similarity_mat = simil_matT, n_samples = 100, binom_only = FALSE)
   bin_wMI = dcats_betabin(as.matrix(sim_dat$numb_cond1), as.matrix(sim_dat$numb_cond2), similarity_mat = simil_matI, n_samples = 100)
   bin_wMU = dcats_betabin(as.matrix(sim_dat$numb_cond1), as.matrix(sim_dat$numb_cond2), similarity_mat = simil_matU, n_samples = 100)
+  bin_wMT = dcats_betabin(as.matrix(sim_dat$numb_cond1), as.matrix(sim_dat$numb_cond2), similarity_mat = simil_matT, n_samples = 100)
   ## Fisher's exact test
   fisher_pvals = getFisher(as.matrix(sim_dat$numb_cond1), as.matrix(sim_dat$numb_cond2))
   all_res = data.frame(cluster = c("A", "B", "C"), truth = c("N", "P", "P")) %>% 
     mutate(betabin_noBC_pvals = betabin_noBC$pvals,
            betabin_wBCI_pvals = betabin_wBC_I$pvals,
            betabin_wBCU_pvals = betabin_wBC_U$pvals,
+           betabin_wBCT_pvals = betabin_wBC_T$pvals,
            betabin_wMI_pvals = betabin_wMI$pvals,
            betabin_wMU_pvals = betabin_wMU$pvals,
+           betabin_wMT_pvals = betabin_wMT$pvals,
            bin_wMI_pvals = bin_wMI$pvals,
            bin_wMU_pvals = bin_wMU$pvals,
+           bin_wMT_pvals = bin_wMT$pvals,
            fisher_pvals = fisher_pvals)
   simulationDF = rbind(simulationDF, all_res)
 }
@@ -127,12 +285,95 @@ head(simulationDF)
 
 ```{r}
 library(pROC)
-methods = colnames(simulationDF)[3:10]
-roc_rose <- plot(roc(simulationDF$truth, simulationDF[,3]), legacy.axes = TRUE, print.auc = TRUE, print.auc.y = .6, print.auc.x = .6, col = 1)
-graphics::text(0.2, 0.58, paste(methods[1]), col=1)
-for (i in 2:8){
-  roc_rose <- plot(roc(simulationDF$truth, simulationDF[,i+2]), legacy.axes = TRUE, print.auc = TRUE, print.auc.y = .6-(i-1)*0.07, print.auc.x = .6, col = i, add = TRUE)
-  graphics::text(0.2, 0.58-(i-1)*0.07, paste(methods[i]), col=i)
+methods = colnames(simulationDF)[3:13]
+roc_rose <- plot(roc(simulationDF$truth, simulationDF[,3]), legacy.axes = TRUE, print.auc = TRUE, print.auc.y = .7, print.auc.x = .7, col = 1)
+graphics::text(0.2, 0.7, paste(methods[1]), col=1)
+for (i in 2:11){
+  roc_rose <- plot(roc(simulationDF$truth, simulationDF[,i+2]), legacy.axes = TRUE, print.auc = TRUE, print.auc.y = .7-(i-1)*0.07, print.auc.x = .7, col = i, add = TRUE)
+  graphics::text(0.2, 0.7-(i-1)*0.07, paste(methods[i]), col=i)
 }
 ```
 
+### 7 clusters
+
+```{r}
+set.seed(123)
+K = 7
+totals1 = ceiling(runif(4, 1000, 2500))
+totals2 = ceiling(runif(2, 1000, 2500))
+diri_s1 = c(rep(0.1, 4), rep(0.2, 3)) * 20
+diri_s2 = c(0.1, 0.1, 0.2, 0.05, 0.2, 0.3, 0.05) * 20
+simil_mat = get_similarity_mat(K, confuse_rate=0.2)
+sim_dat <- DCATS::simulator_base(totals1, totals2, diri_s1, diri_s2, simil_mat)
+
+```
+
+```{r}
+simulationDF = data.frame()
+for (i in 1:20){
+  simil_mat = get_similarity_mat(K, confuse_rate=0.2)
+  sim_dat <- DCATS::simulator_base(totals1, totals2, diri_s1, diri_s2, simil_mat)
+  ## get count table
+  rate1 = runif(dim(sim_dat$numb_cond1)[5], -0.2, 0.2)
+  change_num = (sim_dat$numb_cond1[,5]*rate1) %>% round()
+  sim_dat$numb_cond1[,5] = sim_dat$numb_cond1[,5] - change_num
+  sim_dat$numb_cond1[,6] = sim_dat$numb_cond1[,6] + change_num
+  
+  rate2 = runif(dim(sim_dat$numb_cond2)[5], -0.2, 0.2)
+  change_num = (sim_dat$numb_cond2[,5]*rate2) %>% round()
+  sim_dat$numb_cond2[,5] = sim_dat$numb_cond2[,5] - change_num
+  sim_dat$numb_cond2[,6] = sim_dat$numb_cond2[,6] + change_num
+  ## calculate true matrix
+  change_rate = (sum(rate1*sim_dat$numb_cond1[,5]) + sum(rate2*sim_dat$numb_cond2[,6]))/(sum(sim_dat$numb_cond1[,5]) + sum(sim_dat$numb_cond2[,6]))
+  if (change_rate > 0){
+    simil_matT = rbind(c(1,0,0,0,0,0,0,0)c(1-change_rate, 0, change_rate), c(0, 1, 0), c(0, 0, 1))
+} else {
+  simil_matUT = rbind(c(1, 0, 0), c(0, 1, 0), c(-change_rate, 0, 1+change_rate))
+}
+  ## DCATS---betabinLRT
+  betabin_noBC = betabinLRT_rw(as.matrix(sim_dat$numb_cond1), as.matrix(sim_dat$numb_cond2), bias_corr = FALSE)
+  ##  DCATS---betabinLRT with Bias correction from similarity matrix
+  simil_matI = get_similarity_mat(K, confuse_rate=0)
+  simil_matU = get_similarity_mat(K, confuse_rate=0.1)
+  betabin_wBC_I = betabinLRT_rw(as.matrix(sim_dat$numb_cond1), as.matrix(sim_dat$numb_cond2), bias_corr = TRUE, similarity_mat = simil_matI)
+  betabin_wBC_U = betabinLRT_rw(as.matrix(sim_dat$numb_cond1), as.matrix(sim_dat$numb_cond2), bias_corr = TRUE, similarity_mat = simil_matU)
+  betabin_wBC_T = betabinLRT_rw(as.matrix(sim_dat$numb_cond1), as.matrix(sim_dat$numb_cond2), bias_corr = TRUE, similarity_mat = simil_matT)
+  ## DCATS---betabin with similarity matrix (backward-forward)
+  betabin_wMI = dcats_betabin(as.matrix(sim_dat$numb_cond1), as.matrix(sim_dat$numb_cond2), similarity_mat = simil_matI, n_samples = 100, binom_only = FALSE)
+  betabin_wMU = dcats_betabin(as.matrix(sim_dat$numb_cond1), as.matrix(sim_dat$numb_cond2), similarity_mat = simil_matU, n_samples = 100, binom_only = FALSE)
+  betabin_wMT = dcats_betabin(as.matrix(sim_dat$numb_cond1), as.matrix(sim_dat$numb_cond2), similarity_mat = simil_matT, n_samples = 100, binom_only = FALSE)
+  bin_wMI = dcats_betabin(as.matrix(sim_dat$numb_cond1), as.matrix(sim_dat$numb_cond2), similarity_mat = simil_matI, n_samples = 100)
+  bin_wMU = dcats_betabin(as.matrix(sim_dat$numb_cond1), as.matrix(sim_dat$numb_cond2), similarity_mat = simil_matU, n_samples = 100)
+  bin_wMT = dcats_betabin(as.matrix(sim_dat$numb_cond1), as.matrix(sim_dat$numb_cond2), similarity_mat = simil_matT, n_samples = 100)
+  ## Fisher's exact test
+  fisher_pvals = getFisher(as.matrix(sim_dat$numb_cond1), as.matrix(sim_dat$numb_cond2))
+  all_res = data.frame(cluster = c("A", "B", "C"), truth = c("N", "N", "P", "P", "N", "P", "P")) %>% 
+    mutate(betabin_noBC_pvals = betabin_noBC$pvals,
+           betabin_wBCI_pvals = betabin_wBC_I$pvals,
+           betabin_wBCU_pvals = betabin_wBC_U$pvals,
+           betabin_wBCT_pvals = betabin_wBC_T$pvals,
+           betabin_wMI_pvals = betabin_wMI$pvals,
+           betabin_wMU_pvals = betabin_wMU$pvals,
+           betabin_wMT_pvals = betabin_wMT$pvals,
+           bin_wMI_pvals = bin_wMI$pvals,
+           bin_wMU_pvals = bin_wMU$pvals,
+           bin_wMT_pvals = bin_wMT$pvals,
+           fisher_pvals = fisher_pvals)
+  simulationDF = rbind(simulationDF, all_res)
+}
+head(simulationDF)
+```
+
+```{r, message=FALSE}
+library(pROC)
+methods = colnames(simulationDF)[3:13]
+roc_rose <- plot(roc(simulationDF$truth, simulationDF[,3]), legacy.axes = TRUE, print.auc = TRUE, print.auc.y = .7, print.auc.x = .5, col = 1)
+graphics::text(0.05, 0.69, paste(methods[1]), col=1)
+for (i in 2:11){
+  roc_rose <- plot(roc(simulationDF$truth, simulationDF[,i+2]), legacy.axes = TRUE, print.auc = TRUE, print.auc.y = .7-(i-1)*0.07, print.auc.x = .5, col = i, add = TRUE)
+  graphics::text(0.05, 0.69-(i-1)*0.07, paste(methods[i]), col=i)
+}
+
+print("Time")
+apply(na.omit(time), 2, mean)
+```

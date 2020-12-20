@@ -279,7 +279,7 @@ fastMNN = function(slt_sim_matC1, slt_sim_matC2, slt_batchesC1, slt_batchesC2, s
 }
 
 # function 7: simulator with fastMNN
-simulator_fastMNN = function(totals1, totals2, probC1, probC2, setresolu){
+simulator_fastMNN = function(totals1, totals2, probC1, probC2, setresolu, sim_mat){
   K = length(probC1)
   n_rep1 = length(totals1)
   n_rep2 = length(totals2)

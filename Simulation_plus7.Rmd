@@ -85,7 +85,7 @@ res_scDC <- scDC_noClustering(cellTypes = dfRes$clusterRes, dfRes$batch, calCI =
 # doesn't work
 #res_scDC_clust = scDC_clustering(simulation$integratedSamples@assays$RNA, cellTypes = dfRes$clusterRes, dfRes$batch, subject, calCI = TRUE, calCI_method = c("percentile", "BCa", "multinom"))
 source("glm.R")
-res_GLM <- fitGLM(res_scDC, c(rep("cond1",rep1*cluster_num),rep("cond2",rep2*cluster_num)), pairwise = FALSE, fixed_only = TRUE, verbose = FALSE)
+res_GLM <- fitGLM(res = res_scDC, condition = c(rep("cond1",rep1*cluster_num),rep("cond2",rep2*cluster_num)), subject_effect = TRUE, pairwise = FALSE, fixed_only = TRUE, verbose = FALSE)
 scDCRes_temp = summary(res_GLM$pool_res_fixed)
 scDCRes = scDCRes_temp[c(cluster_num+1,(dim(scDCRes_temp)[1]-cluster_num+2):dim(scDCRes_temp)[1]),]
 ```
@@ -98,7 +98,7 @@ scDCRes = scDCRes_temp[c(cluster_num+1,(dim(scDCRes_temp)[1]-cluster_num+2):dim(
 cluster_num = 3
 probC1 = c(1/3, 1/3, 1/3)
 probC2 = c(1/3, 1/2, 1/6)
-concentration = 30 # indicate how simulated proportion far away from true, the larger the closer
+concentration = 50 # indicate how simulated proportion far away from true, the larger the closer
 setresolu = 0.2
 rep1 = 3
 rep2 = 2
@@ -113,7 +113,7 @@ time = matrix(NA, nrow = simulation_times, ncol = 6)
 for (i in 1:simulation_times){
   timeL = rep(NA, 6) # DCATS w/wto simularity matrix, fisher, speckle, diffcyt, scDC
   ## simulation
-  simulation = simulator_fastMNN(totals1 = runif(rep1, 500, 1500), totals2 = runif(rep2, 300, 1500), probC1, probC2, setresolu)
+  simulation = simulator_fastMNN(totals1 = runif(rep1, 500, 1500), totals2 = runif(rep2, 400, 1500), probC1, probC2, setresolu, sim_mat)
   if (is.na(simulation)[1] == FALSE){
     ## data convert
     numb_cond1 = simulation$dfRes %>% 
@@ -135,16 +135,21 @@ for (i in 1:simulation_times){
     betabin_noBC = betabinLRT_rw(as.matrix(numb_cond1), as.matrix(numb_cond2), bias_corr = FALSE)
     timeL[1] = Sys.time() - t1start
     ##  DCATS---betabinLRT with Bias correction from similarity matrix
-    simil_matI = get_similarity_mat(cluster_num, confuse_rate=0)
+    ## KNN matrix
+    graphs = simulation$integratedSamples@graphs$RNA_snn
+    labels = Idents(simulation$integratedSamples)
+    knn_mat = KNN_transition(graphs, labels)
+    order = colnames(numb_cond1)
+    simil_matK = knn_mat[order, order]
     simil_matU = get_similarity_mat(cluster_num, confuse_rate=0.1)
-    betabin_wBC_I = betabinLRT_rw(as.matrix(numb_cond1), as.matrix(numb_cond2), bias_corr = TRUE, similarity_mat = simil_matI)
+    betabin_wBC_K = betabinLRT_rw(as.matrix(numb_cond1), as.matrix(numb_cond2), bias_corr = TRUE, similarity_mat = simil_matK)
     betabin_wBC_U = betabinLRT_rw(as.matrix(numb_cond1), as.matrix(numb_cond2), bias_corr = TRUE, similarity_mat = simil_matU)
     ## DCATS---betabin with similarity matrix (backward-forward)
     t2start = Sys.time()
-    betabin_wMI = dcats_betabin(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = simil_matI, n_samples = 100, binom_only = FALSE)
+    betabin_wMK = dcats_betabin(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = simil_matK, n_samples = 100, binom_only = FALSE)
     timeL[2] = Sys.time() - t2start
     betabin_wMU = dcats_betabin(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = simil_matU, n_samples = 100, binom_only = FALSE)
-    bin_wMI = dcats_betabin(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = simil_matI, n_samples = 100)
+    bin_wMK = dcats_betabin(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = simil_matK, n_samples = 100)
     bin_wMU = dcats_betabin(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = simil_matU, n_samples = 100)
     ## Fisher's exact test
     t3start = Sys.time()
@@ -177,11 +182,11 @@ for (i in 1:simulation_times){
       arrange(cluster)
     all_res = cluster_map %>% 
       mutate(betabin_noBC_pvals = betabin_noBC$pvals,
-             betabin_wBCI_pvals = betabin_wBC_I$pvals,
+             betabin_wBCK_pvals = betabin_wBC_K$pvals,
              betabin_wBCU_pvals = betabin_wBC_U$pvals,
-             betabin_wMI_pvals = betabin_wMI$pvals,
+             betabin_wMK_pvals = betabin_wMK$pvals,
              betabin_wMU_pvals = betabin_wMU$pvals,
-             bin_wMI_pvals = bin_wMI$pvals,
+             bin_wMK_pvals = bin_wMK$pvals,
              bin_wMU_pvals = bin_wMU$pvals,
              fisher_pvals = fisher_pvals,
              scDC_pvals = scDCRes$p.value) %>%
@@ -196,8 +201,8 @@ for (i in 1:simulation_times){
 sendEmail("Simulation is done!!")
 
 colnames(time) = c("DCATS_wtoM", "DCATS_wM", "fisher", "speckle", "diffcyt", "scDC")
-save(simulationDF, time, file = "./data/simulationDF/repplicates3&2.RData")
-load("./data/simulationDF/repplicates3&2.RData")
+save(simulationDF, time, file = "./data/simulationDF/repplicates3&2_con50K.RData")
+load("./data/simulationDF/repplicates3&2_con50K.RData")
 head(simulationDF)
 ```
 
@@ -219,11 +224,11 @@ apply(na.omit(time), 2, mean)
 simulationRes = simulationDF %>% 
   mutate(truth = ifelse(truth == "P", 1, 0),
          betabin_noBC_Res = ifelse(betabin_noBC_pvals < 0.05, 1, 0),
-         betabin_wBCI_Res = ifelse(betabin_wBCI_pvals < 0.05, 1, 0),
+         betabin_wBCK_Res = ifelse(betabin_wBCK_pvals < 0.05, 1, 0),
          betabin_wBCU_Res = ifelse(betabin_wBCU_pvals < 0.05, 1, 0),
-         betabin_wMI_Res = ifelse(betabin_wMI_pvals < 0.05, 1, 0),
+         betabin_wMK_Res = ifelse(betabin_wMK_pvals < 0.05, 1, 0),
          betabin_wMU_Res = ifelse(betabin_wMU_pvals < 0.05, 1, 0),
-         bin_wMI_Res = ifelse(bin_wMI_pvals < 0.05, 1, 0),
+         bin_wMK_Res = ifelse(bin_wMK_pvals < 0.05, 1, 0),
          bin_wMU_Res = ifelse(bin_wMU_pvals < 0.05, 1, 0),
          fisher_Res = ifelse(fisher_pvals < 0.05, 1, 0),
          scDC_Res = ifelse(scDC_pvals < 0.05, 1, 0),
@@ -261,7 +266,7 @@ time = matrix(NA, nrow = simulation_times, ncol = 6)
 for (i in 1:simulation_times){
   timeL = rep(NA, 6) # DCATS w/wto simularity matrix, fisher, speckle, diffcyt, scDC
   ## simulation
-  simulation = simulator_fastMNN(totals1 = runif(rep1, 500, 1500), totals2 = runif(rep2, 300, 1500), probC1, probC2, setresolu)
+  simulation = simulator_fastMNN(totals1 = runif(rep1, 500, 1500), totals2 = runif(rep2, 300, 1500), probC1, probC2, setresolu, sim_mat)
   if (is.na(simulation)[1] == FALSE){
     ## data convert
     numb_cond1 = simulation$dfRes %>% 
@@ -283,16 +288,21 @@ for (i in 1:simulation_times){
     betabin_noBC = betabinLRT_rw(as.matrix(numb_cond1), as.matrix(numb_cond2), bias_corr = FALSE)
     timeL[1] = Sys.time() - t1start
     ##  DCATS---betabinLRT with Bias correction from similarity matrix
-    simil_matI = get_similarity_mat(cluster_num, confuse_rate=0)
+    ## KNN matrix
+    graphs = simulation$integratedSamples@graphs$RNA_snn
+    labels = Idents(simulation$integratedSamples)
+    knn_mat = KNN_transition(graphs, labels)
+    order = colnames(numb_cond1)
+    simil_matK = knn_mat[order, order]
     simil_matU = get_similarity_mat(cluster_num, confuse_rate=0.1)
-    betabin_wBC_I = betabinLRT_rw(as.matrix(numb_cond1), as.matrix(numb_cond2), bias_corr = TRUE, similarity_mat = simil_matI)
+    betabin_wBC_K = betabinLRT_rw(as.matrix(numb_cond1), as.matrix(numb_cond2), bias_corr = TRUE, similarity_mat = simil_matK)
     betabin_wBC_U = betabinLRT_rw(as.matrix(numb_cond1), as.matrix(numb_cond2), bias_corr = TRUE, similarity_mat = simil_matU)
     ## DCATS---betabin with similarity matrix (backward-forward)
     t2start = Sys.time()
-    betabin_wMI = dcats_betabin(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = simil_matI, n_samples = 100, binom_only = FALSE)
+    betabin_wMK = dcats_betabin(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = simil_matK, n_samples = 100, binom_only = FALSE)
     timeL[2] = Sys.time() - t2start
     betabin_wMU = dcats_betabin(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = simil_matU, n_samples = 100, binom_only = FALSE)
-    bin_wMI = dcats_betabin(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = simil_matI, n_samples = 100)
+    bin_wMK = dcats_betabin(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = simil_matK, n_samples = 100)
     bin_wMU = dcats_betabin(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = simil_matU, n_samples = 100)
     ## Fisher's exact test
     t3start = Sys.time()
@@ -325,11 +335,11 @@ for (i in 1:simulation_times){
       arrange(cluster)
     all_res = cluster_map %>% 
       mutate(betabin_noBC_pvals = betabin_noBC$pvals,
-             betabin_wBCI_pvals = betabin_wBC_I$pvals,
+             betabin_wBCK_pvals = betabin_wBC_K$pvals,
              betabin_wBCU_pvals = betabin_wBC_U$pvals,
-             betabin_wMI_pvals = betabin_wMI$pvals,
+             betabin_wMK_pvals = betabin_wMK$pvals,
              betabin_wMU_pvals = betabin_wMU$pvals,
-             bin_wMI_pvals = bin_wMI$pvals,
+             bin_wMK_pvals = bin_wMK$pvals,
              bin_wMU_pvals = bin_wMU$pvals,
              fisher_pvals = fisher_pvals,
              scDC_pvals = scDCRes$p.value) %>%
@@ -344,8 +354,8 @@ for (i in 1:simulation_times){
 sendEmail("Simulation is done!!")
 
 colnames(time) = c("DCATS_wtoM", "DCATS_wM", "fisher", "speckle", "diffcyt", "scDC")
-save(simulationDF, time, file = "./data/simulationDF/repplicates6&4.RData")
-load("./data/simulationDF/repplicates6&4.RData")
+save(simulationDF, time, file = "./data/simulationDF/repplicates6&4K.RData")
+load("./data/simulationDF/repplicates6&4K.RData")
 head(simulationDF)
 ```
 
@@ -367,11 +377,11 @@ apply(na.omit(time), 2, mean)
 simulationRes = simulationDF %>% 
   mutate(truth = ifelse(truth == "P", 1, 0),
          betabin_noBC_Res = ifelse(betabin_noBC_pvals < 0.05, 1, 0),
-         betabin_wBCI_Res = ifelse(betabin_wBCI_pvals < 0.05, 1, 0),
+         betabin_wBCK_Res = ifelse(betabin_wBCK_pvals < 0.05, 1, 0),
          betabin_wBCU_Res = ifelse(betabin_wBCU_pvals < 0.05, 1, 0),
-         betabin_wMI_Res = ifelse(betabin_wMI_pvals < 0.05, 1, 0),
+         betabin_wMK_Res = ifelse(betabin_wMK_pvals < 0.05, 1, 0),
          betabin_wMU_Res = ifelse(betabin_wMU_pvals < 0.05, 1, 0),
-         bin_wMI_Res = ifelse(bin_wMI_pvals < 0.05, 1, 0),
+         bin_wMK_Res = ifelse(bin_wMK_pvals < 0.05, 1, 0),
          bin_wMU_Res = ifelse(bin_wMU_pvals < 0.05, 1, 0),
          fisher_Res = ifelse(fisher_pvals < 0.05, 1, 0),
          scDC_Res = ifelse(scDC_pvals < 0.05, 1, 0),
@@ -394,13 +404,13 @@ errorRate[order(errorRate)]
 cluster_num = 3
 probC1 = c(1/3, 1/3, 1/3)
 probC2 = c(1/3, 1/2, 1/6)
-concentration = 30 # indicate how simulated proportion far away from true, the larger the closer
-setresolu = 0.2
+concentration = 5 # indicate how simulated proportion far away from true, the larger the closer
+setresolu = 0.15
 rep1 = 10
 rep2 = 8
 ```
 
-```{r, message=FALSE, warning=FALSE}
+```{r, warning=FALSE, message=FALSE}
 ## do 50 times
 simulation_times = 50
 set.seed(123)
@@ -409,7 +419,7 @@ time = matrix(NA, nrow = simulation_times, ncol = 6)
 for (i in 1:simulation_times){
   timeL = rep(NA, 6) # DCATS w/wto simularity matrix, fisher, speckle, diffcyt, scDC
   ## simulation
-  simulation = simulator_fastMNN(totals1 = runif(rep1, 500, 1000), totals2 = runif(rep2, 300, 1000), probC1, probC2, setresolu)
+  simulation = simulator_fastMNN(totals1 = runif(rep1, 1200, 2000), totals2 = runif(rep2, 1200, 1800), probC1, probC2, setresolu, sim_mat)
   if (is.na(simulation)[1] == FALSE){
     ## data convert
     numb_cond1 = simulation$dfRes %>% 
@@ -424,86 +434,98 @@ for (i in 1:simulation_times){
       summarise(n = n()) %>% 
       pivot_wider(names_from = "clusterRes", values_from = "n") %>% 
       column_to_rownames(var = "batch")
-    conf.mat<-table(Idents(simulation$integratedSamples), simulation$trueLabels)
-    ## test
-    ## DCATS---betabinLRT
-    t1start = Sys.time()
-    betabin_noBC = betabinLRT_rw(as.matrix(numb_cond1), as.matrix(numb_cond2), bias_corr = FALSE)
-    timeL[1] = Sys.time() - t1start
-    ##  DCATS---betabinLRT with Bias correction from similarity matrix
-    simil_matI = get_similarity_mat(cluster_num, confuse_rate=0)
-    simil_matU = get_similarity_mat(cluster_num, confuse_rate=0.1)
-    betabin_wBC_I = betabinLRT_rw(as.matrix(numb_cond1), as.matrix(numb_cond2), bias_corr = TRUE, similarity_mat = simil_matI)
-    betabin_wBC_U = betabinLRT_rw(as.matrix(numb_cond1), as.matrix(numb_cond2), bias_corr = TRUE, similarity_mat = simil_matU)
-    ## DCATS---betabin with similarity matrix (backward-forward)
-    t2start = Sys.time()
-    betabin_wMI = dcats_betabin(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = simil_matI, n_samples = 100, binom_only = FALSE)
-    timeL[2] = Sys.time() - t2start
-    betabin_wMU = dcats_betabin(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = simil_matU, n_samples = 100, binom_only = FALSE)
-    bin_wMI = dcats_betabin(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = simil_matI, n_samples = 100)
-    bin_wMU = dcats_betabin(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = simil_matU, n_samples = 100)
-    ## Fisher's exact test
-    t3start = Sys.time()
-    fisher_pvals = getFisher(as.matrix(numb_cond1), as.matrix(numb_cond2))
-    timeL[3] = Sys.time() - t3start
-    ## speckle
-    t4start = Sys.time()
-    speckleRes = propeller(clusters = simulation$dfRes$clusterRes, sample = simulation$dfRes$batch, group = simulation$dfRes$condition) %>% 
-      dplyr::rename(cluster = BaselineProp.clusters,
+    numb_cond1[is.na(numb_cond1)] <- 0
+    numb_cond2[is.na(numb_cond2)] <- 0
+    L_sum1 = colSums(numb_cond1)[cluster_num]
+    L_sum2 = colSums(numb_cond2)[cluster_num]
+    if(dim(numb_cond1)[2] ==3 & dim(numb_cond2)[2] ==3) {
+      if (L_sum1 > 10 & L_sum2 > 10 & dim(numb_cond1)[2] ==3 & dim(numb_cond2)[2] ==3){
+        conf.mat<-table(Idents(simulation$integratedSamples), simulation$trueLabels)
+        ## test
+        ## DCATS---betabinLRT
+        t1start = Sys.time()
+        betabin_noBC = betabinLRT_rw(as.matrix(numb_cond1), as.matrix(numb_cond2), bias_corr = FALSE)
+        timeL[1] = Sys.time() - t1start
+        ##  DCATS---betabinLRT with Bias correction from similarity matrix
+        ## KNN matrix
+        graphs = simulation$integratedSamples@graphs$RNA_snn
+        labels = Idents(simulation$integratedSamples)
+        knn_mat = KNN_transition(graphs, labels)
+        order = colnames(numb_cond1)
+        simil_matK = knn_mat[order, order]
+        simil_matU = get_similarity_mat(cluster_num, confuse_rate=0.1)
+        betabin_wBC_K = betabinLRT_rw(as.matrix(numb_cond1), as.matrix(numb_cond2), bias_corr = TRUE, similarity_mat = simil_matK)
+        betabin_wBC_U = betabinLRT_rw(as.matrix(numb_cond1), as.matrix(numb_cond2), bias_corr = TRUE, similarity_mat = simil_matU)
+        ## DCATS---betabin with similarity matrix (backward-forward)
+        t2start = Sys.time()
+        betabin_wMK = dcats_betabin(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = simil_matK, n_samples = 100, binom_only = FALSE)
+        timeL[2] = Sys.time() - t2start
+        betabin_wMU = dcats_betabin(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = simil_matU, n_samples = 100, binom_only = FALSE)
+        bin_wMK = dcats_betabin(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = simil_matK, n_samples = 100)
+        bin_wMU = dcats_betabin(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = simil_matU, n_samples = 100)
+        ## Fisher's exact test
+        t3start = Sys.time()
+        fisher_pvals = getFisher(as.matrix(numb_cond1), as.matrix(numb_cond2))
+        timeL[3] = Sys.time() - t3start
+        ## speckle
+        t4start = Sys.time()
+        speckleRes = propeller(clusters = simulation$dfRes$clusterRes, sample = simulation$dfRes$batch, group = simulation$dfRes$condition) %>% 
+          dplyr::rename(cluster = BaselineProp.clusters,
                     speckle_pvals = FDR) %>%
-      dplyr::select(cluster, speckle_pvals)
-    timeL[4] = Sys.time() - t4start
-    ## diffcyt
-    t5start = Sys.time()
-    diffcytP = getDiffcyt(numb_cond1, numb_cond2, simulation$integratedSamples)
-    timeL[5] = Sys.time() - t5start
-    ## scDC
-    t6start = Sys.time()
-    res_scDC <- scDC_noClustering(cellTypes = simulation$dfRes$clusterRes, simulation$dfRes$batch, calCI = TRUE, calCI_method = c("percentile", "BCa", "multinom"),nboot = 1000, verbose = FALSE)
-    res_GLM <- fitGLM(res_scDC, c(rep("cond1",rep1*cluster_num),rep("cond2",rep2*cluster_num)), pairwise = FALSE, fixed_only = TRUE, verbose = FALSE)
-    timeL[6] = Sys.time() - t6start
-    scDCRes_temp = summary(res_GLM$pool_res_fixed)
-    scDCRes = scDCRes_temp[c(cluster_num+1,(dim(scDCRes_temp)[1]-cluster_num+2):dim(scDCRes_temp)[1]),]
-    ## results
-    cluster_map = apply(conf.mat, 2, which.max) %>%
-      plyr::mapvalues(from = c(1:cluster_num), to = c("A", "B", "C", "D", "E", "F")[1:cluster_num]) %>% 
-      as_tibble() %>% 
-      mutate(truth = c("N", "P", "P")) %>%
-      dplyr::rename(cluster = value) %>% 
-      arrange(cluster)
-    all_res = cluster_map %>% 
-      mutate(betabin_noBC_pvals = betabin_noBC$pvals,
-             betabin_wBCI_pvals = betabin_wBC_I$pvals,
+          dplyr::select(cluster, speckle_pvals)
+        timeL[4] = Sys.time() - t4start
+        ## diffcyt
+        t5start = Sys.time()
+        diffcytP = getDiffcyt(numb_cond1, numb_cond2, simulation$integratedSamples)
+        timeL[5] = Sys.time() - t5start
+        ## scDC
+        t6start = Sys.time()
+        res_scDC <- scDC_noClustering(cellTypes = simulation$dfRes$clusterRes, simulation$dfRes$batch, calCI = TRUE, calCI_method = c("percentile", "BCa", "multinom"),nboot = 1000, verbose = FALSE)
+        res_GLM <- fitGLM(res_scDC, c(rep("cond1",rep1*cluster_num),rep("cond2",rep2*cluster_num)), pairwise = FALSE, fixed_only = TRUE, verbose = FALSE)
+        timeL[6] = Sys.time() - t6start
+        scDCRes_temp = summary(res_GLM$pool_res_fixed)
+        scDCRes = scDCRes_temp[c(cluster_num+1,(dim(scDCRes_temp)[1]-cluster_num+2):dim(scDCRes_temp)[1]),]
+        ## results
+        cluster_map = apply(conf.mat, 2, which.max) %>%
+          plyr::mapvalues(from = c(1:cluster_num), to = c("A", "B", "C", "D", "E", "F")[1:cluster_num]) %>% 
+          as_tibble() %>% 
+          mutate(truth = c("N", "P", "P")) %>%
+          dplyr::rename(cluster = value) %>% 
+          arrange(cluster)
+        all_res = cluster_map %>% 
+          mutate(betabin_noBC_pvals = betabin_noBC$pvals,
+             betabin_wBCK_pvals = betabin_wBC_K$pvals,
              betabin_wBCU_pvals = betabin_wBC_U$pvals,
-             betabin_wMI_pvals = betabin_wMI$pvals,
+             betabin_wMK_pvals = betabin_wMK$pvals,
              betabin_wMU_pvals = betabin_wMU$pvals,
-             bin_wMI_pvals = bin_wMI$pvals,
+             bin_wMK_pvals = bin_wMK$pvals,
              bin_wMU_pvals = bin_wMU$pvals,
              fisher_pvals = fisher_pvals,
              scDC_pvals = scDCRes$p.value) %>%
-      merge(speckleRes, by = "cluster") %>% 
-      merge(diffcytP, by = "cluster")
-    simulationDF = rbind(simulationDF, all_res)
-    time[i,] = timeL
+          merge(speckleRes, by = "cluster") %>% 
+          merge(diffcytP, by = "cluster")
+        simulationDF = rbind(simulationDF, all_res)
+        time[i,] = timeL
   }
-}
+    }
+  }}
 
 ## send email after finishing
 sendEmail("Simulation is done!!")
 
 colnames(time) = c("DCATS_wtoM", "DCATS_wM", "fisher", "speckle", "diffcyt", "scDC")
-save(simulationDF, time, file = "./data/simulationDF/repplicates10&8.RData")
-load("./data/simulationDF/repplicates10&8.RData")
+save(simulationDF, time, file = "./data/simulationDF/repplicates10&8_con5K.RData")
+load("./data/simulationDF/repplicates10&8_con5K.RData")
 head(simulationDF)
 ```
 
 ```{r, message=FALSE}
 library(pROC)
 methods = colnames(simulationDF)[3:13]
-roc_rose <- plot(roc(simulationDF$truth, simulationDF[,3]), legacy.axes = TRUE, print.auc = TRUE, print.auc.y = .7, print.auc.x = .4, col = 1)
+roc_rose <- plot(roc(simulationDF$truth, simulationDF[,3]), legacy.axes = TRUE, print.auc = TRUE, print.auc.y = .7, print.auc.x = .5, col = 1)
 graphics::text(0.05, 0.69, paste(methods[1]), col=1)
 for (i in 2:11){
-  roc_rose <- plot(roc(simulationDF$truth, simulationDF[,i+2]), legacy.axes = TRUE, print.auc = TRUE, print.auc.y = .7-(i-1)*0.07, print.auc.x = .4, col = i, add = TRUE)
+  roc_rose <- plot(roc(simulationDF$truth, simulationDF[,i+2]), legacy.axes = TRUE, print.auc = TRUE, print.auc.y = .7-(i-1)*0.07, print.auc.x = .5, col = i, add = TRUE)
   graphics::text(0.05, 0.69-(i-1)*0.07, paste(methods[i]), col=i)
 }
 
@@ -515,11 +537,11 @@ apply(na.omit(time), 2, mean)
 simulationRes = simulationDF %>% 
   mutate(truth = ifelse(truth == "P", 1, 0),
          betabin_noBC_Res = ifelse(betabin_noBC_pvals < 0.05, 1, 0),
-         betabin_wBCI_Res = ifelse(betabin_wBCI_pvals < 0.05, 1, 0),
+         betabin_wBCK_Res = ifelse(betabin_wBCK_pvals < 0.05, 1, 0),
          betabin_wBCU_Res = ifelse(betabin_wBCU_pvals < 0.05, 1, 0),
-         betabin_wMI_Res = ifelse(betabin_wMI_pvals < 0.05, 1, 0),
+         betabin_wMK_Res = ifelse(betabin_wMK_pvals < 0.05, 1, 0),
          betabin_wMU_Res = ifelse(betabin_wMU_pvals < 0.05, 1, 0),
-         bin_wMI_Res = ifelse(bin_wMI_pvals < 0.05, 1, 0),
+         bin_wMK_Res = ifelse(bin_wMK_pvals < 0.05, 1, 0),
          bin_wMU_Res = ifelse(bin_wMU_pvals < 0.05, 1, 0),
          fisher_Res = ifelse(fisher_pvals < 0.05, 1, 0),
          scDC_Res = ifelse(scDC_pvals < 0.05, 1, 0),
@@ -535,6 +557,11 @@ print("errorRate0.05")
 errorRate = colSums(simulationRes[,14:24])/dim(simulationRes[,14:24])[1]
 errorRate[order(errorRate)]
 ```
+
+```{r}
+
+```
+
 
 ## Different numbers of clusters
 
@@ -565,7 +592,7 @@ time = matrix(NA, nrow = simulation_times, ncol = 6)
 for (i in 1:simulation_times){
   timeL = rep(NA, 6) # DCATS w/wto simularity matrix, fisher, speckle, diffcyt, scDC
   ## simulation
-  simulation = simulator_fastMNN(totals1 = runif(rep1, 1000, 2000), totals2 = runif(rep2, 1000, 2500), probC1, probC2, setresolu)
+  simulation = simulator_fastMNN(totals1 = runif(rep1, 1000, 2000), totals2 = runif(rep2, 1000, 2500), probC1, probC2, setresolu, sim_mat)
   if (is.na(simulation)[1] == FALSE){
     ## data convert
     numb_cond1 = simulation$dfRes %>% 
@@ -587,16 +614,21 @@ for (i in 1:simulation_times){
     betabin_noBC = betabinLRT_rw(as.matrix(numb_cond1), as.matrix(numb_cond2), bias_corr = FALSE)
     timeL[1] = Sys.time() - t1start
     ##  DCATS---betabinLRT with Bias correction from similarity matrix
-    simil_matI = get_similarity_mat(cluster_num, confuse_rate=0)
+    ## KNN matrix
+    graphs = simulation$integratedSamples@graphs$RNA_snn
+    labels = Idents(simulation$integratedSamples)
+    knn_mat = KNN_transition(graphs, labels)
+    order = colnames(numb_cond1)
+    simil_matK = knn_mat[order, order]
     simil_matU = get_similarity_mat(cluster_num, confuse_rate=0.1)
-    betabin_wBC_I = betabinLRT_rw(as.matrix(numb_cond1), as.matrix(numb_cond2), bias_corr = TRUE, similarity_mat = simil_matI)
+    betabin_wBC_K = betabinLRT_rw(as.matrix(numb_cond1), as.matrix(numb_cond2), bias_corr = TRUE, similarity_mat = simil_matK)
     betabin_wBC_U = betabinLRT_rw(as.matrix(numb_cond1), as.matrix(numb_cond2), bias_corr = TRUE, similarity_mat = simil_matU)
     ## DCATS---betabin with similarity matrix (backward-forward)
     t2start = Sys.time()
-    betabin_wMI = dcats_betabin(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = simil_matI, n_samples = 100, binom_only = FALSE)
+    betabin_wMK = dcats_betabin(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = simil_matK, n_samples = 100, binom_only = FALSE)
     timeL[2] = Sys.time() - t2start
     betabin_wMU = dcats_betabin(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = simil_matU, n_samples = 100, binom_only = FALSE)
-    bin_wMI = dcats_betabin(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = simil_matI, n_samples = 100)
+    bin_wMK = dcats_betabin(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = simil_matK, n_samples = 100)
     bin_wMU = dcats_betabin(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = simil_matU, n_samples = 100)
     ## Fisher's exact test
     t3start = Sys.time()
@@ -629,11 +661,11 @@ for (i in 1:simulation_times){
       arrange(cluster)
     all_res = cluster_map %>% 
       mutate(betabin_noBC_pvals = betabin_noBC$pvals,
-             betabin_wBCI_pvals = betabin_wBC_I$pvals,
+             betabin_wBCK_pvals = betabin_wBC_K$pvals,
              betabin_wBCU_pvals = betabin_wBC_U$pvals,
-             betabin_wMI_pvals = betabin_wMI$pvals,
+             betabin_wMK_pvals = betabin_wMK$pvals,
              betabin_wMU_pvals = betabin_wMU$pvals,
-             bin_wMI_pvals = bin_wMI$pvals,
+             bin_wMK_pvals = bin_wMK$pvals,
              bin_wMU_pvals = bin_wMU$pvals,
              fisher_pvals = fisher_pvals,
              scDC_pvals = scDCRes$p.value) %>%
@@ -648,8 +680,8 @@ for (i in 1:simulation_times){
 sendEmail("Simulation is done!!")
 
 colnames(time) = c("DCATS_wtoM", "DCATS_wM", "fisher", "speckle", "diffcyt", "scDC")
-save(simulationDF, time, file = "./data/simulationDF/clusters7.RData")
-load("./data/simulationDF/clusters7.RData")
+save(simulationDF, time, file = "./data/simulationDF/clusters7K.RData")
+load("./data/simulationDF/clusters7K.RData")
 head(simulationDF)
 ```
 
@@ -671,11 +703,11 @@ apply(na.omit(time), 2, mean)
 simulationRes = simulationDF %>% 
   mutate(truth = ifelse(truth == "P", 1, 0),
          betabin_noBC_Res = ifelse(betabin_noBC_pvals < 0.05, 1, 0),
-         betabin_wBCI_Res = ifelse(betabin_wBCI_pvals < 0.05, 1, 0),
+         betabin_wBCK_Res = ifelse(betabin_wBCK_pvals < 0.05, 1, 0),
          betabin_wBCU_Res = ifelse(betabin_wBCU_pvals < 0.05, 1, 0),
-         betabin_wMI_Res = ifelse(betabin_wMI_pvals < 0.05, 1, 0),
+         betabin_wMK_Res = ifelse(betabin_wMK_pvals < 0.05, 1, 0),
          betabin_wMU_Res = ifelse(betabin_wMU_pvals < 0.05, 1, 0),
-         bin_wMI_Res = ifelse(bin_wMI_pvals < 0.05, 1, 0),
+         bin_wMK_Res = ifelse(bin_wMK_pvals < 0.05, 1, 0),
          bin_wMU_Res = ifelse(bin_wMU_pvals < 0.05, 1, 0),
          fisher_Res = ifelse(fisher_pvals < 0.05, 1, 0),
          scDC_Res = ifelse(scDC_pvals < 0.05, 1, 0),
@@ -740,7 +772,7 @@ time = matrix(NA, nrow = simulation_times, ncol = 6)
 for (i in 1:simulation_times){
   timeL = rep(NA, 6) # DCATS w/wto simularity matrix, fisher, speckle, diffcyt, scDC
   ## simulation
-  simulation = simulator_fastMNN(totals1 = runif(rep1, 3000, 4000), totals2 = runif(rep2, 3000, 4000), probC1, probC2, setresolu)
+  simulation = simulator_fastMNN(totals1 = runif(rep1, 3000, 4000), totals2 = runif(rep2, 3000, 4000), probC1, probC2, setresolu, sim_mat)
   ## data convert
   numb_cond1 = simulation$dfRes %>% 
     filter(condition == "Cond1") %>% 
@@ -766,16 +798,21 @@ for (i in 1:simulation_times){
     betabin_noBC = betabinLRT_rw(as.matrix(numb_cond1), as.matrix(numb_cond2), bias_corr = FALSE)
     timeL[1] = Sys.time() - t1start
     ##  DCATS---betabinLRT with Bias correction from similarity matrix
-    simil_matI = get_similarity_mat(cluster_num, confuse_rate=0)
+    ## KNN matrix
+    graphs = simulation$integratedSamples@graphs$RNA_snn
+    labels = Idents(simulation$integratedSamples)
+    knn_mat = KNN_transition(graphs, labels)
+    order = colnames(numb_cond1)
+    simil_matK = knn_mat[order, order]
     simil_matU = get_similarity_mat(cluster_num, confuse_rate=0.1)
-    betabin_wBC_I = betabinLRT_rw(as.matrix(numb_cond1), as.matrix(numb_cond2), bias_corr = TRUE, similarity_mat = simil_matI)
+    betabin_wBC_K = betabinLRT_rw(as.matrix(numb_cond1), as.matrix(numb_cond2), bias_corr = TRUE, similarity_mat = simil_matK)
     betabin_wBC_U = betabinLRT_rw(as.matrix(numb_cond1), as.matrix(numb_cond2), bias_corr = TRUE, similarity_mat = simil_matU)
     ## DCATS---betabin with similarity matrix (backward-forward)
     t2start = Sys.time()
-    betabin_wMI = dcats_betabin(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = simil_matI, n_samples = 100, binom_only = FALSE)
+    betabin_wMK = dcats_betabin(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = simil_matK, n_samples = 100, binom_only = FALSE)
     timeL[2] = Sys.time() - t2start
     betabin_wMU = dcats_betabin(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = simil_matU, n_samples = 100, binom_only = FALSE)
-    bin_wMI = dcats_betabin(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = simil_matI, n_samples = 100)
+    bin_wMK = dcats_betabin(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = simil_matK, n_samples = 100)
     bin_wMU = dcats_betabin(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = simil_matU, n_samples = 100)
     ## Fisher's exact test
     t3start = Sys.time()
@@ -808,11 +845,11 @@ for (i in 1:simulation_times){
       arrange(cluster)
     all_res = cluster_map %>% 
       mutate(betabin_noBC_pvals = betabin_noBC$pvals,
-             betabin_wBCI_pvals = betabin_wBC_I$pvals,
+             betabin_wBCK_pvals = betabin_wBC_K$pvals,
              betabin_wBCU_pvals = betabin_wBC_U$pvals,
-             betabin_wMI_pvals = betabin_wMI$pvals,
+             betabin_wMK_pvals = betabin_wMK$pvals,
              betabin_wMU_pvals = betabin_wMU$pvals,
-             bin_wMI_pvals = bin_wMI$pvals,
+             bin_wMK_pvals = bin_wMK$pvals,
              bin_wMU_pvals = bin_wMU$pvals,
              fisher_pvals = fisher_pvals,
              scDC_pvals = scDCRes$p.value) %>%
@@ -850,11 +887,11 @@ apply(na.omit(time), 2, mean)
 simulationRes = simulationDF %>% 
   mutate(truth = ifelse(truth == "P", 1, 0),
          betabin_noBC_Res = ifelse(betabin_noBC_pvals < 0.05, 1, 0),
-         betabin_wBCI_Res = ifelse(betabin_wBCI_pvals < 0.05, 1, 0),
+         betabin_wBCK_Res = ifelse(betabin_wBCK_pvals < 0.05, 1, 0),
          betabin_wBCU_Res = ifelse(betabin_wBCU_pvals < 0.05, 1, 0),
-         betabin_wMI_Res = ifelse(betabin_wMI_pvals < 0.05, 1, 0),
+         betabin_wMK_Res = ifelse(betabin_wMK_pvals < 0.05, 1, 0),
          betabin_wMU_Res = ifelse(betabin_wMU_pvals < 0.05, 1, 0),
-         bin_wMI_Res = ifelse(bin_wMI_pvals < 0.05, 1, 0),
+         bin_wMK_Res = ifelse(bin_wMK_pvals < 0.05, 1, 0),
          bin_wMU_Res = ifelse(bin_wMU_pvals < 0.05, 1, 0),
          fisher_Res = ifelse(fisher_pvals < 0.05, 1, 0),
          scDC_Res = ifelse(scDC_pvals < 0.05, 1, 0),
@@ -918,7 +955,7 @@ time = matrix(NA, nrow = simulation_times, ncol = 6)
 for (i in 1:simulation_times){
   timeL = rep(NA, 6) # DCATS w/wto simularity matrix, fisher, speckle, diffcyt, scDC
   ## simulation
-  simulation = simulator_fastMNN(totals1 = runif(rep1, 1000, 2000), totals2 = runif(rep2, 1000, 2500), probC1, probC2, setresolu)
+  simulation = simulator_fastMNN(totals1 = runif(rep1, 1000, 2000), totals2 = runif(rep2, 1000, 2500), probC1, probC2, setresolu, sim_mat_adj)
   if (is.na(simulation)[1] == FALSE){
     ## data convert
     numb_cond1 = simulation$dfRes %>% 
@@ -940,16 +977,21 @@ for (i in 1:simulation_times){
     betabin_noBC = betabinLRT_rw(as.matrix(numb_cond1), as.matrix(numb_cond2), bias_corr = FALSE)
     timeL[1] = Sys.time() - t1start
     ##  DCATS---betabinLRT with Bias correction from similarity matrix
-    simil_matI = get_similarity_mat(cluster_num, confuse_rate=0)
+    ## KNN matrix
+    graphs = simulation$integratedSamples@graphs$RNA_snn
+    labels = Idents(simulation$integratedSamples)
+    knn_mat = KNN_transition(graphs, labels)
+    order = colnames(numb_cond1)
+    simil_matK = knn_mat[order, order]
     simil_matU = get_similarity_mat(cluster_num, confuse_rate=0.1)
-    betabin_wBC_I = betabinLRT_rw(as.matrix(numb_cond1), as.matrix(numb_cond2), bias_corr = TRUE, similarity_mat = simil_matI)
+    betabin_wBC_K = betabinLRT_rw(as.matrix(numb_cond1), as.matrix(numb_cond2), bias_corr = TRUE, similarity_mat = simil_matK)
     betabin_wBC_U = betabinLRT_rw(as.matrix(numb_cond1), as.matrix(numb_cond2), bias_corr = TRUE, similarity_mat = simil_matU)
     ## DCATS---betabin with similarity matrix (backward-forward)
     t2start = Sys.time()
-    betabin_wMI = dcats_betabin(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = simil_matI, n_samples = 100, binom_only = FALSE)
+    betabin_wMK = dcats_betabin(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = simil_matK, n_samples = 100, binom_only = FALSE)
     timeL[2] = Sys.time() - t2start
     betabin_wMU = dcats_betabin(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = simil_matU, n_samples = 100, binom_only = FALSE)
-    bin_wMI = dcats_betabin(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = simil_matI, n_samples = 100)
+    bin_wMK = dcats_betabin(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = simil_matK, n_samples = 100)
     bin_wMU = dcats_betabin(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = simil_matU, n_samples = 100)
     ## Fisher's exact test
     t3start = Sys.time()
@@ -982,11 +1024,11 @@ for (i in 1:simulation_times){
       arrange(cluster)
     all_res = cluster_map %>% 
       mutate(betabin_noBC_pvals = betabin_noBC$pvals,
-             betabin_wBCI_pvals = betabin_wBC_I$pvals,
+             betabin_wBCK_pvals = betabin_wBC_K$pvals,
              betabin_wBCU_pvals = betabin_wBC_U$pvals,
-             betabin_wMI_pvals = betabin_wMI$pvals,
+             betabin_wMK_pvals = betabin_wMK$pvals,
              betabin_wMU_pvals = betabin_wMU$pvals,
-             bin_wMI_pvals = bin_wMI$pvals,
+             bin_wMK_pvals = bin_wMK$pvals,
              bin_wMU_pvals = bin_wMU$pvals,
              fisher_pvals = fisher_pvals,
              scDC_pvals = scDCRes$p.value) %>%
@@ -1054,7 +1096,7 @@ load("./data/cells_pool7.RData")
 ```
 
 ```{r}
-bin_sum = function(sizeL, prob = 1/2) {
+bin_sum = function(sizeL, prob = 1/5) {
   res = rep(NA, length(sizeL))
   for (i in 1:length(sizeL)){
     res[i] = sum(rbinom(1, sizeL[i], prob))
@@ -1074,7 +1116,7 @@ cluster_num = 7
 probC1 = c(rep(0.1, 4), rep(0.2, 3))
 probC2 = c(0.1, 0.1, 0.2, 0.05, 0.2, 0.3, 0.05)
 concentration = 50 # indicate how simulated proportion far away from true, the larger the closer
-setresolu = 0.3
+setresolu = 0.4
 rep1 = 3
 rep2 = 2
 ```
@@ -1088,7 +1130,7 @@ time = matrix(NA, nrow = simulation_times, ncol = 6)
 for (i in 1:simulation_times){
   timeL = rep(NA, 6) # DCATS w/wto simularity matrix, fisher, speckle, diffcyt, scDC
   ## simulation
-  simulation = simulator_fastMNN(totals1 = runif(rep1, 1000, 2000), totals2 = runif(rep2, 1000, 2500), probC1, probC2, setresolu)
+  simulation = simulator_fastMNN(totals1 = runif(rep1, 500, 1000), totals2 = runif(rep2, 600, 1200), probC1, probC2, setresolu, sim_mat_adj)
   if (is.na(simulation)[1] == FALSE){
     ## data convert
     numb_cond1 = simulation$dfRes %>% 
@@ -1103,6 +1145,11 @@ for (i in 1:simulation_times){
       summarise(n = n()) %>% 
       pivot_wider(names_from = "clusterRes", values_from = "n") %>% 
       column_to_rownames(var = "batch")
+    numb_cond1[is.na(numb_cond1)] <- 0
+    numb_cond2[is.na(numb_cond2)] <- 0
+    L_sum1 = colSums(numb_cond1)[cluster_num]
+    L_sum2 = colSums(numb_cond2)[cluster_num]
+    if (L_sum1 > 10 & L_sum2 > 10){
     conf.mat<-table(Idents(simulation$integratedSamples), simulation$trueLabels)
     ## test
     ## DCATS---betabinLRT
@@ -1110,16 +1157,21 @@ for (i in 1:simulation_times){
     betabin_noBC = betabinLRT_rw(as.matrix(numb_cond1), as.matrix(numb_cond2), bias_corr = FALSE)
     timeL[1] = Sys.time() - t1start
     ##  DCATS---betabinLRT with Bias correction from similarity matrix
-    simil_matI = get_similarity_mat(cluster_num, confuse_rate=0)
+    ## KNN matrix
+    graphs = simulation$integratedSamples@graphs$RNA_snn
+    labels = Idents(simulation$integratedSamples)
+    knn_mat = KNN_transition(graphs, labels)
+    order = colnames(numb_cond1)
+    simil_matK = knn_mat[order, order]
     simil_matU = get_similarity_mat(cluster_num, confuse_rate=0.1)
-    betabin_wBC_I = betabinLRT_rw(as.matrix(numb_cond1), as.matrix(numb_cond2), bias_corr = TRUE, similarity_mat = simil_matI)
+    betabin_wBC_K = betabinLRT_rw(as.matrix(numb_cond1), as.matrix(numb_cond2), bias_corr = TRUE, similarity_mat = simil_matK)
     betabin_wBC_U = betabinLRT_rw(as.matrix(numb_cond1), as.matrix(numb_cond2), bias_corr = TRUE, similarity_mat = simil_matU)
     ## DCATS---betabin with similarity matrix (backward-forward)
     t2start = Sys.time()
-    betabin_wMI = dcats_betabin(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = simil_matI, n_samples = 100, binom_only = FALSE)
+    betabin_wMK = dcats_betabin(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = simil_matK, n_samples = 100, binom_only = FALSE)
     timeL[2] = Sys.time() - t2start
     betabin_wMU = dcats_betabin(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = simil_matU, n_samples = 100, binom_only = FALSE)
-    bin_wMI = dcats_betabin(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = simil_matI, n_samples = 100)
+    bin_wMK = dcats_betabin(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = simil_matK, n_samples = 100)
     bin_wMU = dcats_betabin(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = simil_matU, n_samples = 100)
     ## Fisher's exact test
     t3start = Sys.time()
@@ -1152,11 +1204,11 @@ for (i in 1:simulation_times){
       arrange(cluster)
     all_res = cluster_map %>% 
       mutate(betabin_noBC_pvals = betabin_noBC$pvals,
-             betabin_wBCI_pvals = betabin_wBC_I$pvals,
+             betabin_wBCK_pvals = betabin_wBC_K$pvals,
              betabin_wBCU_pvals = betabin_wBC_U$pvals,
-             betabin_wMI_pvals = betabin_wMI$pvals,
+             betabin_wMK_pvals = betabin_wMK$pvals,
              betabin_wMU_pvals = betabin_wMU$pvals,
-             bin_wMI_pvals = bin_wMI$pvals,
+             bin_wMK_pvals = bin_wMK$pvals,
              bin_wMU_pvals = bin_wMU$pvals,
              fisher_pvals = fisher_pvals,
              scDC_pvals = scDCRes$p.value) %>%
@@ -1165,14 +1217,15 @@ for (i in 1:simulation_times){
     simulationDF = rbind(simulationDF, all_res)
     time[i,] = timeL
   }
+  }
 }
 
 ## send email after finishing
 sendEmail("Simulation is done!!")
 
 colnames(time) = c("DCATS_wtoM", "DCATS_wM", "fisher", "speckle", "diffcyt", "scDC")
-save(simulationDF, time, file = "./data/simulationDF/coverage2.RData")
-load("./data/simulationDF/coverage2.RData")
+save(simulationDF, time, file = "./data/simulationDF/coverage5K.RData")
+load("./data/simulationDF/coverage5K.RData")
 head(simulationDF)
 ```
 
@@ -1194,11 +1247,11 @@ apply(na.omit(time), 2, mean)
 simulationRes = simulationDF %>% 
   mutate(truth = ifelse(truth == "P", 1, 0),
          betabin_noBC_Res = ifelse(betabin_noBC_pvals < 0.05, 1, 0),
-         betabin_wBCI_Res = ifelse(betabin_wBCI_pvals < 0.05, 1, 0),
+         betabin_wBCK_Res = ifelse(betabin_wBCK_pvals < 0.05, 1, 0),
          betabin_wBCU_Res = ifelse(betabin_wBCU_pvals < 0.05, 1, 0),
-         betabin_wMI_Res = ifelse(betabin_wMI_pvals < 0.05, 1, 0),
+         betabin_wMK_Res = ifelse(betabin_wMK_pvals < 0.05, 1, 0),
          betabin_wMU_Res = ifelse(betabin_wMU_pvals < 0.05, 1, 0),
-         bin_wMI_Res = ifelse(bin_wMI_pvals < 0.05, 1, 0),
+         bin_wMK_Res = ifelse(bin_wMK_pvals < 0.05, 1, 0),
          bin_wMU_Res = ifelse(bin_wMU_pvals < 0.05, 1, 0),
          fisher_Res = ifelse(fisher_pvals < 0.05, 1, 0),
          scDC_Res = ifelse(scDC_pvals < 0.05, 1, 0),
