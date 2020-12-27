@@ -315,8 +315,8 @@ simulator_fastMNN = function(totals1, totals2, probC1, probC2, setresolu, sim_ma
     slt_batchesC2 = c(slt_batchesC2, rep(str_c("cond2s", as.character(i)), length(cell_slt$sub_origLabels)))
   }
   
-  print(prop_cond1)
-  print(prop_cond2)
+  print(numb_cond1)
+  print(numb_cond2)
   integratedSamples = fastMNN(slt_sim_matC1, slt_sim_matC2, slt_batchesC1, slt_batchesC2, setresolu)
   Kprep = integratedSamples@active.ident %>% as.factor() %>% summary() %>% length()
   str_c("Kprep: ", as.character(Kprep)) %>% print()
@@ -343,7 +343,7 @@ simulator_fastMNN = function(totals1, totals2, probC1, probC2, setresolu, sim_ma
   dfRes = data.frame(clusterRes = integratedSamples@active.ident, batch = integratedSamples$batch, condition = integratedSamples$condition) %>% 
     tibble::rownames_to_column("cellID")
   if(Kprep == K){
-    Res = list(integratedSamples = integratedSamples, dfRes = dfRes, trueLabels = c(slt_origLabelsC1, slt_origLabelsC2))
+    Res = list(integratedSamples = integratedSamples, dfRes = dfRes, trueLabels = c(slt_origLabelsC1, slt_origLabelsC2), numb_cond1 = numb_cond1, numb_cond2 = numb_cond2)
     return(Res)
   } else {
     return(NA)
