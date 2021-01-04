@@ -17,11 +17,11 @@ library(Seurat)
 ```{r,eval=FALSE}
 ## simulate cells pool setting
 set.seed(123)
-prob = rep(1/3, 3)
-batch_size = 10000
-de_prob = runif(3, 0.1, 0.4)
+cluster_num = 12
+prob = rep(1/cluster_num, cluster_num)
+batch_size = cluster_num * 1500
+de_prob = runif(cluster_num, 0.1, cluster_num/20 + 0.3)
 setresolu = 0.2
-sample_size = 1000
 ```
 
 ```{r,eval=FALSE}
@@ -34,17 +34,75 @@ sim <- splatSimulateGroups(param.groups, group.prob = prob, de.prob = de_prob, d
 sim_mat <- counts(sim)
 origLabels = sim@colData@listData$Group
 # Save multiple objects
-save(sim_mat, origLabels, file = "./data/cells_pool3_close.RData")
+save(sim_mat, origLabels, file = str_c("./data/cells_pool", as.character(cluster_num), "_close.RData"))
 ```
 
 ```{r}
 seuratObj <- CreateSeuratObject(counts = sim_mat, project="Splatter")
 seuratObj <- NormalizeData(seuratObj, verbose = FALSE)
 seuratObj <- FindVariableFeatures(seuratObj, selection.method = "vst", nfeatures = 2000, verbose = FALSE)
-seuratObj <- RunPCA(seuratObj, features = VariableFeatures(object = pbmc))
+seuratObj <- ScaleData(seuratObj)
+seuratObj <- RunPCA(seuratObj, features = VariableFeatures(object = seuratObj))
 seuratObj <- FindNeighbors(seuratObj, dims = 1:30, verbose = FALSE)
 seuratObj <- FindClusters(seuratObj, resolution = setresolu, verbose = FALSE)
 seuratObj <- RunUMAP(seuratObj, dims = 1:30, verbose = FALSE)
-DimPlot(pbmc, reduction = "umap")
+DimPlot(seuratObj, reduction = "umap")
+```
+
+## real world data
+
+```{r}
+cluster_num = 3
+```
+
+```{r}
+data_dir1 = "./data/real_world/Exp6_Kang/GSM2560248"
+list.files(data_dir1) # Should show barcodes.tsv, genes.tsv, and matrix.mtx
+expression_matrix1 <- Read10X(data.dir = data_dir1)
+seuratObj1 = CreateSeuratObject(counts = expression_matrix1)
+seuratObj1 = AddMetaData(object = seuratObj1, metadata = rep("ctrl1", dim(seuratObj1)[2]), col.name = 'sample')
+
+data_dir2 = "./data/real_world/Exp6_Kang/GSM2560249"
+list.files(data_dir2) # Should show barcodes.tsv, genes.tsv, and matrix.mtx
+expression_matrix2 <- Read10X(data.dir = data_dir2)
+seuratObj2 = CreateSeuratObject(counts = expression_matrix2)
+seuratObj2 = AddMetaData(object = seuratObj2, metadata = rep("ctrl2", dim(seuratObj2)[2]), col.name = 'sample')
+```
+
+```{r}
+cluster_info = read.delim("./data/real_world/Exp6_Kang/GSE96583_batch2.total.tsne.df.tsv") %>% 
+  rownames_to_column(var = "barcode")
+head(cluster_info)
+summary(as.factor(cluster_info$cell))
+```
+
+```{r}
+ggplot(cluster_info, aes(x = tsne1, y = tsne2, color = cell)) +
+  geom_point() +
+  facet_grid(. ~ stim)
+```
+
+```{r}
+ctrl1 = cluster_info %>% 
+  filter(cell %in% c("CD4 T cells", "CD14+ Monocytes", "FCGR3A+ Monocytes", "B cells", "CD8 T cells", "NK cells", "Dendritic cells", "Megakaryocytes")[1:cluster_num]) %>% 
+  filter(stim == "ctrl")
+ctrl2 = cluster_info %>% 
+  filter(cell %in% c("CD4 T cells", "CD14+ Monocytes", "FCGR3A+ Monocytes", "B cells", "CD8 T cells", "NK cells", "Dendritic cells", "Megakaryocytes")[1:cluster_num]) %>% 
+  filter(stim == "stim")
+
+mat1 = subset(seuratObj1, cells = ctrl1$barcode)@assays$RNA@counts %>% 
+  as.matrix()
+mat2 = subset(seuratObj2, cells = ctrl2$barcode)@assays$RNA@counts %>% 
+  as.matrix()
+```
+
+```{r}
+sim_mat = cbind(mat1, mat2)
+barcodesL = colnames(sim_mat)
+selected_cells = cluster_info %>% 
+  filter(barcode %in% barcodesL)
+selected_cells[match(barcodesL, selected_cells$barcode),]
+origLabels = selected_cells$cell
+save(sim_mat, origLabels, file = str_c("./data/cells_pool", as.character(cluster_num), "_realWorld.RData"))
 ```
 

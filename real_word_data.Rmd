@@ -215,11 +215,53 @@ print(fisherP)
 
 ## Experiment 6
 
-Don't know which data is used in exp6
+```{r}
+matrix1 = readMM(gzfile("./data/real_word/Exp6_Kang/GSM2560248_2.1.mtx.gz")) %>% 
+  as.matrix()
+matrix2 = readMM(gzfile("./data/real_word/Exp6_Kang/GSM2560249_2.2.mtx.gz")) %>% 
+  as.matrix()
+```
 
 ```{r}
+data_dir1 = "./data/real_word/Exp6_Kang/GSM2560248"
+list.files(data_dir1) # Should show barcodes.tsv, genes.tsv, and matrix.mtx
+expression_matrix1 <- Read10X(data.dir = data_dir1)
+seuratObj1 = CreateSeuratObject(counts = expression_matrix1)
+seuratObj1 = AddMetaData(object = seuratObj1, metadata = rep("ctrl1", dim(seuratObj1)[2]), col.name = 'sample')
 
+data_dir2 = "./data/real_word/Exp6_Kang/GSM2560249"
+list.files(data_dir2) # Should show barcodes.tsv, genes.tsv, and matrix.mtx
+expression_matrix2 <- Read10X(data.dir = data_dir2)
+seuratObj2 = CreateSeuratObject(counts = expression_matrix2)
+seuratObj2 = AddMetaData(object = seuratObj2, metadata = rep("ctrl2", dim(seuratObj2)[2]), col.name = 'sample')
 ```
+
+```{r}
+cluster_info = read.delim("./data/real_word/Exp6_Kang/GSE96583_batch2.total.tsne.df.tsv")
+head(cluster_info)
+summary(as.factor(cluster_info$cell))
+```
+
+```{r}
+ggplot(cluster_info, aes(x = tsne1, y = tsne2, color = cell)) +
+  geom_point() +
+  facet_grid(. ~ stim)
+```
+
+```{r}
+ctrl1 = cluster_info %>% 
+  filter(cell %in% c("CD4 T cells", "CD14+ Monocytes", "FCGR3A+ Monocytes")) %>% 
+  filter(stim == "ctrl")
+ctrl2 = cluster_info %>% 
+  filter(cell %in% c("CD4 T cells", "CD14+ Monocytes", "FCGR3A+ Monocytes")) %>% 
+  filter(stim == "stim")
+
+mat1 = subset(seuratObj1, cells = rownames(ctrl1))@assays$RNA@counts %>% 
+  as.matrix()
+mat2 = subset(seuratObj2, cells = rownames(ctrl2))@assays$RNA@counts %>% 
+  as.matrix()
+```
+
 
 ## Experiment 7
 

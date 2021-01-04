@@ -84,3 +84,56 @@ for (i in 1:simulation_times){
     time[i,] = timeL
   }
 }
+
+multinom_EM <- function(X, simMM, min_iter=10, max_iter=1000,
+                        logLik_threshold=1e-2, verbose=TRUE) {
+  # Be very careful on the shape of simMM; rowSums(simMM) = 1
+  K = ncol(simMM)
+  
+  # initialization
+  mu = sample(K)
+  mu = mu / sum(mu)
+  Z = matrix(NA, K, K)
+  logLik_old <- logLik_new <- log(mu %*% simMM) %*% X
+  
+  if (verbose) {
+    print(paste("Iteration 0 logLik:", round(logLik_new, 3)))
+  }
+  
+  for (it in seq_len(max_iter)) {
+    ## E step: expectation of count from each component
+    # Z = (simMM * mu)
+    # Z = t(t(Z) / colSums(Z))
+    
+    for (i in seq(K)) {
+      for (j in seq(K)){
+        Z[i, j] = simMM[i, j] * mu[i] / sum(mu * simMM[, j])
+      }
+    }
+    
+    ## M step: maximizing likelihood
+    # mu = c(X %*% Z) # this is wrong
+    
+    ## v2
+    mu = c(Z %*% X)
+    mu = mu / sum(mu)
+    
+    ## Check convergence
+    logLik_new <- log(mu %*% simMM) %*% X
+    # sum(X * log(mu %*% t(simMM)))
+    if (it > min_iter && logLik_new - logLik_old < logLik_threshold) {
+      break
+    } else {
+      logLik_old <- logLik_new
+    }
+    if (verbose) {
+      print(paste("Iteration", it, "logLik:", round(logLik_new, 3)))
+    }
+    
+  }
+  
+  ## return values
+  list("mu" = mu, "logLik" = logLik_new,
+       "simMM" = simMM, "X" = X, "X_prop" = X / sum(X),
+       "predict_X_prop" = mu %*% simMM)
+}
