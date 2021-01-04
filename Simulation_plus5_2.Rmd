@@ -57,7 +57,7 @@ change_rate = (sum(rate1*sim_dat$numb_cond1[,1]) + sum(rate2*sim_dat$numb_cond2[
 if (change_rate > 0){
   simil_matT = rbind(c(1-change_rate, 0, change_rate), c(0, 1, 0), c(0, 0, 1))
 } else {
-  simil_matUT = rbind(c(1, 0, 0), c(0, 1, 0), c(-change_rate, 0, 1+change_rate))
+  simil_matT = rbind(c(1, 0, 0), c(0, 1, 0), c(-change_rate, 0, 1+change_rate))
 }
 print(simil_matT)
 ```
