@@ -485,6 +485,10 @@ dcats_betabinRW <- function(counts1, counts2, similarity_mat=NULL, n_samples=50,
     n_samples <- 1
   }
   
+  ##------------------------ for debugging only ----------------
+  #set.seed(123)
+  ##------------------------------------------------------------
+  
   if (!is.null(n_samples) && !is.null(similarity_mat)) {
     counts1_use <- matrix(0, nrow(counts1) * n_samples, K)
     counts2_use <- matrix(0, nrow(counts2) * n_samples, K)
@@ -553,13 +557,15 @@ dcats_betabinRW <- function(counts1, counts2, similarity_mat=NULL, n_samples=50,
         
         fm1 <- aod::betabin(cbind(n1, n2) ~ label, ~ 1, data = df)
         if (any(is.na(fm1@varparam))) {
-        #  print(fm1)
-        #  print(df)
-           coeffs_err[ir, i] <- NA
-        } else {
+          print(fm1)
+          print(df)
+        }
+        
+        coeffs_val[ir, i] <- fm1@param[2]
+        
+        if (dim(fm1@varparam)[1] >= 2){
           coeffs_err[ir, i] <-fm1@varparam[2, 2]
         }
-        coeffs_val[ir, i] <- fm1@param[2]
         intercept_val[ir, i] <- fm1@param[1] # summary(fm1)@Coef[1, 1]
         intercept_err[ir, i] <- fm1@varparam[1, 1]
         
@@ -587,6 +593,7 @@ dcats_betabinRW <- function(counts1, counts2, similarity_mat=NULL, n_samples=50,
       matrixStats::colSds(intercept_val) +
       matrixStats::colSds(intercept_val) / n_samples
   }
+  
   
   # p values with Ward test: https://en.wikipedia.org/wiki/Wald_test
   pvals <- pnorm(-abs(coeff_val_mean) / sqrt(coeff_err_pool))  * 2

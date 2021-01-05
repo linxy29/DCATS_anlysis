@@ -52,7 +52,7 @@ DimPlot(seuratObj, reduction = "umap")
 ## real world data
 
 ```{r}
-cluster_num = 3
+cluster_num = 7
 ```
 
 ```{r}
