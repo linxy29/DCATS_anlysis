@@ -24,7 +24,191 @@ library(MCMCpack)
 source("functionsV2.r")
 ```
 
+## Figure draft part
+
 Fig 1 (theoretical simulation might be enough): the usefulness of using similarity matrix to correct the bias;
+
+Draw a boxplot to show AUC results of DCATS, chi-square, scDC(, fisher) without BC, with BC and with BC using resampling.
+
+```{r}
+cluster_num = 3  # numbers of clusters
+concentration = 50 # indicate how simulated proportion far away from true, the larger the closer
+rep1 = 3
+rep2 = 2
+simulation_times = 50
+simulation_size = 50
+sample_size1 = 500
+sample_size2 = 2000
+```
+
+```{r}
+if (cluster_num == 3){
+  probC1 = c(1/3, 1/3, 1/3)  # True proportions
+  probC2 = c(1/3, 1/2, 1/6)
+  truthRes = c("N", "P", "P")
+} else if (cluster_num == 7){
+  probC1 = c(rep(0.1, 4), rep(0.2, 3))
+  probC2 = c(0.1, 0.1, 0.2, 0.05, 0.2, 0.3, 0.05)
+  truthRes = c("N", "N", "P", "P", "N", "P", "P")
+} else if (cluster_num == 12) {
+  probC1 = c(rep(0.1, 4), rep(0.2, 2), rep(0.05, 2), rep(0.025, 4))
+  probC2 = c(0.1, 0.1, 0.15, 0.05, 0.2, 0.1, 0.05, 0.1, 0.025, 0.025, 0.05, 0.05)
+  truthRes = c("N", "N", "P", "P", "N", "P", "N", "P", "N", "N", "P", "P")
+}
+```
+
+```{r, eval=FALSE}
+set.seed(123)
+simil_mat = get_similarity_mat(cluster_num, confuse_rate=0.2)
+mis_idx = runif(1, -0.1, 0.1)
+change_rate = simil_mat[1,1]*abs(mis_idx)
+if (mis_idx < 0){
+  simil_mat[1,1] = simil_mat[1,1] - change_rate
+  simil_mat[1,3] = simil_mat[1,3] + change_rate
+} else {
+  simil_mat[3,1] = simil_mat[1,1] - change_rate
+  simil_mat[3,3] = simil_mat[1,3] + change_rate
+}
+```
+
+```{r, eval=FALSE}
+## one time example
+## Data generation part
+set.seed(123)
+totals1 = ceiling(runif(rep1, sample_size1, sample_size2))  # number of replicates + sample size in each replicate
+totals2 = ceiling(runif(rep2, sample_size1, sample_size2))
+diri_s1 = probC1 * concentration  # True proportions + concentration
+diri_s2 = probC2 * concentration
+
+## Test part 1
+### DCATS
+dcats_res1 = betabinLRT_rw(numb_cond1, numb_cond2, bias_corr = FALSE)
+### fisher
+fisher_pvals1 = getFisher(numb_cond1, numb_cond2)
+
+
+## Bias Correction
+numb_cond1BC = numb_cond1
+numb_cond2BC = numb_cond2
+for (i in seq_len(nrow(numb_cond1))) {
+  numb_cond1BC[i, ] <- sum(numb_cond1[i, ]) *
+    multinom_EM(numb_cond1[i, ], simil_mat, verbose = FALSE)$mu
+  numb_cond1BC[i, ] = ceiling(numb_cond1BC[i, ])
+  }
+for (i in seq_len(nrow(numb_cond2))) {
+  numb_cond1BC[i, ] <- sum(numb_cond2[i, ]) *
+    multinom_EM(numb_cond2[i, ], simil_mat, verbose = FALSE)$mu
+  numb_cond1BC[i, ] = ceiling(numb_cond1BC[i, ])
+  }
+
+## Test part 2
+### DCATS
+dcats_res2 = betabinLRT_rw(numb_cond1BC, numb_cond2BC, bias_corr = FALSE)
+### fisher
+fisher_pvals2 = getFisher(numb_cond1BC, numb_cond2BC)
+
+all_res = data.frame(cluster = c("A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L")[1:cluster_num], truth = truthRes) %>% 
+    mutate(dcats_pvals1 = dcats_res1$pvals,
+           fisher_pvals1 = fisher_pvals1,
+           dcats_pvals2 = dcats_res2$pvals,
+           fisher_pvals2 = fisher_pvals2)
+```
+
+```{r}
+set.seed(123)
+simulationDF_list = vector(mode = "list", length = simulation_times)
+for (j in 1:simulation_times) {
+  simulationDF = data.frame()
+  for (i in 1:simulation_size){
+    ## create confusion matrix that is not uniformly distributed
+    simil_mat = get_similarity_mat(cluster_num, confuse_rate=0.2)
+    mis_idx = runif(1, -0.1, 0.1)
+    change_rate = simil_mat[1,1]*abs(mis_idx)
+    if (mis_idx < 0){
+      simil_mat[1,1] = simil_mat[1,1] - change_rate
+      simil_mat[1,3] = simil_mat[1,3] + change_rate
+      } else {
+        simil_mat[3,1] = simil_mat[1,1] - change_rate
+        simil_mat[3,3] = simil_mat[1,3] + change_rate
+        }
+    
+    ## Data generation part
+    totals1 = ceiling(runif(rep1, sample_size1, sample_size2))
+    totals2 = ceiling(runif(rep2, sample_size1, sample_size2))
+    diri_s1 = probC1 * concentration
+    diri_s2 = probC2 * concentration
+    sim_dat <- DCATS::simulator_base(totals1, totals2, diri_s1, diri_s2, simil_mat)
+    numb_cond1 = as.matrix(sim_dat$numb_cond1)
+    numb_cond2 = as.matrix(sim_dat$numb_cond2)
+    
+    ## Test part 1
+    ### DCATS
+    dcats_res1 = betabinLRT_rw(numb_cond1, numb_cond2, bias_corr = FALSE)
+    ### fisher
+    fisher_pvals1 = getFisher(numb_cond1, numb_cond2)
+    
+    ## Bias Correction
+    numb_cond1BC = numb_cond1
+    numb_cond2BC = numb_cond2
+    for (i in seq_len(nrow(numb_cond1))) {
+      numb_cond1BC[i, ] <- sum(numb_cond1[i, ]) *
+        multinom_EM(numb_cond1[i, ], simil_mat, verbose = FALSE)$mu
+      numb_cond1BC[i, ] = ceiling(numb_cond1BC[i, ])
+      }
+    for (i in seq_len(nrow(numb_cond2))) {
+      numb_cond1BC[i, ] <- sum(numb_cond2[i, ]) *
+        multinom_EM(numb_cond2[i, ], simil_mat, verbose = FALSE)$mu
+      numb_cond1BC[i, ] = ceiling(numb_cond1BC[i, ])
+      }
+  
+    ## Test part 2
+    ### DCATS
+    dcats_res2 = betabinLRT_rw(numb_cond1BC, numb_cond2BC, bias_corr = FALSE)
+    ### fisher
+    fisher_pvals2 = getFisher(numb_cond1BC, numb_cond2BC)
+  
+    all_res = data.frame(cluster = c("A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L")[1:cluster_num], truth = truthRes) %>% 
+      mutate(dcats_pvals1 = dcats_res1$pvals,
+            fisher_pvals1 = fisher_pvals1,
+            dcats_pvals2 = dcats_res2$pvals,
+            fisher_pvals2 = fisher_pvals2)
+
+    simulationDF = rbind(simulationDF, all_res)
+    }
+  simulationDF_list[[j]] = simulationDF
+}
+
+file_name = str_c("./data/simulationRES/repplicates", as.character(rep1), "&", as.character(rep2), "_K", as.character(cluster_num), "_con", as.character(concentration), "_countSim.RData")
+save(simulationDF_list, file = file_name)
+
+## send email after finishing
+sendEmail("Simulation is done!!")
+```
+
+```{r}
+simulationDF_list[[1]] %>% 
+  head()
+```
+
+Calculate PPV NPV TNR F1 Power FOR FNR FPR FDR AUC
+
+```{r}
+simulationDF = simulationDF_list[[2]]
+library(pROC)
+methods = colnames(simulationDF)[3:6]
+roc_rose <- plot(roc(simulationDF$truth, simulationDF[,3]), legacy.axes = TRUE, print.auc = TRUE, print.auc.y = .7, print.auc.x = .7, col = 1)
+graphics::text(0.2, 0.7, paste(methods[1]), col=1)
+for (i in 2:4){
+  roc_rose <- plot(roc(simulationDF$truth, simulationDF[,i+2]), legacy.axes = TRUE, print.auc = TRUE, print.auc.y = .7-(i-1)*0.07, print.auc.x = .7, col = i, add = TRUE)
+  graphics::text(0.2, 0.7-(i-1)*0.07, paste(methods[i]), col=i)
+}
+```
+
+
+
+## Previous trail
+
+Add more misclassification manually
 
 ```{r}
 set.seed(123)
@@ -33,7 +217,7 @@ totals1 = ceiling(runif(4, 500, 2000))
 totals2 = ceiling(runif(2, 500, 2000))
 diri_s1 = c(1/3, 1/3, 1/3) * 20
 diri_s2 = c(1/3, 1/2, 1/6) * 20
-simil_mat = get_similarity_mat(K, confuse_rate=0.2)
+simil_mat = get_similarity_mat(K, confuse_rate=0.1)
 sim_dat <- DCATS::simulator_base(totals1, totals2, diri_s1, diri_s2, simil_mat)
 print(sim_dat)
 ```

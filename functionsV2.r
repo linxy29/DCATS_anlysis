@@ -163,11 +163,17 @@ betabinLRT_rw <- function(counts1, counts2, pseudo_count=NULL, binom_only=FALSE,
       fm0 <- aod::betabin(cbind(n1, n2) ~ 1, ~ 1, data = df_tmp)
       fm1 <- aod::betabin(cbind(n1, n2) ~ label, ~ 1, data = df_tmp)
       
+      if (any(is.na(fm1@varparam))) {
+        print(fm1)
+        print(df)
+      } else {
+        coeffs_err[i] <-fm1@varparam[2, 2]
+      }
+      
       intercept_val[i] <- fm1@param[1]      # summary(fm1)@Coef[1, 1]
       intercept_err[i] <- fm1@varparam[1, 1]
       
       coeffs_val[i] <- fm1@param[2]
-      coeffs_err[i] <-fm1@varparam[2, 2]
       
       LR_vals[i] <- fm0@dev - fm1@dev
       LRT_pvals[i] <-  pchisq(LR_vals[i], df=1, lower.tail = FALSE,
@@ -559,13 +565,11 @@ dcats_betabinRW <- function(counts1, counts2, similarity_mat=NULL, n_samples=50,
         if (any(is.na(fm1@varparam))) {
           print(fm1)
           print(df)
+        } else {
+          coeffs_err[ir, i] <-fm1@varparam[2, 2]
         }
         
         coeffs_val[ir, i] <- fm1@param[2]
-        
-        if (dim(fm1@varparam)[1] >= 2){
-          coeffs_err[ir, i] <-fm1@varparam[2, 2]
-        }
         intercept_val[ir, i] <- fm1@param[1] # summary(fm1)@Coef[1, 1]
         intercept_err[ir, i] <- fm1@varparam[1, 1]
         
