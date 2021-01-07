@@ -16,8 +16,9 @@ library(speckle)
 library(DCATS)
 library(ggplot2)
 library(tidyverse)
-library(diffcyt)
 library(MCMCpack)
+library(pROC)
+library(confusionMatrix)
 ```
 
 ```{r}
@@ -186,6 +187,7 @@ sendEmail("Simulation is done!!")
 ```
 
 ```{r}
+load(file_name)
 simulationDF_list[[1]] %>% 
   head()
 ```
@@ -193,7 +195,7 @@ simulationDF_list[[1]] %>%
 Calculate PPV NPV TNR F1 Power FOR FNR FPR FDR AUC
 
 ```{r}
-simulationDF = simulationDF_list[[2]]
+simulationDF = simulationDF_list[[1]]
 library(pROC)
 methods = colnames(simulationDF)[3:6]
 roc_rose <- plot(roc(simulationDF$truth, simulationDF[,3]), legacy.axes = TRUE, print.auc = TRUE, print.auc.y = .7, print.auc.x = .7, col = 1)
@@ -202,9 +204,116 @@ for (i in 2:4){
   roc_rose <- plot(roc(simulationDF$truth, simulationDF[,i+2]), legacy.axes = TRUE, print.auc = TRUE, print.auc.y = .7-(i-1)*0.07, print.auc.x = .7, col = i, add = TRUE)
   graphics::text(0.2, 0.7-(i-1)*0.07, paste(methods[i]), col=i)
 }
+
 ```
 
+```{r}
+simulationDF = simulationDF %>% 
+  mutate(dcats_tf1 = ifelse(dcats_pvals1 < 0.05, "P", "N"),
+         fisher_tf1 = ifelse(fisher_pvals1 < 0.05, "P", "N"),
+         dcats_tf2 = ifelse(dcats_pvals2 < 0.05, "P", "N"),
+         fisher_tf2 = ifelse(fisher_pvals2 < 0.05, "P", "N"))
 
+evaluationDF = data.frame()
+methods = colnames(simulationDF)[3:6]
+numb_mthd = length(methods)
+auc = rep(NA, numb_mthd)
+recall = rep(NA, numb_mthd)
+FNR = rep(NA, numb_mthd)
+FPR = rep(NA, numb_mthd)
+specificity = rep(NA, numb_mthd)
+precision = rep(NA, numb_mthd)
+FDR = rep(NA, numb_mthd)
+FOR = rep(NA, numb_mthd)
+NPV = rep(NA, numb_mthd)
+accuracy = rep(NA, numb_mthd)
+F1 = rep(NA, numb_mthd)
+
+for (i in 3:6){
+  auc[i-2] = roc(simulationDF$truth, simulationDF[,i])$auc
+  truth = simulationDF$truth
+  pred = simulationDF[, i+4]
+  confu_mtr = table(pred, truth)
+  TN = confu_mtr[1,1] 
+  FN = confu_mtr[1,2]
+  FP = confu_mtr[2,1]
+  TP = confu_mtr[2,2]
+  truthN = TN + FP
+  truthP = FN + TP
+  predP = TP + FP
+  predN = FN + TN
+  recall[i-2] = TP/truthP
+  FNR[i-2] = FN/truthP
+  FPR[i-2] = FP/truthN
+  specificity[i-2] = TN/truthN
+  precision[i-2] = TP/predP
+  FDR[i-2] = FP/predP
+  FOR[i-2] = FN/predN
+  NPV[i-2] = TN/predN
+  accuracy[i-2] = (TP+TN)/(truthP+truthN)
+  F1[i-2] = 2*TP/(2*TP+FP+FN)
+}
+
+res = data.frame(methods = methods, auc = auc, recall = recall, FNR = FNR, FPR = FPR, specificity = specificity, precision = precision, FDR = FDR, FOR = FOR, NPV = NPV, accuracy = accuracy, F1 = F1)
+```
+
+```{r}
+evaluationDF = data.frame()
+len = length(simulationDF_list)
+for (j in 1:len){
+  simulationDF = simulationDF_list[[j]] %>% 
+  mutate(dcats_tf1 = ifelse(dcats_pvals1 < 0.05, "P", "N"),
+         fisher_tf1 = ifelse(fisher_pvals1 < 0.05, "P", "N"),
+         dcats_tf2 = ifelse(dcats_pvals2 < 0.05, "P", "N"),
+         fisher_tf2 = ifelse(fisher_pvals2 < 0.05, "P", "N"))
+  methods = colnames(simulationDF)[3:6]
+  numb_mthd = length(methods)
+  auc = rep(NA, numb_mthd)
+  recall = rep(NA, numb_mthd)
+  FNR = rep(NA, numb_mthd)
+  FPR = rep(NA, numb_mthd)
+  specificity = rep(NA, numb_mthd)
+  precision = rep(NA, numb_mthd)
+  FDR = rep(NA, numb_mthd)
+  FOR = rep(NA, numb_mthd)
+  NPV = rep(NA, numb_mthd)
+  accuracy = rep(NA, numb_mthd)
+  F1 = rep(NA, numb_mthd)
+  for (i in 3:6){
+    auc[i-2] = roc(simulationDF$truth, simulationDF[,i])$auc
+    truth = simulationDF$truth
+    pred = simulationDF[, i+4]
+    confu_mtr = table(pred, truth)
+    TN = confu_mtr[1,1] 
+    FN = confu_mtr[1,2]
+    FP = confu_mtr[2,1]
+    TP = confu_mtr[2,2]
+    truthN = TN + FP
+    truthP = FN + TP
+    predP = TP + FP
+    predN = FN + TN
+    recall[i-2] = TP/truthP
+    FNR[i-2] = FN/truthP
+    FPR[i-2] = FP/truthN
+    specificity[i-2] = TN/truthN
+    precision[i-2] = TP/predP
+    FDR[i-2] = FP/predP
+    FOR[i-2] = FN/predN
+    NPV[i-2] = TN/predN
+    accuracy[i-2] = (TP+TN)/(truthP+truthN)
+    F1[i-2] = 2*TP/(2*TP+FP+FN)
+    }
+  res = data.frame(trial = as.character(j), methods = methods, auc = auc, recall = recall, FNR = FNR, FPR = FPR, specificity = specificity, precision = precision, FDR = FDR, FOR = FOR, NPV = NPV, accuracy = accuracy, F1 = F1)
+  evaluationDF = rbind(evaluationDF, res)
+}
+
+evaluationDF %>% 
+  pivot_longer(
+    auc:F1,
+    names_to = "statistics", 
+    values_to = "value") %>% 
+  ggplot(aes(x = statistics, y = value, color = methods)) + geom_boxplot()
+```
 
 ## Previous trail
 
