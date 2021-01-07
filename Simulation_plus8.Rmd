@@ -121,10 +121,10 @@ source("glm.R")     # for scDC
 ```
 
 ```{r}
-cell_pool = "realWorld"  # cell pool used
+cell_pool = "mis1"  # cell pool used
 cluster_num = 3  # numbers of clusters
 concentration = 20 # indicate how simulated proportion far away from true, the larger the closer
-setresolu = 0.4
+setresolu = 0.3
 rep1 = 3
 rep2 = 2
 simulation_times = 50
@@ -237,27 +237,27 @@ for (i in 1:simulation_times){
       betabin_wBC_HP2T = betabinLRT_rw(as.matrix(numb_cond1), as.matrix(numb_cond2), bias_corr = TRUE, similarity_mat = simil_matHP2T)
       ## DCATS---betabin with similarity matrix (backward-forward)
       t2start = Sys.time()
-      betabin_wMK = dcats_betabinRW(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = simil_matK, n_samples = 20, binom_only = FALSE)
+      betabin_wMK = dcats_betabinRW(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = simil_matK, n_samples = 50, binom_only = FALSE)
       timeL[2] = Sys.time() - t2start
-      betabin_wMU = dcats_betabinRW(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = simil_matU, n_samples = 20, binom_only = FALSE)
-      betabin_wMT = dcats_betabinRW(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = simil_matT, n_samples = 20, binom_only = FALSE)
-      betabin_wMT2K = dcats_betabinRW(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = simil_matT2K, n_samples = 20, binom_only = FALSE)
+      betabin_wMU = dcats_betabinRW(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = simil_matU, n_samples = 50, binom_only = FALSE)
+      betabin_wMT = dcats_betabinRW(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = simil_matT, n_samples = 50, binom_only = FALSE)
+      betabin_wMT2K = dcats_betabinRW(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = simil_matT2K, n_samples = 50, binom_only = FALSE)
       timeL[2] = Sys.time() - t2start
-      betabin_wMT2T = dcats_betabinRW(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = simil_matT2T, n_samples = 20, binom_only = FALSE)
-      betabin_wMHP1K = dcats_betabinRW(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = simil_matHP1K, n_samples = 20, binom_only = FALSE)
-      betabin_wMHP2K = dcats_betabinRW(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = simil_matHP2K, n_samples = 20, binom_only = FALSE)
+      betabin_wMT2T = dcats_betabinRW(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = simil_matT2T, n_samples = 50, binom_only = FALSE)
+      betabin_wMHP1K = dcats_betabinRW(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = simil_matHP1K, n_samples = 50, binom_only = FALSE)
+      betabin_wMHP2K = dcats_betabinRW(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = simil_matHP2K, n_samples = 50, binom_only = FALSE)
       timeL[2] = Sys.time() - t2start
-      betabin_wMHP1T = dcats_betabinRW(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = simil_matHP1T, n_samples = 20, binom_only = FALSE)
-      betabin_wMHP2T = dcats_betabinRW(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = simil_matHP2T, n_samples = 20, binom_only = FALSE)
-      bin_wMK = dcats_betabinRW(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = simil_matK, n_samples = 20)
-      bin_wMU = dcats_betabinRW(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = simil_matU, n_samples = 20)
-      bin_wMT = dcats_betabinRW(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = simil_matT, n_samples = 20)
-      bin_wMT2K = dcats_betabinRW(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = simil_matT2K, n_samples = 20)
-      bin_wMT2T = dcats_betabinRW(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = simil_matT2T, n_samples = 20)
-      bin_wMHP1K = dcats_betabinRW(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = simil_matHP1K, n_samples = 20)
-      bin_wMHP2K = dcats_betabinRW(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = simil_matHP2K, n_samples = 20)
-      bin_wMHP1T = dcats_betabinRW(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = simil_matHP1T, n_samples = 20)
-      bin_wMHP2T = dcats_betabinRW(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = simil_matHP2T, n_samples = 20)
+      betabin_wMHP1T = dcats_betabinRW(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = simil_matHP1T, n_samples = 50, binom_only = FALSE)
+      betabin_wMHP2T = dcats_betabinRW(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = simil_matHP2T, n_samples = 50, binom_only = FALSE)
+      bin_wMK = dcats_betabinRW(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = simil_matK, n_samples = 50)
+      bin_wMU = dcats_betabinRW(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = simil_matU, n_samples = 50)
+      bin_wMT = dcats_betabinRW(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = simil_matT, n_samples = 50)
+      bin_wMT2K = dcats_betabinRW(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = simil_matT2K, n_samples = 50)
+      bin_wMT2T = dcats_betabinRW(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = simil_matT2T, n_samples = 50)
+      bin_wMHP1K = dcats_betabinRW(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = simil_matHP1K, n_samples = 50)
+      bin_wMHP2K = dcats_betabinRW(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = simil_matHP2K, n_samples = 50)
+      bin_wMHP1T = dcats_betabinRW(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = simil_matHP1T, n_samples = 50)
+      bin_wMHP2T = dcats_betabinRW(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = simil_matHP2T, n_samples = 50)
       ## Fisher's exact test
       t3start = Sys.time()
       fisher_pvals = getFisher(as.matrix(numb_cond1), as.matrix(numb_cond2))
@@ -387,5 +387,12 @@ for (i in 17:30){
 print("errorRate0.05")
 errorRate = colSums(simulationRes[,17:30])/dim(simulationRes[,17:30])[1]
 errorRate[order(errorRate)]
+```
+
+
+## simulation with self-added misclassfication
+
+```{r}
+
 ```
 

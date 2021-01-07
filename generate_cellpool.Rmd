@@ -17,7 +17,7 @@ library(Seurat)
 ```{r,eval=FALSE}
 ## simulate cells pool setting
 set.seed(123)
-cluster_num = 12
+cluster_num = 3
 prob = rep(1/cluster_num, cluster_num)
 batch_size = cluster_num * 1500
 de_prob = runif(cluster_num, 0.1, cluster_num/20 + 0.3)
@@ -27,8 +27,8 @@ setresolu = 0.2
 ```{r,eval=FALSE}
 ## simulate cells pool process
 set.seed(123)
-params = readRDS("./data/ovarian_params.rds")
-#params = readRDS("./data/mnnCT7params.rds")
+#params = readRDS("./data/ovarian_params.rds")
+params = readRDS("./data/mnnCT7params.rds")
 param.groups <- setParams(params, batchCells = batch_size, nGenes = 1000)
 sim <- splatSimulateGroups(param.groups, group.prob = prob, de.prob = de_prob, de.facLoc = 0.01, verbose = FALSE)
 sim_mat <- counts(sim)
@@ -104,5 +104,20 @@ selected_cells = cluster_info %>%
 selected_cells[match(barcodesL, selected_cells$barcode),]
 origLabels = selected_cells$cell
 save(sim_mat, origLabels, file = str_c("./data/cells_pool", as.character(cluster_num), "_realWorld.RData"))
+```
+
+## GCTB
+
+```{r}
+GCTB5.integrated = readRDS("./data/real_world/GCTB5.integrated.1217.RDS")
+```
+
+```{r}
+DimPlot(GCTB5.integrated, group.by = "seurat_clusters",
+        reduction = "umap", split.by ="orig.ident", label = T, ncol = 2 )
+DimPlot(GCTB5.integrated, group.by = "seurat_clusters",
+        reduction = "umap", label = T, ncol = 2 )
+DimPlot(GCTB5.integrated, group.by = "celltype",
+        reduction = "umap",  label = T)
 ```
 
