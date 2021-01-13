@@ -6,6 +6,7 @@ output: html_document
 ```{r,message=FALSE,warning=FALSE}
 library(splatter)
 library(Seurat)
+library(tidyverse)
 ```
 
 ## 3 clusters
