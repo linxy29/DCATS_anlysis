@@ -218,7 +218,7 @@ simulationDF_list[[1]] %>%
 
 Calculate PPV NPV TNR F1 Power FOR FNR FPR FDR AUC
 
-```{r}
+```{r, eval=FALSE}
 simulationDF = simulationDF_list[[1]]
 library(pROC)
 methods = colnames(simulationDF)[3:6]
@@ -231,7 +231,7 @@ for (i in 2:4){
 
 ```
 
-```{r}
+```{r, eval=FALSE}
 simulationDF = simulationDF %>% 
   mutate(dcats_tf1 = ifelse(dcats_pvals1 < 0.05, "P", "N"),
          fisher_tf1 = ifelse(fisher_pvals1 < 0.05, "P", "N"),

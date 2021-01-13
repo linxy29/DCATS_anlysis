@@ -268,12 +268,13 @@ mat2 = subset(seuratObj2, cells = rownames(ctrl2))@assays$RNA@counts %>%
 The 'group' column started with 'B' is not useful here.
 
 ```{r}
-exp7_data <- read.csv("./data/real_word/Adam_2017/celltypelabels_Haber.txt", sep="") %>% 
+exp7_data <- read.csv("./data/real_world/Exp7_Adam_2017/celltypelabels_Haber.txt", sep="") %>% 
   rownames_to_column("cell") %>% 
   separate(cell, c("group", "barcode", "condition", "cluster"), sep = "_") %>% 
   mutate(group = as.factor(group),
          condition = as.factor(condition),
-         cluster = as.factor(cluster))
+         cluster = as.factor(cluster)) %>% 
+  select(-x)
 
 head(exp7_data)
 summary(exp7_data)
