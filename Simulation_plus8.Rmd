@@ -72,7 +72,6 @@ totals1 = ceiling(runif(rep1, 500, 2000))  # number of replicates + sample size 
 totals2 = ceiling(runif(rep2, 500, 2000))
 ```
 
-
 ```{r}
 set.seed(123)
 simulationDF = data.frame()

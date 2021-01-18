@@ -18,7 +18,6 @@ library(ggplot2)
 library(tidyverse)
 library(MCMCpack)
 library(pROC)
-library(confusionMatrix)
 ```
 
 ```{r}
@@ -206,7 +205,7 @@ save(simulationDF_list, file = file_name)
 sendEmail("Simulation is done!!")
 ```
 
-```{r}
+```{r, eval=FALSE}
 load(file_name)
 simulationDF_list[[1]] %>% 
   pivot_longer(dcats_noBC:fisher_withBC,
@@ -308,30 +307,42 @@ for (j in 1:len){
     truth = simulationDF$truth
     pred = simulationDF[, i+4]
     confu_mtr = table(pred, truth)
-    if(dim(confu_mtr)[1] + dim(confu_mtr)[2] == 4){
+    TN = 0
+    FN = 0
+    FP = 0
+    TP = 0
+    if(dim(confu_mtr)[1] == 2){
       TN = confu_mtr[1,1] 
       FN = confu_mtr[1,2]
       FP = confu_mtr[2,1]
       TP = confu_mtr[2,2]
-      truthN = TN + FP
-      truthP = FN + TP
-      predP = TP + FP
-      predN = FN + TN
-      recall[i-2] = TP/truthP
-      FNR[i-2] = FN/truthP
-      FPR[i-2] = FP/truthN
-      specificity[i-2] = TN/truthN
-      precision[i-2] = TP/predP
-      FDR[i-2] = FP/predP
-      FOR[i-2] = FN/predN
-      NPV[i-2] = TN/predN
-      accuracy[i-2] = (TP+TN)/(truthP+truthN)
-      F1[i-2] = 2*TP/(2*TP+FP+FN)
-      }
-  res = data.frame(trial = as.character(j), methods = methods, auc = auc, recall = recall, FNR = FNR, FPR = FPR, specificity = specificity, precision = precision, FDR = FDR, FOR = FOR, NPV = NPV, accuracy = accuracy, F1 = F1)
-  evaluationDF = rbind(evaluationDF, res)
+    } else {
+      if (unique(pred) == "N"){
+        TN = confu_mtr[1,1] 
+        FN = confu_mtr[1,2]
+      } else {
+          FP = confu_mtr[1,1]
+          TP = confu_mtr[1,2]
+        }
     }
-    
+    truthN = TN + FP
+    truthP = FN + TP
+    predP = TP + FP
+    predN = FN + TN
+    recall[i-2] = TP/truthP
+    FNR[i-2] = FN/truthP
+    FPR[i-2] = FP/truthN
+    specificity[i-2] = TN/truthN
+    precision[i-2] = TP/predP
+    FDR[i-2] = FP/predP
+    FOR[i-2] = FN/predN
+    NPV[i-2] = TN/predN
+    accuracy[i-2] = (TP+TN)/(truthP+truthN)
+    F1[i-2] = 2*TP/(2*TP+FP+FN)
+      
+  res = data.frame(trial = as.character(j), methods = methods, auc = auc, recall = recall, FNR = FNR, FPR = FPR, specificity = specificity, precision = precision, FDR = FDR, FOR = FOR, NPV = NPV, accuracy = accuracy, F1 = F1)
+    }
+    evaluationDF = rbind(evaluationDF, res)
 }
 
 evaluationDF %>% 
@@ -340,6 +351,8 @@ evaluationDF %>%
     auc:F1,
     names_to = "statistics", 
     values_to = "value") %>% 
+  mutate(statistics = as.factor(statistics),
+         statistics = fct_relevel(statistics, "auc", "recall", "specificity", "precision", "NPV", "accuracy", "F1")) %>% 
   ggplot(aes(x = statistics, y = value, color = method)) + geom_boxplot() + facet_grid(.~condition) +
   theme(axis.text.x = element_text(angle = 45))
 ```
