@@ -1,0 +1,119 @@
+---
+title: "Realworld Data Figures"
+output: html_document
+---
+
+```{r,message=FALSE,warning=FALSE}
+library(splatter)
+library(Seurat)
+library(speckle)
+library(DCATS)
+library(ggplot2)
+library(tidyverse)
+library(diffcyt)
+```
+
+```{r}
+source("functions.r")
+```
+
+## Experiment 7
+
+## real-world data 1
+
+## Experiment 7
+
+The 'group' column started with 'B' is the indicators of replicates
+
+```{r}
+exp7_data <- read.csv("./data/real_world/Exp7_Adam_2017/celltypelabels_Haber.txt", sep="") %>% 
+  rownames_to_column("cell") %>% 
+  separate(cell, c("group", "barcode", "condition", "cluster"), sep = "_") %>% 
+  mutate(group = as.factor(group),
+         condition = as.factor(condition),
+         cluster = as.factor(cluster)) %>% 
+  select(-x)
+
+head(exp7_data)
+summary(exp7_data)
+
+exp7_data %>% 
+  group_by(group, condition) %>% 
+  summarise(n = n())
+```
+
+Get the KNN matrix
+
+```{r}
+sample_dirs = list.dirs(path = "/home/linxy29/R/Ho_DCATS/data/real_world/Exp7_Adam_2017/cellRanger", full.names = TRUE, recursive = FALSE)
+control_rawL = vector(mode = "list")
+day3_rawL = vector(mode = "list")
+day10_rawL= vector(mode = "list")
+salmonella_rawL = vector(mode = "list")
+for (i in 1:length(sample_dirs)){
+  path = sample_dirs[i]
+  info = str_split(path, "_")[[1]]
+  expression_matrix <- Read10X(data.dir = path)
+  seuratObj = CreateSeuratObject(counts = expression_matrix)
+  seuratObj = AddMetaData(object = seuratObj, metadata = rep(info[length(info)-1], dim(seuratObj)[2]), col.name = 'cond')
+  seuratObj = AddMetaData(object = seuratObj, metadata = rep(info[length(info)], dim(seuratObj)[2]), col.name = 'replicate')
+  if (info[length(info)-1] == "Control"){
+    control_rawL = c(control_rawL, seuratObj)
+  } else if (info[length(info)-1] == "Day3"){
+    day3_rawL = c(day3_rawL, seuratObj)
+  } else if (info[length(info)-1] == "Day10"){
+    day10_rawL = c(day10_rawL, seuratObj)
+  } else {
+    salmonella_rawL = c(salmonella_rawL, seuratObj)
+  }
+}
+```
+
+control vs Hpoly.Day3
+
+```{r}
+## calculate knn matrix
+listSamples = c(control_rawL, day3_rawL)
+for (i in 1:length(listSamples)) {
+    listSamples[[i]] <- NormalizeData(listSamples[[i]], verbose = FALSE)
+    listSamples[[i]] <- FindVariableFeatures(listSamples[[i]], selection.method = "vst", nfeatures = 2000, verbose = FALSE)
+  }
+# integrate all batches
+anchors <- FindIntegrationAnchors(object.list = listSamples, dims = 1:30, verbose = FALSE)
+integratedSamples <- IntegrateData(anchorset = anchors, dims = 1:30, verbose = FALSE)
+# clustering
+integratedSamples <- ScaleData(integratedSamples, verbose = FALSE)
+integratedSamples <- RunPCA(integratedSamples, npcs = 30, verbose = FALSE)
+integratedSamples <- FindNeighbors(integratedSamples, dims = 1:30, verbose = FALSE)
+graphs = integratedSamples@graphs$integrated_snn
+labels = Idents(integratedSamples)
+knn_mat = KNN_transition(graphs, labels)
+```
+
+```{r}
+
+```
+
+
+```{r}
+## 
+exp7_C3 = exp7_data %>% 
+  filter(condition == "Control" | condition == "Hpoly.Day3") %>% 
+  select(condition, cluster)
+fisherP = get_fisherP(exp7_C3)
+print(fisherP)
+
+## control vs Hpoly.Day10
+exp7_C10 = exp7_data %>% 
+  filter(condition == "Control" | condition == "Hpoly.Day10") %>% 
+  select(condition, cluster)
+fisherP = get_fisherP(exp7_C10)
+print(fisherP)
+
+## control vs Salmonella
+exp7_CS = exp7_data %>% 
+  filter(condition == "Control" | condition == "Salmonella") %>% 
+  select(condition, cluster)
+fisherP = get_fisherP(exp7_CS)
+print(fisherP)
+```
