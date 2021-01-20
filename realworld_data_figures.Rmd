@@ -11,6 +11,7 @@ library(DCATS)
 library(ggplot2)
 library(tidyverse)
 library(diffcyt)
+library(e1071)
 ```
 
 ```{r}
@@ -32,7 +33,7 @@ exp7_data <- read.csv("./data/real_world/Exp7_Adam_2017/celltypelabels_Haber.txt
   mutate(group = as.factor(group),
          condition = as.factor(condition),
          cluster = as.factor(cluster)) %>% 
-  select(-x)
+  dplyr::select(-x)
 
 head(exp7_data)
 summary(exp7_data)
@@ -45,7 +46,7 @@ exp7_data %>%
 Get the KNN matrix
 
 ```{r}
-sample_dirs = list.dirs(path = "/home/linxy29/R/Ho_DCATS/data/real_world/Exp7_Adam_2017/cellRanger", full.names = TRUE, recursive = FALSE)
+sample_dirs = list.dirs(path = "./data/real_world/Exp7_Adam_2017/cellRanger", full.names = TRUE, recursive = FALSE)
 control_rawL = vector(mode = "list")
 day3_rawL = vector(mode = "list")
 day10_rawL= vector(mode = "list")
@@ -84,14 +85,18 @@ integratedSamples <- IntegrateData(anchorset = anchors, dims = 1:30, verbose = F
 # clustering
 integratedSamples <- ScaleData(integratedSamples, verbose = FALSE)
 integratedSamples <- RunPCA(integratedSamples, npcs = 30, verbose = FALSE)
-integratedSamples <- FindNeighbors(integratedSamples, dims = 1:30, verbose = FALSE)
-graphs = integratedSamples@graphs$integrated_snn
-labels = Idents(integratedSamples)
-knn_mat = KNN_transition(graphs, labels)
 ```
 
 ```{r}
+pcaM = integratedSamples@reductions$pca@cell.embeddings %>% 
+  as.data.frame() %>% 
+  tibble::rownames_to_column("cellID") %>% 
+  mutate(cond = integratedSamples@meta.data$cond,
+         rep = integratedSamples@meta.data$replicate,
+         cellID = str_replace(cellID, "-1_1", ""))
 
+## check whether there is duplicate ID -> No
+#pcaM %>% group_by(cellID) %>% summarise(n = n()) %>% filter(n != 1)
 ```
 
 

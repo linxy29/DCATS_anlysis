@@ -18,6 +18,10 @@ library(pROC)
 source("functionsV2.r")
 ```
 
+```{r}
+theme_set(theme_minimal())
+```
+
 Fig 1 (theoretical simulation might be enough): the usefulness of using similarity matrix to correct the bias;
 
 Draw a boxplot to show AUC results of DCATS, chi-square, scDC(, fisher) without BC, with BC and with BC using resampling.
@@ -140,6 +144,47 @@ for (j in 1:simulation_times) {
 ## send email after finishing
 sendEmail("Simulation is done!!")
 ```
+
+```{r, eval=FALSE}
+## plots for lab meeting
+colnames(numb_cond1) = c("A", "B", "C")
+cond1DF = numb_cond1[1:4,] %>% as.data.frame() %>% 
+  rownames_to_column("rep") %>% 
+  mutate(rep = str_c("rep", rep),
+         cond = "cond1",
+         sum = A + B + C,
+         A = A/sum,
+         B = B/sum,
+         C = C/sum) %>% 
+  pivot_longer(A:C, names_to = "cluster", values_to = "prop")
+
+colnames(numb_cond2) = c("A", "B", "C")
+cond2DF = numb_cond2 %>% as.data.frame() %>% 
+  rownames_to_column("rep") %>% 
+  mutate(rep = str_c("rep", rep),
+         cond = "cond2",
+         sum = A + B + C,
+         A = A/sum,
+         B = B/sum,
+         C = C/sum) %>% 
+  pivot_longer(A:C, names_to = "cluster", values_to = "prop")
+
+condDF = rbind(cond1DF, cond2DF)
+```
+
+```{r}
+LM_plot1 = condDF %>% 
+  ggplot(aes(x = rep, y = prop, fill = cluster))+
+  geom_bar(stat="identity") + 
+  coord_flip() + 
+  facet_grid(. ~ cond)
+ggsave("LM_plot1.png", plot = LM_plot1)
+```
+
+```{r}
+
+```
+
 
 ```{r, eval=FALSE}
 load(file_name)
