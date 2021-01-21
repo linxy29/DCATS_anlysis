@@ -73,8 +73,15 @@ for (i in 1:length(sample_dirs)){
 control vs Hpoly.Day3
 
 ```{r}
+library(future)
+plan("multiprocess", workers = 8)
+plan()
+options(future.globals.maxSize = 1000 * 1024^2)
+```
+
+```{r}
 ## calculate knn matrix
-listSamples = c(control_rawL, day3_rawL)
+listSamples = c(control_rawL, day3_rawL, day10_rawL, salmonella_rawL)
 for (i in 1:length(listSamples)) {
     listSamples[[i]] <- NormalizeData(listSamples[[i]], verbose = FALSE)
     listSamples[[i]] <- FindVariableFeatures(listSamples[[i]], selection.method = "vst", nfeatures = 2000, verbose = FALSE)
@@ -90,18 +97,21 @@ integratedSamples <- RunPCA(integratedSamples, npcs = 30, verbose = FALSE)
 ```{r}
 pcaM = integratedSamples@reductions$pca@cell.embeddings %>% 
   as.data.frame() %>% 
-  tibble::rownames_to_column("cellID") %>% 
+  tibble::rownames_to_column("barcode") %>% 
   mutate(cond = integratedSamples@meta.data$cond,
          rep = integratedSamples@meta.data$replicate,
-         cellID = str_replace(cellID, "-1_1", ""))
+         barcode = str_replace(barcode, "-1_1", ""))
 
+tested_data = inner_join(pcaM, exp7_data, by = "barcode") %>% 
+  group_by(group) %>% 
+  summarise(n = n())
 ## check whether there is duplicate ID -> No
-#pcaM %>% group_by(cellID) %>% summarise(n = n()) %>% filter(n != 1)
+#pcaM %>% group_by(barcode) %>% summarise(n = n()) %>% filter(n != 1)
 ```
 
 
 ```{r}
-## 
+## control vs Hpoly.Day3
 exp7_C3 = exp7_data %>% 
   filter(condition == "Control" | condition == "Hpoly.Day3") %>% 
   select(condition, cluster)

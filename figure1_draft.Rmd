@@ -38,22 +38,6 @@ sample_size2 = 2000
 ```
 
 ```{r}
-if (cluster_num == 3){
-  probC1 = c(1/3, 1/3, 1/3)  # True proportions
-  probC2 = c(1/3, 1/2, 1/6)
-  truthRes = c("N", "P", "P")
-} else if (cluster_num == 7){
-  probC1 = c(rep(0.1, 4), rep(0.2, 3))
-  probC2 = c(0.1, 0.1, 0.2, 0.05, 0.2, 0.3, 0.05)
-  truthRes = c("N", "N", "P", "P", "N", "P", "P")
-} else if (cluster_num == 12) {
-  probC1 = c(rep(0.1, 4), rep(0.2, 2), rep(0.05, 2), rep(0.025, 4))
-  probC2 = c(0.1, 0.1, 0.15, 0.05, 0.2, 0.1, 0.05, 0.1, 0.025, 0.025, 0.05, 0.05)
-  truthRes = c("N", "N", "P", "P", "N", "P", "N", "P", "N", "N", "P", "P")
-}
-```
-
-```{r}
 ## more negative
 if (cluster_num == 3){
   probC1 = c(1/3, 1/3, 1/3)  # True proportions
@@ -78,7 +62,7 @@ for (j in 1:simulation_times) {
   for (i in 1:simulation_size){
     ## create confusion matrix that is not uniformly distributed
     ##simil_mat = get_similarity_mat(cluster_num, confuse_rate=0.2)
-    simil_mat = matrix(c(1, 0, 0, 0, 0.8, 0.3, 0, 0.2, 0.7), ncol = 3)
+    simil_mat = matrix(c(1, 0, 0, 0, 0.6, 0.4, 0, 0.4, 0.6), ncol = 3)
     if (FALSE){
       mis_idx = runif(1, -0.2, 0.2)
       change_rate = simil_mat[1,1]*abs(mis_idx)
@@ -274,6 +258,7 @@ evaluationDF %>%
   mutate(statistics = as.factor(statistics),
          statistics = fct_relevel(statistics, "mcc", "auc", "recall", "specificity", "precision", "NPV", "accuracy", "F1")) %>% 
   ggplot(aes(x = statistics, y = value, color = method)) + geom_boxplot() + facet_grid(.~condition) +
+  theme_gray() +
   theme(axis.text.x = element_text(angle = 45))
 ```
 
