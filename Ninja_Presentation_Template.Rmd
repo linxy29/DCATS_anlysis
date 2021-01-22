@@ -6,6 +6,7 @@ institute: "Ho Lab, HKU"
 date: "2021/01/22 (updated: `r Sys.Date()`)"
 output:
   xaringan::moon_reader:
+    css: [default, metropolis, chocolate-fonts]
     lib_dir: libs
     nature:
       highlightStyle: github
@@ -13,24 +14,6 @@ output:
       countIncrementalSlides: false
 ---
 
-background-image: url(https://upload.wikimedia.org/wikipedia/commons/b/be/Sharingan_triple.svg)
-
-```{r setup, include=FALSE}
-options(htmltools.dir.version = FALSE)
-```
-
-???
-
-Image credit: [Wikimedia Commons](https://commons.wikimedia.org/wiki/File:Sharingan_triple.svg)
-
----
-class: center, middle
-
-# xaringan
-
-### /ʃaː.'riŋ.ɡan/
-
----
 class: inverse, center, middle
 
 # Get Started
