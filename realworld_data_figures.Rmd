@@ -10,8 +10,9 @@ library(speckle)
 library(DCATS)
 library(ggplot2)
 library(tidyverse)
+library(tidymodels)
 library(diffcyt)
-library(e1071)
+library(caret)
 ```
 
 ```{r}
@@ -43,70 +44,117 @@ exp7_data %>%
   summarise(n = n())
 ```
 
-Get the KNN matrix
-
 ```{r}
-sample_dirs = list.dirs(path = "./data/real_world/Exp7_Adam_2017/cellRanger", full.names = TRUE, recursive = FALSE)
-control_rawL = vector(mode = "list")
-day3_rawL = vector(mode = "list")
-day10_rawL= vector(mode = "list")
-salmonella_rawL = vector(mode = "list")
-for (i in 1:length(sample_dirs)){
-  path = sample_dirs[i]
-  info = str_split(path, "_")[[1]]
-  expression_matrix <- Read10X(data.dir = path)
-  seuratObj = CreateSeuratObject(counts = expression_matrix)
-  seuratObj = AddMetaData(object = seuratObj, metadata = rep(info[length(info)-1], dim(seuratObj)[2]), col.name = 'cond')
-  seuratObj = AddMetaData(object = seuratObj, metadata = rep(info[length(info)], dim(seuratObj)[2]), col.name = 'replicate')
-  if (info[length(info)-1] == "Control"){
-    control_rawL = c(control_rawL, seuratObj)
-  } else if (info[length(info)-1] == "Day3"){
-    day3_rawL = c(day3_rawL, seuratObj)
-  } else if (info[length(info)-1] == "Day10"){
-    day10_rawL = c(day10_rawL, seuratObj)
-  } else {
-    salmonella_rawL = c(salmonella_rawL, seuratObj)
-  }
+geneExpM <- read.delim("./data/real_world/Exp7_Adam_2017/GSE92332_SalmHelm_UMIcounts.txt", header=TRUE)
+test2 = colnames(geneExpM)
+test2a = str_split(test2, "_")
+barcode = rep(NA, length(test2))
+group = rep(NA, length(test2))
+for (i in 1:length(test2)) {
+  barcode[i] = test2a[[i]][2]
+  group[i] = test2a[[i]][1]
 }
-```
+test2b = data.frame(barcode = barcode, group = group) %>% 
+  filter(barcode %in% exp7_data$barcode)
 
-control vs Hpoly.Day3
-
-```{r}
-library(future)
-plan("multiprocess", workers = 8)
-plan()
-options(future.globals.maxSize = 1000 * 1024^2)
-```
-
-```{r}
-## calculate knn matrix
-listSamples = c(control_rawL, day3_rawL, day10_rawL, salmonella_rawL)
-for (i in 1:length(listSamples)) {
-    listSamples[[i]] <- NormalizeData(listSamples[[i]], verbose = FALSE)
-    listSamples[[i]] <- FindVariableFeatures(listSamples[[i]], selection.method = "vst", nfeatures = 2000, verbose = FALSE)
-  }
-# integrate all batches
-anchors <- FindIntegrationAnchors(object.list = listSamples, dims = 1:30, verbose = FALSE)
-integratedSamples <- IntegrateData(anchorset = anchors, dims = 1:30, verbose = FALSE)
-# clustering
-integratedSamples <- ScaleData(integratedSamples, verbose = FALSE)
-integratedSamples <- RunPCA(integratedSamples, npcs = 30, verbose = FALSE)
-```
-
-```{r}
-pcaM = integratedSamples@reductions$pca@cell.embeddings %>% 
-  as.data.frame() %>% 
-  tibble::rownames_to_column("barcode") %>% 
-  mutate(cond = integratedSamples@meta.data$cond,
-         rep = integratedSamples@meta.data$replicate,
-         barcode = str_replace(barcode, "-1_1", ""))
-
-tested_data = inner_join(pcaM, exp7_data, by = "barcode") %>% 
-  group_by(group) %>% 
+test2b %>% group_by(group) %>% 
   summarise(n = n())
-## check whether there is duplicate ID -> No
-#pcaM %>% group_by(barcode) %>% summarise(n = n()) %>% filter(n != 1)
+```
+
+```{r}
+seuratObj <- CreateSeuratObject(counts = geneExpM, project="Exp7")
+seuratObj <- NormalizeData(seuratObj)
+seuratObj <- FindVariableFeatures(seuratObj, selection.method = "vst", nfeatures = 2000)
+seuratObj <- ScaleData(seuratObj)
+seuratObj <- RunPCA(seuratObj, npcs = 30, verbose = FALSE)
+```
+
+```{r}
+exp7DF = seuratObj@reductions$pca@cell.embeddings %>% 
+  as.data.frame() %>% 
+  tibble::rownames_to_column("cell") %>% 
+  separate(cell, c("group", "barcode", "condition", "cluster"), sep = "_")
+
+## check whether there is duplicate ID -> No with cellID, Yes with only barcode
+#exp7 %>% group_by(cell) %>% summarise(n = n()) %>% filter(n != 1)
+```
+
+Define a recipe
+
+```{r}
+exp7_model = exp7DF %>% select(-barcode)
+set.seed(123) 
+# create CV object from training data
+exp7_cv <- vfold_cv(exp7_model)
+exp7_split <- initial_split(exp7_model, prop = 3/4)
+# define the recipe
+exp7_recipe <- 
+  # which consists of the formula (outcome ~ predictors)
+  recipe(cluster ~ ., data = exp7_model)
+exp7_recipe
+```
+
+Specify the model
+
+```{r}
+rf_model <- 
+  # specify that the model is a random forest
+  rand_forest() %>%
+  # specify that the `mtry` parameter needs to be tuned
+  set_args(mtry = tune()) %>%
+  # select the engine/package that underlies the model
+  set_engine("ranger", importance = "impurity") %>%
+  # choose either the continuous regression or binary classification mode
+  set_mode("classification") 
+```
+
+```{r}
+svm_mod <-
+  svm_rbf(cost = tune(), rbf_sigma = tune()) %>%
+  set_mode("classification") %>%
+  set_engine("kernlab")
+```
+
+Put it all together in a workflow
+
+```{r}
+# set the workflow
+rf_workflow <- workflow() %>%
+  # add the recipe
+  add_recipe(exp7_recipe) %>%
+  # add the model
+  add_model(rf_model)
+```
+
+Tune the parameters
+
+```{r}
+# specify which values eant to try
+rf_grid <- expand.grid(mtry = 4:7)
+# extract results
+rf_tune_results <- rf_workflow %>%
+  tune_grid(resamples = exp7_cv, #CV object
+            grid = rf_grid, # grid of values to try
+            metrics = metric_set(accuracy, roc_auc) # metrics we care about
+            )
+```
+
+Finalize the workflow
+
+```{r}
+param_final <- rf_tune_results %>%
+  select_best(metric = "accuracy")
+param_final
+
+rf_workflow <- rf_workflow %>%
+  finalize_workflow(param_final)
+```
+
+```{r}
+onefold_split = exp7_cv[[1]][[1]]
+rf_fit <- rf_workflow %>%
+  # fit on the training set and evaluate on test set
+  last_fit(onefold_split)
 ```
 
 
