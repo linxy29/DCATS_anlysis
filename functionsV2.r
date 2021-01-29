@@ -385,7 +385,7 @@ getFisher = function(counts1, counts2){
 }
 
 # function 9: get p_values from diffcyt
-getDiffcyt = function(numb_cond1, numb_cond2, integratedSamples){
+getDiffcyt = function(numb_cond1, numb_cond2, dfRes){
   d_random <- function(batch_size, mean = 0, sd = 1, ncol = 20, cofactor = 5) {
     d <- sinh(matrix(rnorm(20*batch_size, mean, sd), ncol = ncol)) * cofactor
     colnames(d) <- paste0("marker", sprintf("%02d", 1:ncol))
@@ -408,7 +408,7 @@ getDiffcyt = function(numb_cond1, numb_cond2, integratedSamples){
   }
   
   experiment_info <- data.frame(
-    sample_id = integratedSamples@meta.data$batch %>% unique() %>% as.factor(), 
+    sample_id = dfRes$batch %>% unique() %>% as.factor(), 
     group_id = factor(c(rep("Cond1", sample_numC1), rep("Cond2", sample_numC2))), 
     stringsAsFactors = FALSE)
   marker_info <- data.frame(
@@ -425,9 +425,9 @@ getDiffcyt = function(numb_cond1, numb_cond2, integratedSamples){
   # Generate clusters
   d_se <- generateClusters(d_se)
   # Replace with our simulated data info
-  d_se@elementMetadata$sample_id = integratedSamples$batch
-  d_se@elementMetadata$group_id = integratedSamples$condition
-  d_se@elementMetadata$cluster_id = integratedSamples@active.ident
+  d_se@elementMetadata$sample_id = dfRes$batch
+  d_se@elementMetadata$group_id = dfRes$condition
+  d_se@elementMetadata$cluster_id = dfRes$clusterRes
   # Calculate counts
   d_counts <- calcCounts(d_se)
   # Create design matrix

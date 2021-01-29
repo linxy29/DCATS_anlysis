@@ -215,6 +215,11 @@ if (cell_pool == "discrete"){
 }
 ```
 
+```{r}
+simulation$dfRes %>% head()
+```
+
+
 ```{r, message=FALSE, warning=FALSE}
 ## output data
 simulationDF = data.frame()  # data frame to store test result
@@ -328,7 +333,7 @@ for (i in 1:simulation_times){
       timeL[4] = Sys.time() - t4start
       ## diffcyt
       t5start = Sys.time()
-      diffcytP = getDiffcyt(numb_cond1, numb_cond2, simulation$integratedSamples)
+      diffcytP = getDiffcyt(numb_cond1, numb_cond2, simulation$dfRes)
       timeL[5] = Sys.time() - t5start
       ## scDC
       t6start = Sys.time()

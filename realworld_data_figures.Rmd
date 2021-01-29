@@ -12,11 +12,10 @@ library(ggplot2)
 library(tidyverse)
 library(tidymodels)
 library(diffcyt)
-library(caret)
 ```
 
 ```{r}
-source("functions.r")
+source("functionsV2.r")
 ```
 
 ## Experiment 7
@@ -30,17 +29,13 @@ The 'group' column started with 'B' is the indicators of replicates
 ```{r}
 exp7_data <- read.csv("./data/real_world/Exp7_Adam_2017/celltypelabels_Haber.txt", sep="") %>% 
   rownames_to_column("cell") %>% 
-  separate(cell, c("group", "barcode", "condition", "cluster"), sep = "_") %>% 
-  mutate(group = as.factor(group),
-         condition = as.factor(condition),
-         cluster = as.factor(cluster)) %>% 
-  dplyr::select(-x)
+  separate(cell, c("batch", "barcode", "condition", "clusterRes"), sep = "_") 
 
 head(exp7_data)
 summary(exp7_data)
 
 exp7_data %>% 
-  group_by(group, condition) %>% 
+  group_by(batch, condition) %>% 
   summarise(n = n())
 ```
 
@@ -73,7 +68,7 @@ seuratObj <- RunPCA(seuratObj, npcs = 30, verbose = FALSE)
 exp7DF = seuratObj@reductions$pca@cell.embeddings %>% 
   as.data.frame() %>% 
   tibble::rownames_to_column("cell") %>% 
-  separate(cell, c("group", "barcode", "condition", "cluster"), sep = "_")
+  separate(cell, c("batch", "barcode", "condition", "clusterRes"), sep = "_")
 
 ## check whether there is duplicate ID -> No with cellID, Yes with only barcode
 #exp7 %>% group_by(cell) %>% summarise(n = n()) %>% filter(n != 1)
@@ -82,35 +77,32 @@ exp7DF = seuratObj@reductions$pca@cell.embeddings %>%
 Define a recipe
 
 ```{r}
-exp7_model = exp7DF %>% select(-barcode)
+exp7_model = exp7DF %>% dplyr::select(-barcode)
 set.seed(123) 
 # create CV object from training data
 exp7_cv <- vfold_cv(exp7_model)
-exp7_split <- initial_split(exp7_model, prop = 3/4)
 # define the recipe
 exp7_recipe <- 
   # which consists of the formula (outcome ~ predictors)
-  recipe(cluster ~ ., data = exp7_model)
+  recipe(clusterRes ~ ., data = exp7_model)
 exp7_recipe
 ```
 
-Specify the model
+Specify the model(Use default params directly)
 
 ```{r}
 rf_model <- 
   # specify that the model is a random forest
   rand_forest() %>%
   # specify that the `mtry` parameter needs to be tuned
-  set_args(mtry = tune()) %>%
-  # select the engine/package that underlies the model
   set_engine("ranger", importance = "impurity") %>%
   # choose either the continuous regression or binary classification mode
   set_mode("classification") 
 ```
 
 ```{r}
-svm_mod <-
-  svm_rbf(cost = tune(), rbf_sigma = tune()) %>%
+svm_model <-
+  svm_rbf() %>% 
   set_mode("classification") %>%
   set_engine("kernlab")
 ```
@@ -126,37 +118,324 @@ rf_workflow <- workflow() %>%
   add_model(rf_model)
 ```
 
-Tune the parameters
-
 ```{r}
-# specify which values eant to try
-rf_grid <- expand.grid(mtry = 4:7)
-# extract results
-rf_tune_results <- rf_workflow %>%
-  tune_grid(resamples = exp7_cv, #CV object
-            grid = rf_grid, # grid of values to try
-            metrics = metric_set(accuracy, roc_auc) # metrics we care about
-            )
-```
-
-Finalize the workflow
-
-```{r}
-param_final <- rf_tune_results %>%
-  select_best(metric = "accuracy")
-param_final
-
-rf_workflow <- rf_workflow %>%
-  finalize_workflow(param_final)
+# set the workflow
+svm_workflow <- workflow() %>%
+  # add the recipe
+  add_recipe(exp7_recipe) %>%
+  # add the model
+  add_model(svm_model)
 ```
 
 ```{r}
+time1 = Sys.time()
 onefold_split = exp7_cv[[1]][[1]]
 rf_fit <- rf_workflow %>%
   # fit on the training set and evaluate on test set
   last_fit(onefold_split)
+print(Sys.time()-time1)
+```
+```{r}
+rf_pred = rf_fit %>% 
+  collect_predictions() %>% 
+  mutate(pred = .pred_class) %>% 
+  dplyr::select(pred, clusterRes)
 ```
 
+```{r}
+time1 = Sys.time()
+onefold_split = exp7_cv[[1]][[1]]
+svm_fit <- svm_workflow %>%
+  # fit on the training set and evaluate on test set
+  last_fit(onefold_split)
+print(Sys.time()-time1)
+```
+```{r}
+svm_pred = svm_fit %>% 
+  collect_predictions() %>% 
+  mutate(pred = .pred_class) %>% 
+  dplyr::select(pred, clusterRes)
+```
+
+```{r}
+rfDF = data.frame()
+svmDF = data.frame()
+for (i in 1:10) {
+  ## select fold
+  onefold_split = exp7_cv[[1]][[i]]
+  rf_fit <- rf_workflow %>%
+    last_fit(onefold_split)
+  rf_pred = rf_fit %>% 
+    collect_predictions() %>% 
+    mutate(pred = .pred_class) %>% 
+    dplyr::select(pred, clusterRes)
+  rfDF = rbind(rfDF, rf_pred)
+  svm_fit <- svm_workflow %>%
+    last_fit(onefold_split)
+  svm_pred = svm_fit %>% 
+    collect_predictions() %>% 
+    mutate(pred = .pred_class) %>% 
+    dplyr::select(pred, clusterRes)
+  svmDF = rbind(svmDF, svm_pred)
+}
+```
+
+control vs Hpoly.Day3
+
+```{r}
+## data convert
+numb_cond1 = exp7_data %>% 
+  filter(condition == "Control") %>% 
+  group_by(clusterRes, batch) %>% 
+  summarise(n = n()) %>% 
+  pivot_wider(names_from = "clusterRes", values_from = "n") %>% 
+  column_to_rownames(var = "batch")
+numb_cond2 = exp7_data %>% 
+  filter(condition == "Hpoly.Day3") %>% 
+  group_by(clusterRes, batch) %>% 
+  summarise(n = n()) %>% 
+  pivot_wider(names_from = "clusterRes", values_from = "n") %>% 
+  column_to_rownames(var = "batch")
+exp7_C3 = exp7_data %>% 
+  filter(condition == "Control" | condition == "Hpoly.Day3") %>% mutate(clusterRes = as.factor(clusterRes))
+```
+
+Get matrices
+
+```{r}
+simil_matU = get_similarity_mat(dim(numb_cond1)[2], confuse_rate=0.1)
+conf.mat <- table(rfDF$clusterRes, rfDF$pred)
+rf_mat <- t(t(conf.mat)/apply(conf.mat,2,sum))
+conf.mat <- table(svmDF$clusterRes, svmDF$pred)
+svm_mat <- t(t(conf.mat)/apply(conf.mat,2,sum))
+```
+
+Test part
+
+```{r}
+betabin_noBC = betabinLRT_rw(as.matrix(numb_cond1), as.matrix(numb_cond2), bias_corr = FALSE)
+betabin_wBC_U = betabinLRT_rw(as.matrix(numb_cond1), as.matrix(numb_cond2), bias_corr = TRUE, similarity_mat = simil_matU)
+betabin_wBC_rf = betabinLRT_rw(as.matrix(numb_cond1), as.matrix(numb_cond2), bias_corr = TRUE, similarity_mat = rf_mat)
+betabin_wBC_svm = betabinLRT_rw(as.matrix(numb_cond1), as.matrix(numb_cond2), bias_corr = TRUE, similarity_mat = svm_mat)
+## DCATS---betabin with similarity matrix (backward-forward)
+betabin_wMU = dcats_betabinRW(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = simil_matU, n_samples = 100, binom_only = FALSE)
+betabin_wMrf = dcats_betabinRW(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = rf_mat, n_samples = 100, binom_only = FALSE)
+betabin_wMsvm = dcats_betabinRW(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = svm_mat, n_samples = 100, binom_only = FALSE)
+bin_wMU = dcats_betabinRW(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = simil_matU, n_samples = 100)
+bin_wMrf = dcats_betabinRW(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = rf_mat, n_samples = 100)
+bin_wMsvm = dcats_betabinRW(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = svm_mat, n_samples = 100)
+## Fisher's exact test
+fisher_pvals = getFisher(as.matrix(numb_cond1), as.matrix(numb_cond2))
+## speckle
+speckleRes = propeller(clusters = exp7_C3$clusterRes, sample = exp7_C3$batch, group = exp7_C3$condition) %>% 
+  dplyr::rename(cluster = BaselineProp.clusters,
+                      speckle_pvals = FDR) %>%
+  dplyr::select(cluster, speckle_pvals)
+## scDC
+cluster_num = dim(numb_cond1)[2]
+res_scDC <- scDC_noClustering(cellTypes = exp7_C3$clusterRes, exp7_C3$batch, calCI = TRUE, calCI_method = c("percentile", "BCa", "multinom"),nboot = 1000, verbose = FALSE)
+res_GLM <- fitGLM(res_scDC, c(rep("cond1",dim(numb_cond1)[1]*cluster_num),rep("cond2",dim(numb_cond2)[1]*cluster_num)), pairwise = FALSE, fixed_only = TRUE, verbose = FALSE)
+scDCRes_temp = summary(res_GLM$pool_res_fixed)
+scDCRes = scDCRes_temp[c(cluster_num+1,(dim(scDCRes_temp)[1]-cluster_num+2):dim(scDCRes_temp)[1]),]
+```
+
+```{r}
+## results
+all_res = data.frame(cluster = rownames(betabin_noBC), truth = c(rep("N", 7), "P")) %>% 
+  mutate(betabin_noBC_pvals = betabin_noBC$pvals,
+         betabin_wBCU_pvals = betabin_wBC_U$pvals,
+         betabin_wBCrf_pvals = betabin_wBC_rf$pvals,
+         betabin_wBCsvm_pvals = betabin_wBC_svm$pvals,
+         betabin_wMU_pvals = betabin_wMU$pvals,
+         betabin_wMrf_pvals = betabin_wMrf$pvals,
+         betabin_wMsvm_pvals = betabin_wMsvm$pvals,
+         bin_wMU_pvals = bin_wMU$pvals,
+         bin_wMrf_pvals = bin_wMrf$pvals,
+         bin_wMsvm_pvals = bin_wMsvm$pvals,
+         fisher_pvals = fisher_pvals,
+         scDC_pvals = scDCRes$p.value) %>%
+  merge(speckleRes, by = "cluster")
+```
+
+```{r}
+all_res %>% 
+  pivot_longer(betabin_noBC_pvals:speckle_pvals, names_to = "method", values_to = "p.value") %>% 
+  ggplot(aes(x = cluster, y = p.value, color = method)) +
+  geom_bar(stat="identity", fill="white", position=position_dodge())+
+  geom_hline(yintercept=0.05, linetype="dashed") +
+  theme(axis.text.x = element_text(angle = 45))
+```
+control vs Hpoly.Day10
+
+```{r}
+## data convert
+numb_cond1 = exp7_data %>% 
+  filter(condition == "Control") %>% 
+  group_by(clusterRes, batch) %>% 
+  summarise(n = n()) %>% 
+  pivot_wider(names_from = "clusterRes", values_from = "n") %>% 
+  column_to_rownames(var = "batch")
+numb_cond2 = exp7_data %>% 
+  filter(condition == "Hpoly.Day10") %>% 
+  group_by(clusterRes, batch) %>% 
+  summarise(n = n()) %>% 
+  pivot_wider(names_from = "clusterRes", values_from = "n") %>% 
+  column_to_rownames(var = "batch")
+exp7_C10 = exp7_data %>% 
+  filter(condition == "Control" | condition == "Hpoly.Day10") %>% mutate(clusterRes = as.factor(clusterRes))
+```
+
+Get matrices
+
+```{r}
+simil_matU = get_similarity_mat(dim(numb_cond1)[2], confuse_rate=0.1)
+conf.mat <- table(rfDF$clusterRes, rfDF$pred)
+rf_mat <- t(t(conf.mat)/apply(conf.mat,2,sum))
+conf.mat <- table(svmDF$clusterRes, svmDF$pred)
+svm_mat <- t(t(conf.mat)/apply(conf.mat,2,sum))
+```
+
+Test part
+
+```{r}
+betabin_noBC = betabinLRT_rw(as.matrix(numb_cond1), as.matrix(numb_cond2), bias_corr = FALSE)
+betabin_wBC_U = betabinLRT_rw(as.matrix(numb_cond1), as.matrix(numb_cond2), bias_corr = TRUE, similarity_mat = simil_matU)
+betabin_wBC_rf = betabinLRT_rw(as.matrix(numb_cond1), as.matrix(numb_cond2), bias_corr = TRUE, similarity_mat = rf_mat)
+betabin_wBC_svm = betabinLRT_rw(as.matrix(numb_cond1), as.matrix(numb_cond2), bias_corr = TRUE, similarity_mat = svm_mat)
+## DCATS---betabin with similarity matrix (backward-forward)
+betabin_wMU = dcats_betabinRW(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = simil_matU, n_samples = 100, binom_only = FALSE)
+betabin_wMrf = dcats_betabinRW(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = rf_mat, n_samples = 100, binom_only = FALSE)
+betabin_wMsvm = dcats_betabinRW(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = svm_mat, n_samples = 100, binom_only = FALSE)
+bin_wMU = dcats_betabinRW(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = simil_matU, n_samples = 100)
+bin_wMrf = dcats_betabinRW(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = rf_mat, n_samples = 100)
+bin_wMsvm = dcats_betabinRW(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = svm_mat, n_samples = 100)
+## Fisher's exact test
+fisher_pvals = getFisher(as.matrix(numb_cond1), as.matrix(numb_cond2))
+## speckle
+speckleRes = propeller(clusters = exp7_C10$clusterRes, sample = exp7_C10$batch, group = exp7_C10$condition) %>% 
+  dplyr::rename(cluster = BaselineProp.clusters,
+                      speckle_pvals = FDR) %>%
+  dplyr::select(cluster, speckle_pvals)
+## scDC
+cluster_num = dim(numb_cond1)[2]
+res_scDC <- scDC_noClustering(cellTypes = exp7_C10$clusterRes, exp7_C10$batch, calCI = TRUE, calCI_method = c("percentile", "BCa", "multinom"),nboot = 1000, verbose = FALSE)
+res_GLM <- fitGLM(res_scDC, c(rep("cond1",dim(numb_cond1)[1]*cluster_num),rep("cond2",dim(numb_cond2)[1]*cluster_num)), pairwise = FALSE, fixed_only = TRUE, verbose = FALSE)
+scDCRes_temp = summary(res_GLM$pool_res_fixed)
+scDCRes = scDCRes_temp[c(cluster_num+1,(dim(scDCRes_temp)[1]-cluster_num+2):dim(scDCRes_temp)[1]),]
+```
+
+```{r}
+## results
+all_res = data.frame(cluster = rownames(betabin_noBC), truth = c(rep("N", 7), "P")) %>% 
+  mutate(betabin_noBC_pvals = betabin_noBC$pvals,
+         betabin_wBCU_pvals = betabin_wBC_U$pvals,
+         betabin_wBCrf_pvals = betabin_wBC_rf$pvals,
+         betabin_wBCsvm_pvals = betabin_wBC_svm$pvals,
+         betabin_wMU_pvals = betabin_wMU$pvals,
+         betabin_wMrf_pvals = betabin_wMrf$pvals,
+         betabin_wMsvm_pvals = betabin_wMsvm$pvals,
+         bin_wMU_pvals = bin_wMU$pvals,
+         bin_wMrf_pvals = bin_wMrf$pvals,
+         bin_wMsvm_pvals = bin_wMsvm$pvals,
+         fisher_pvals = fisher_pvals,
+         scDC_pvals = scDCRes$p.value) %>%
+  merge(speckleRes, by = "cluster")
+```
+
+```{r}
+all_res %>% 
+  pivot_longer(betabin_noBC_pvals:speckle_pvals, names_to = "method", values_to = "p.value") %>% 
+  ggplot(aes(x = cluster, y = p.value, color = method)) +
+  geom_bar(stat="identity", fill="white", position=position_dodge())+
+  geom_hline(yintercept=0.05, linetype="dashed") +
+  theme(axis.text.x = element_text(angle = 45))
+```
+
+control vs Salmonella
+
+```{r}
+## data convert
+numb_cond1 = exp7_data %>% 
+  filter(condition == "Control") %>% 
+  group_by(clusterRes, batch) %>% 
+  summarise(n = n()) %>% 
+  pivot_wider(names_from = "clusterRes", values_from = "n") %>% 
+  column_to_rownames(var = "batch")
+numb_cond2 = exp7_data %>% 
+  filter(condition == "Salmonella") %>% 
+  group_by(clusterRes, batch) %>% 
+  summarise(n = n()) %>% 
+  pivot_wider(names_from = "clusterRes", values_from = "n") %>% 
+  column_to_rownames(var = "batch")
+exp7_CS = exp7_data %>% 
+  filter(condition == "Control" | condition == "Salmonella") %>% mutate(clusterRes = as.factor(clusterRes))
+```
+
+Get matrices
+
+```{r}
+simil_matU = get_similarity_mat(dim(numb_cond1)[2], confuse_rate=0.1)
+conf.mat <- table(rfDF$clusterRes, rfDF$pred)
+rf_mat <- t(t(conf.mat)/apply(conf.mat,2,sum))
+conf.mat <- table(svmDF$clusterRes, svmDF$pred)
+svm_mat <- t(t(conf.mat)/apply(conf.mat,2,sum))
+```
+
+Test part
+
+```{r}
+betabin_noBC = betabinLRT_rw(as.matrix(numb_cond1), as.matrix(numb_cond2), bias_corr = FALSE)
+betabin_wBC_U = betabinLRT_rw(as.matrix(numb_cond1), as.matrix(numb_cond2), bias_corr = TRUE, similarity_mat = simil_matU)
+betabin_wBC_rf = betabinLRT_rw(as.matrix(numb_cond1), as.matrix(numb_cond2), bias_corr = TRUE, similarity_mat = rf_mat)
+betabin_wBC_svm = betabinLRT_rw(as.matrix(numb_cond1), as.matrix(numb_cond2), bias_corr = TRUE, similarity_mat = svm_mat)
+## DCATS---betabin with similarity matrix (backward-forward)
+betabin_wMU = dcats_betabinRW(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = simil_matU, n_samples = 100, binom_only = FALSE)
+betabin_wMrf = dcats_betabinRW(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = rf_mat, n_samples = 100, binom_only = FALSE)
+betabin_wMsvm = dcats_betabinRW(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = svm_mat, n_samples = 100, binom_only = FALSE)
+bin_wMU = dcats_betabinRW(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = simil_matU, n_samples = 100)
+bin_wMrf = dcats_betabinRW(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = rf_mat, n_samples = 100)
+bin_wMsvm = dcats_betabinRW(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = svm_mat, n_samples = 100)
+## Fisher's exact test
+fisher_pvals = getFisher(as.matrix(numb_cond1), as.matrix(numb_cond2))
+## speckle
+speckleRes = propeller(clusters = exp7_CS$clusterRes, sample = exp7_CS$batch, group = exp7_CS$condition) %>% 
+  dplyr::rename(cluster = BaselineProp.clusters,
+                      speckle_pvals = FDR) %>%
+  dplyr::select(cluster, speckle_pvals)
+## scDC
+cluster_num = dim(numb_cond1)[2]
+res_scDC <- scDC_noClustering(cellTypes = exp7_CS$clusterRes, exp7_CS$batch, calCI = TRUE, calCI_method = c("percentile", "BCa", "multinom"),nboot = 1000, verbose = FALSE)
+res_GLM <- fitGLM(res_scDC, c(rep("cond1",dim(numb_cond1)[1]*cluster_num),rep("cond2",dim(numb_cond2)[1]*cluster_num)), pairwise = FALSE, fixed_only = TRUE, verbose = FALSE)
+scDCRes_temp = summary(res_GLM$pool_res_fixed)
+scDCRes = scDCRes_temp[c(cluster_num+1,(dim(scDCRes_temp)[1]-cluster_num+2):dim(scDCRes_temp)[1]),]
+```
+
+```{r}
+## results
+all_res = data.frame(cluster = rownames(betabin_noBC), truth = c(rep("N", 7), "P")) %>% 
+  mutate(betabin_noBC_pvals = betabin_noBC$pvals,
+         betabin_wBCU_pvals = betabin_wBC_U$pvals,
+         betabin_wBCrf_pvals = betabin_wBC_rf$pvals,
+         betabin_wBCsvm_pvals = betabin_wBC_svm$pvals,
+         betabin_wMU_pvals = betabin_wMU$pvals,
+         betabin_wMrf_pvals = betabin_wMrf$pvals,
+         betabin_wMsvm_pvals = betabin_wMsvm$pvals,
+         bin_wMU_pvals = bin_wMU$pvals,
+         bin_wMrf_pvals = bin_wMrf$pvals,
+         bin_wMsvm_pvals = bin_wMsvm$pvals,
+         fisher_pvals = fisher_pvals,
+         scDC_pvals = scDCRes$p.value) %>%
+  merge(speckleRes, by = "cluster")
+```
+
+```{r}
+all_res %>% 
+  pivot_longer(betabin_noBC_pvals:speckle_pvals, names_to = "method", values_to = "p.value") %>% 
+  ggplot(aes(x = cluster, y = p.value, color = method)) +
+  geom_bar(stat="identity", fill="white", position=position_dodge())+
+  geom_hline(yintercept=0.05, linetype="dashed") +
+  theme(axis.text.x = element_text(angle = 45))
+```
 
 ```{r}
 ## control vs Hpoly.Day3
