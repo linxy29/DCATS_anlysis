@@ -6,23 +6,21 @@ output: html_document
 ```{r,message=FALSE,warning=FALSE}
 library(splatter)
 library(Seurat)
+library(SeuratWrappers)
 library(speckle)
 library(DCATS)
 library(ggplot2)
 library(tidyverse)
 library(tidymodels)
 library(diffcyt)
+library(scdney)
 ```
 
 ```{r}
 source("functionsV2.r")
 ```
 
-## Experiment 7
-
-## real-world data 1
-
-## Experiment 7
+## real-world data 1 - Experiment 7
 
 The 'group' column started with 'B' is the indicators of replicates
 
@@ -150,6 +148,7 @@ svm_fit <- svm_workflow %>%
   last_fit(onefold_split)
 print(Sys.time()-time1)
 ```
+
 ```{r}
 svm_pred = svm_fit %>% 
   collect_predictions() %>% 
@@ -254,7 +253,48 @@ all_res = data.frame(cluster = rownames(betabin_noBC), truth = c(rep("N", 7), "P
          bin_wMsvm_pvals = bin_wMsvm$pvals,
          fisher_pvals = fisher_pvals,
          scDC_pvals = scDCRes$p.value) %>%
-  merge(speckleRes, by = "cluster")
+  merge(speckleRes, by = "cluster") %>% 
+  mutate(truth = ifelse(truth == "P", 1, 0),
+         betabin_noBC_Res = ifelse(betabin_noBC_pvals < 0.05, 1, 0),
+         betabin_wBCU_Res = ifelse(betabin_wBCU_pvals < 0.05, 1, 0),
+         betabin_wBCrf_Res = ifelse(betabin_wBCrf_pvals < 0.05, 1, 0),
+         betabin_wBCsvm_Res = ifelse(betabin_wBCsvm_pvals < 0.05, 1, 0),
+         betabin_wMU_Res = ifelse(betabin_wMU_pvals < 0.05, 1, 0),
+         betabin_wMrf_Res = ifelse(betabin_wMrf_pvals < 0.05, 1, 0),
+         betabin_wMsvm_Res = ifelse(betabin_wMsvm_pvals < 0.05, 1, 0),
+         bin_wMU_Res = ifelse(bin_wMU_pvals < 0.05, 1, 0),
+         bin_wMrf_Res = ifelse(bin_wMrf_pvals < 0.05, 1, 0),
+         bin_wMsvm_Res = ifelse(bin_wMsvm_pvals < 0.05, 1, 0),
+         fisher_Res = ifelse(fisher_pvals < 0.05, 1, 0),
+         scDC_Res = ifelse(scDC_pvals < 0.05, 1, 0),
+         speckle_Res = ifelse(speckle_pvals < 0.05, 1, 0))
+
+res_TF = all_res %>% 
+  mutate(betabin_noBC_TF = abs(betabin_noBC_Res - truth),
+         betabin_wBCU_TF = abs(betabin_wBCU_Res - truth),
+         betabin_wBCrf_TF = abs(betabin_wBCrf_Res - truth),
+         betabin_wBCsvm_TF = abs(betabin_wBCsvm_Res - truth),
+         betabin_wMU_TF = abs(betabin_wMU_Res - truth),
+         betabin_wMrf_TF = abs(betabin_wMrf_Res - truth),
+         betabin_wMsvm_TF = abs(betabin_wMsvm_Res - truth),
+         bin_wMU_TF = abs(bin_wMU_Res - truth),
+         bin_wMrf_TF = abs(bin_wMrf_Res - truth),
+         bin_wMsvm_TF = abs(bin_wMsvm_Res - truth),
+         fisher_TF = abs(fisher_Res - truth),
+         scDC_TF = abs(scDC_Res - truth),
+         speckle_TF = abs(speckle_Res - truth)) %>% 
+  select(betabin_noBC_TF:speckle_TF)
+colSums(res_TF)
+```
+```{r}
+library(pROC)
+methods = colnames(all_res)[3:15]
+roc_rose <- plot(roc(all_res$truth, all_res[,3]), legacy.axes = TRUE, print.auc = TRUE, print.auc.y = .73, print.auc.x = .7, col = 1)
+graphics::text(0.1, 0.7, paste(methods[1]), col=1)
+for (i in 2:13){
+  roc_rose <- plot(roc(all_res$truth, all_res[,i+2]), legacy.axes = TRUE, print.auc = TRUE, print.auc.y = .73-(i-1)*0.07, print.auc.x = .7, col = i, add = TRUE)
+  graphics::text(0.1, 0.7-(i-1)*0.07, paste(methods[i]), col=i)
+}
 ```
 
 ```{r}
@@ -265,6 +305,7 @@ all_res %>%
   geom_hline(yintercept=0.05, linetype="dashed") +
   theme(axis.text.x = element_text(angle = 45))
 ```
+
 control vs Hpoly.Day10
 
 ```{r}
@@ -326,7 +367,7 @@ scDCRes = scDCRes_temp[c(cluster_num+1,(dim(scDCRes_temp)[1]-cluster_num+2):dim(
 
 ```{r}
 ## results
-all_res = data.frame(cluster = rownames(betabin_noBC), truth = c(rep("N", 7), "P")) %>% 
+all_res = data.frame(cluster = rownames(betabin_noBC), truth = c("N","P","N","P","N","N","P","P")) %>% 
   mutate(betabin_noBC_pvals = betabin_noBC$pvals,
          betabin_wBCU_pvals = betabin_wBC_U$pvals,
          betabin_wBCrf_pvals = betabin_wBC_rf$pvals,
@@ -339,7 +380,48 @@ all_res = data.frame(cluster = rownames(betabin_noBC), truth = c(rep("N", 7), "P
          bin_wMsvm_pvals = bin_wMsvm$pvals,
          fisher_pvals = fisher_pvals,
          scDC_pvals = scDCRes$p.value) %>%
-  merge(speckleRes, by = "cluster")
+  merge(speckleRes, by = "cluster") %>% 
+  mutate(truth = ifelse(truth == "P", 1, 0),
+         betabin_noBC_Res = ifelse(betabin_noBC_pvals < 0.05, 1, 0),
+         betabin_wBCU_Res = ifelse(betabin_wBCU_pvals < 0.05, 1, 0),
+         betabin_wBCrf_Res = ifelse(betabin_wBCrf_pvals < 0.05, 1, 0),
+         betabin_wBCsvm_Res = ifelse(betabin_wBCsvm_pvals < 0.05, 1, 0),
+         betabin_wMU_Res = ifelse(betabin_wMU_pvals < 0.05, 1, 0),
+         betabin_wMrf_Res = ifelse(betabin_wMrf_pvals < 0.05, 1, 0),
+         betabin_wMsvm_Res = ifelse(betabin_wMsvm_pvals < 0.05, 1, 0),
+         bin_wMU_Res = ifelse(bin_wMU_pvals < 0.05, 1, 0),
+         bin_wMrf_Res = ifelse(bin_wMrf_pvals < 0.05, 1, 0),
+         bin_wMsvm_Res = ifelse(bin_wMsvm_pvals < 0.05, 1, 0),
+         fisher_Res = ifelse(fisher_pvals < 0.05, 1, 0),
+         scDC_Res = ifelse(scDC_pvals < 0.05, 1, 0),
+         speckle_Res = ifelse(speckle_pvals < 0.05, 1, 0))
+
+res_TF = all_res %>% 
+  mutate(betabin_noBC_TF = abs(betabin_noBC_Res - truth),
+         betabin_wBCU_TF = abs(betabin_wBCU_Res - truth),
+         betabin_wBCrf_TF = abs(betabin_wBCrf_Res - truth),
+         betabin_wBCsvm_TF = abs(betabin_wBCsvm_Res - truth),
+         betabin_wMU_TF = abs(betabin_wMU_Res - truth),
+         betabin_wMrf_TF = abs(betabin_wMrf_Res - truth),
+         betabin_wMsvm_TF = abs(betabin_wMsvm_Res - truth),
+         bin_wMU_TF = abs(bin_wMU_Res - truth),
+         bin_wMrf_TF = abs(bin_wMrf_Res - truth),
+         bin_wMsvm_TF = abs(bin_wMsvm_Res - truth),
+         fisher_TF = abs(fisher_Res - truth),
+         scDC_TF = abs(scDC_Res - truth),
+         speckle_TF = abs(speckle_Res - truth)) %>% 
+  select(betabin_noBC_TF:speckle_TF)
+colSums(res_TF)
+```
+```{r}
+library(pROC)
+methods = colnames(simulationDF)[3:13]
+roc_rose <- plot(roc(simulationDF$truth, simulationDF[,3]), legacy.axes = TRUE, print.auc = TRUE, print.auc.y = .73, print.auc.x = .7, col = 1)
+graphics::text(0.1, 0.7, paste(methods[1]), col=1)
+for (i in 2:11){
+  roc_rose <- plot(roc(simulationDF$truth, simulationDF[,i+2]), legacy.axes = TRUE, print.auc = TRUE, print.auc.y = .73-(i-1)*0.07, print.auc.x = .7, col = i, add = TRUE)
+  graphics::text(0.1, 0.7-(i-1)*0.07, paste(methods[i]), col=i)
+}
 ```
 
 ```{r}
@@ -412,7 +494,7 @@ scDCRes = scDCRes_temp[c(cluster_num+1,(dim(scDCRes_temp)[1]-cluster_num+2):dim(
 
 ```{r}
 ## results
-all_res = data.frame(cluster = rownames(betabin_noBC), truth = c(rep("N", 7), "P")) %>% 
+all_res = data.frame(cluster = rownames(betabin_noBC), truth = c("N","P","N","N","P","P","P","N")) %>% 
   mutate(betabin_noBC_pvals = betabin_noBC$pvals,
          betabin_wBCU_pvals = betabin_wBC_U$pvals,
          betabin_wBCrf_pvals = betabin_wBC_rf$pvals,
@@ -425,7 +507,38 @@ all_res = data.frame(cluster = rownames(betabin_noBC), truth = c(rep("N", 7), "P
          bin_wMsvm_pvals = bin_wMsvm$pvals,
          fisher_pvals = fisher_pvals,
          scDC_pvals = scDCRes$p.value) %>%
-  merge(speckleRes, by = "cluster")
+  merge(speckleRes, by = "cluster") %>% 
+  mutate(truth = ifelse(truth == "P", 1, 0),
+         betabin_noBC_Res = ifelse(betabin_noBC_pvals < 0.05, 1, 0),
+         betabin_wBCU_Res = ifelse(betabin_wBCU_pvals < 0.05, 1, 0),
+         betabin_wBCrf_Res = ifelse(betabin_wBCrf_pvals < 0.05, 1, 0),
+         betabin_wBCsvm_Res = ifelse(betabin_wBCsvm_pvals < 0.05, 1, 0),
+         betabin_wMU_Res = ifelse(betabin_wMU_pvals < 0.05, 1, 0),
+         betabin_wMrf_Res = ifelse(betabin_wMrf_pvals < 0.05, 1, 0),
+         betabin_wMsvm_Res = ifelse(betabin_wMsvm_pvals < 0.05, 1, 0),
+         bin_wMU_Res = ifelse(bin_wMU_pvals < 0.05, 1, 0),
+         bin_wMrf_Res = ifelse(bin_wMrf_pvals < 0.05, 1, 0),
+         bin_wMsvm_Res = ifelse(bin_wMsvm_pvals < 0.05, 1, 0),
+         fisher_Res = ifelse(fisher_pvals < 0.05, 1, 0),
+         scDC_Res = ifelse(scDC_pvals < 0.05, 1, 0),
+         speckle_Res = ifelse(speckle_pvals < 0.05, 1, 0))
+
+res_TF = all_res %>% 
+  mutate(betabin_noBC_TF = abs(betabin_noBC_Res - truth),
+         betabin_wBCU_TF = abs(betabin_wBCU_Res - truth),
+         betabin_wBCrf_TF = abs(betabin_wBCrf_Res - truth),
+         betabin_wBCsvm_TF = abs(betabin_wBCsvm_Res - truth),
+         betabin_wMU_TF = abs(betabin_wMU_Res - truth),
+         betabin_wMrf_TF = abs(betabin_wMrf_Res - truth),
+         betabin_wMsvm_TF = abs(betabin_wMsvm_Res - truth),
+         bin_wMU_TF = abs(bin_wMU_Res - truth),
+         bin_wMrf_TF = abs(bin_wMrf_Res - truth),
+         bin_wMsvm_TF = abs(bin_wMsvm_Res - truth),
+         fisher_TF = abs(fisher_Res - truth),
+         scDC_TF = abs(scDC_Res - truth),
+         speckle_TF = abs(speckle_Res - truth)) %>% 
+  select(betabin_noBC_TF:speckle_TF)
+colSums(res_TF)
 ```
 
 ```{r}
@@ -437,25 +550,327 @@ all_res %>%
   theme(axis.text.x = element_text(angle = 45))
 ```
 
+## real-world data 2
+
+Can't find out the cluster results for each cell. Can't use 'svm_mat' and 'rf_mat'.
+
+Read Data
+
+```{r, eval=FALSE}
+pathL = list.dirs(path = "./data/real_world/Baryawno_2019", full.names = TRUE, recursive = FALSE)
+c = 0
+m = 0
+seuratObjL = vector(mode = "list")
+for (i in 1:length(pathL)) {
+  expression_matrix1 <- Read10X(data.dir = pathL[i])
+  seuratObj = CreateSeuratObject(counts = expression_matrix1)
+  if (str_split(pathL[i], "_")[[1]][4] == "ctrl"){
+    c = c+1
+    sample = str_c("ctrl", as.character(c))
+  }
+  if (str_split(pathL[i], "_")[[1]][4] == "MLL"){
+    m = m+1
+    sample = str_c("mll", as.character(m))
+  }
+  seuratObj = AddMetaData(object = seuratObj, metadata = rep(sample, dim(seuratObj)[2]), col.name = 'sample')
+  seuratObjL[[sample]] = seuratObj
+}
+```
+
+### Use seurat to integrate data
+
+```{r, eval=FALSE}
+for (i in 1:length(seuratObjL)) {
+  seuratObjL[[i]] <- NormalizeData(seuratObjL[[i]], verbose = FALSE)
+  seuratObjL[[i]] <- FindVariableFeatures(seuratObjL[[i]], selection.method = "vst", nfeatures = 2000, verbose = FALSE)
+}
+anchors <- FindIntegrationAnchors(object.list = seuratObjL, dims = 1:30)
+seurat_intg <- IntegrateData(anchorset = anchors, dims = 1:30)
+save(seurat_intg, file = "./data/real_world/Baryawno_2019/seurat_intg.RData")
+```
+
+```{r, eval=FALSE}
+load("./data/real_world/Baryawno_2019/seurat_intg.RData")
+DefaultAssay(seurat_intg) <- "integrated"
+seurat_intg <- ScaleData(seurat_intg, verbose = FALSE)
+seurat_intg <- RunPCA(seurat_intg, npcs = 30, verbose = FALSE)
+```
+
+Read data
+
 ```{r}
-## control vs Hpoly.Day3
-exp7_C3 = exp7_data %>% 
-  filter(condition == "Control" | condition == "Hpoly.Day3") %>% 
-  select(condition, cluster)
-fisherP = get_fisherP(exp7_C3)
-print(fisherP)
+rw2_geneExpM <- read.delim("./data/real_world/Baryawno_2019/stroma.leuk.ctrl.TP4K.txt", row.names=1)
+rw2_clusterInfo = read.delim("./data/real_world/Baryawno_2019/stroma.leuk.ctrl.meta.txt") %>% rename(Cell = NAME)
+```
 
-## control vs Hpoly.Day10
-exp7_C10 = exp7_data %>% 
-  filter(condition == "Control" | condition == "Hpoly.Day10") %>% 
-  select(condition, cluster)
-fisherP = get_fisherP(exp7_C10)
-print(fisherP)
+```{r}
+seuratObj <- CreateSeuratObject(counts = rw2_geneExpM, project="Bary")
+seuratObj <- NormalizeData(seuratObj)
+seuratObj <- FindVariableFeatures(seuratObj, selection.method = "vst", nfeatures = 2000)
+seuratObj <- ScaleData(seuratObj)
+seuratObj <- RunPCA(seuratObj, npcs = 30, verbose = FALSE)
+```
 
-## control vs Salmonella
-exp7_CS = exp7_data %>% 
-  filter(condition == "Control" | condition == "Salmonella") %>% 
-  select(condition, cluster)
-fisherP = get_fisherP(exp7_CS)
-print(fisherP)
+filter out cluster 10 since there is only 1 observation of cluster 10. Filter out cluster 10 and cluster 14 since they are not in the original results
+
+```{r}
+rw2DF = seuratObj@reductions$pca@cell.embeddings %>% 
+  as.data.frame() %>% 
+  tibble::rownames_to_column("Cell") %>% 
+  merge(rw2_clusterInfo, by = "Cell") %>% 
+  mutate(Cell = str_replace(Cell, "ctrl_10May", "ctrl1"),
+         Cell = str_replace(Cell, "ctrl_16May", "ctrl2"),
+         Cell = str_replace(Cell, "ctrl_26May", "ctrl3"),
+         Cell = str_replace(Cell, "ctrl_7Jun", "ctrl4"),
+         Cell = str_replace(Cell, "ctrl_8May", "ctrl5"),
+         Cell = str_replace(Cell, "MLL_10May", "mll1"),
+         Cell = str_replace(Cell, "MLL_26May", "mll2"),
+         Cell = str_replace(Cell, "MLL_31May", "mll3"),
+         Cell = str_replace(Cell, "MLL_8May", "mll4")) %>% 
+  rename(cell = Cell, clusterRes = Cluster, condition = Condition) %>% 
+  mutate(clusterRes = str_c("cluster", clusterRes)) %>% 
+  filter(clusterRes != "cluster10" & clusterRes != "cluster14" ) %>% 
+  separate(cell, c("batch", "barcode"), sep = "_")
+
+## check whether there is duplicate ID -> No with cellID, Yes with only barcode
+#rw2DF %>% group_by(Cell) %>% summarise(n = n()) %>% filter(n != 1)
+```
+
+```{r}
+rw2DF %>% 
+  group_by(batch, clusterRes) %>% 
+  summarise(n = n()) %>% 
+  pivot_wider(names_from = "clusterRes", values_from = n)
+```
+
+Define a recipe
+
+```{r}
+rw2_model = rw2DF %>% dplyr::select(-barcode)
+set.seed(123) 
+# create CV object from training data
+rw2_cv <- vfold_cv(rw2_model, v = 10)
+# define the recipe
+rw2_recipe <- 
+  # which consists of the formula (outcome ~ predictors)
+  recipe(clusterRes ~ ., data = rw2_model)
+rw2_recipe
+```
+
+Specify the model(Use default params directly)
+
+```{r}
+rf_model <- 
+  # specify that the model is a random forest
+  rand_forest() %>%
+  # specify that the `mtry` parameter needs to be tuned
+  set_engine("ranger", importance = "impurity") %>%
+  # choose either the continuous regression or binary classification mode
+  set_mode("classification") 
+```
+
+```{r}
+svm_model <-
+  svm_rbf() %>% 
+  set_mode("classification") %>%
+  set_engine("kernlab")
+```
+
+Put it all together in a workflow
+
+```{r}
+# set the workflow
+rf_workflow <- workflow() %>%
+  # add the recipe
+  add_recipe(rw2_recipe) %>%
+  # add the model
+  add_model(rf_model)
+```
+
+```{r}
+# set the workflow
+svm_workflow <- workflow() %>%
+  # add the recipe
+  add_recipe(rw2_recipe) %>%
+  # add the model
+  add_model(svm_model)
+```
+
+```{r}
+time1 = Sys.time()
+onefold_split = rw2_cv[[1]][[1]]
+rf_fit <- rf_workflow %>%
+  # fit on the training set and evaluate on test set
+  last_fit(onefold_split)
+print(Sys.time()-time1)
+```
+
+```{r}
+rf_pred = rf_fit %>% 
+  collect_predictions() %>% 
+  mutate(pred = .pred_class) %>% 
+  dplyr::select(pred, clusterRes)
+```
+
+svm failed, use random forest only
+
+```{r}
+time1 = Sys.time()
+onefold_split = rw2_cv[[1]][[1]]
+svm_fit <- svm_workflow %>%
+  # fit on the training set and evaluate on test set
+  last_fit(onefold_split)
+print(Sys.time()-time1)
+```
+
+```{r}
+svm_pred = svm_fit %>% 
+  collect_predictions() %>% 
+  mutate(pred = .pred_class) %>% 
+  dplyr::select(pred, clusterRes)
+```
+
+```{r}
+rfDF = data.frame()
+svmDF = data.frame()
+for (i in 1:10) {
+  ## select fold
+  onefold_split = rw2_cv[[1]][[i]]
+  rf_fit <- rf_workflow %>%
+    last_fit(onefold_split)
+  rf_pred = rf_fit %>% 
+    collect_predictions() %>% 
+    mutate(pred = .pred_class) %>% 
+    dplyr::select(pred, clusterRes)
+  rfDF = rbind(rfDF, rf_pred)
+  svm_fit <- svm_workflow %>%
+    last_fit(onefold_split)
+  svm_pred = svm_fit %>% 
+    collect_predictions() %>% 
+    mutate(pred = .pred_class) %>% 
+    dplyr::select(pred, clusterRes)
+  svmDF = rbind(svmDF, svm_pred)
+}
+```
+
+```{r}
+## data convert
+numb_cond1 = rw2DF %>% 
+  filter(condition == "ctrl") %>% 
+  group_by(clusterRes, batch) %>% 
+  summarise(n = n()) %>% 
+  pivot_wider(names_from = "clusterRes", values_from = "n") %>% 
+  column_to_rownames(var = "batch")
+numb_cond2 = rw2DF %>% 
+  filter(condition == "mll") %>% 
+  group_by(clusterRes, batch) %>% 
+  summarise(n = n()) %>% 
+  pivot_wider(names_from = "clusterRes", values_from = "n") %>% 
+  column_to_rownames(var = "batch")
+rw2DF = rw2DF %>% 
+  mutate(clusterRes = as.factor(clusterRes))
+```
+
+Get matrices
+
+```{r}
+simil_matU = get_similarity_mat(dim(numb_cond1)[2], confuse_rate=0.1)
+conf.mat <- table(rfDF$clusterRes, rfDF$pred)
+rf_mat <- t(t(conf.mat)/apply(conf.mat,2,sum))
+conf.mat <- table(svmDF$clusterRes, svmDF$pred)
+svm_mat <- t(t(conf.mat)/apply(conf.mat,2,sum))
+```
+
+```{r}
+print(numb_cond1)
+print(numb_cond2)
+```
+
+Test part(svm predition doesn't contain cluster 17 and dcats can't work in this situation, so not using it)
+
+```{r}
+numb_cond1[is.na(numb_cond1)] = 0
+numb_cond2[is.na(numb_cond2)] = 0
+betabin_noBC = betabinLRT_rw(as.matrix(numb_cond1), as.matrix(numb_cond2), bias_corr = FALSE)
+betabin_wBC_U = betabinLRT_rw(as.matrix(numb_cond1), as.matrix(numb_cond2), bias_corr = TRUE, similarity_mat = simil_matU)
+betabin_wBC_rf = betabinLRT_rw(as.matrix(numb_cond1), as.matrix(numb_cond2), bias_corr = TRUE, similarity_mat = rf_mat)
+#betabin_wBC_svm = betabinLRT_rw(as.matrix(numb_cond1), as.matrix(numb_cond2), bias_corr = TRUE, similarity_mat = svm_mat)
+## DCATS---betabin with similarity matrix (backward-forward)
+betabin_wMU = dcats_betabinRW(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = simil_matU, n_samples = 100, binom_only = FALSE)
+betabin_wMrf = dcats_betabinRW(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = rf_mat, n_samples = 100, binom_only = FALSE)
+#betabin_wMsvm = dcats_betabinRW(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = svm_mat, n_samples = 100, binom_only = FALSE)
+bin_wMU = dcats_betabinRW(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = simil_matU, n_samples = 100)
+bin_wMrf = dcats_betabinRW(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = rf_mat, n_samples = 100)
+#bin_wMsvm = dcats_betabinRW(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = svm_mat, n_samples = 100)
+## Fisher's exact test
+fisher_pvals = getFisher(as.matrix(numb_cond1), as.matrix(numb_cond2))
+## speckle
+speckleRes = propeller(clusters = rw2DF$clusterRes, sample = rw2DF$batch, group = rw2DF$condition) %>% 
+  dplyr::rename(cluster = BaselineProp.clusters,
+                      speckle_pvals = FDR) %>%
+  dplyr::select(cluster, speckle_pvals)
+## scDC
+cluster_num = dim(numb_cond1)[2]
+res_scDC <- scDC_noClustering(cellTypes = rw2DF$clusterRes, rw2DF$batch, calCI = TRUE, calCI_method = c("percentile", "BCa", "multinom"),nboot = 1000, verbose = FALSE)
+res_GLM <- fitGLM(res_scDC, c(rep("cond1",dim(numb_cond1)[1]*cluster_num),rep("cond2",dim(numb_cond2)[1]*cluster_num)), pairwise = FALSE, fixed_only = TRUE, verbose = FALSE)
+scDCRes_temp = summary(res_GLM$pool_res_fixed)
+scDCRes = scDCRes_temp[c(cluster_num+1,(dim(scDCRes_temp)[1]-cluster_num+2):dim(scDCRes_temp)[1]),]
+```
+
+```{r}
+## results
+all_res = data.frame(cluster = rownames(betabin_noBC), truth = c("P","N","N","N","N","P","N","N","P","N","P","P","P","P","P","N")) %>% 
+  mutate(betabin_noBC_pvals = betabin_noBC$pvals,
+         betabin_wBCU_pvals = betabin_wBC_U$pvals,
+         betabin_wBCrf_pvals = betabin_wBC_rf$pvals,
+         #betabin_wBCsvm_pvals = betabin_wBC_svm$pvals,
+         betabin_wMU_pvals = betabin_wMU$pvals,
+         betabin_wMrf_pvals = betabin_wMrf$pvals,
+         #betabin_wMsvm_pvals = betabin_wMsvm$pvals,
+         bin_wMU_pvals = bin_wMU$pvals,
+         bin_wMrf_pvals = bin_wMrf$pvals,
+         #bin_wMsvm_pvals = bin_wMsvm$pvals,
+         fisher_pvals = fisher_pvals,
+         scDC_pvals = scDCRes$p.value) %>%
+  merge(speckleRes, by = "cluster") %>% 
+  mutate(truth = ifelse(truth == "P", 1, 0),
+         betabin_noBC_Res = ifelse(betabin_noBC_pvals < 0.05, 1, 0),
+         betabin_wBCU_Res = ifelse(betabin_wBCU_pvals < 0.05, 1, 0),
+         betabin_wBCrf_Res = ifelse(betabin_wBCrf_pvals < 0.05, 1, 0),
+         #betabin_wBCsvm_Res = ifelse(betabin_wBCsvm_pvals < 0.05, 1, 0),
+         betabin_wMU_Res = ifelse(betabin_wMU_pvals < 0.05, 1, 0),
+         betabin_wMrf_Res = ifelse(betabin_wMrf_pvals < 0.05, 1, 0),
+         #betabin_wMsvm_Res = ifelse(betabin_wMsvm_pvals < 0.05, 1, 0),
+         bin_wMU_Res = ifelse(bin_wMU_pvals < 0.05, 1, 0),
+         bin_wMrf_Res = ifelse(bin_wMrf_pvals < 0.05, 1, 0),
+         #bin_wMsvm_Res = ifelse(bin_wMsvm_pvals < 0.05, 1, 0),
+         fisher_Res = ifelse(fisher_pvals < 0.05, 1, 0),
+         scDC_Res = ifelse(scDC_pvals < 0.05, 1, 0),
+         speckle_Res = ifelse(speckle_pvals < 0.05, 1, 0))
+
+res_TF = all_res %>% 
+  mutate(betabin_noBC_TF = abs(betabin_noBC_Res - truth),
+         betabin_wBCU_TF = abs(betabin_wBCU_Res - truth),
+         betabin_wBCrf_TF = abs(betabin_wBCrf_Res - truth),
+         #betabin_wBCsvm_TF = abs(betabin_wBCsvm_Res - truth),
+         betabin_wMU_TF = abs(betabin_wMU_Res - truth),
+         betabin_wMrf_TF = abs(betabin_wMrf_Res - truth),
+         #betabin_wMsvm_TF = abs(betabin_wMsvm_Res - truth),
+         bin_wMU_TF = abs(bin_wMU_Res - truth),
+         bin_wMrf_TF = abs(bin_wMrf_Res - truth),
+         #bin_wMsvm_TF = abs(bin_wMsvm_Res - truth),
+         fisher_TF = abs(fisher_Res - truth),
+         scDC_TF = abs(scDC_Res - truth),
+         speckle_TF = abs(speckle_Res - truth)) %>% 
+  select(betabin_noBC_TF:speckle_TF)
+colSums(res_TF)
+```
+
+```{r}
+all_res %>% 
+  pivot_longer(betabin_noBC_pvals:speckle_pvals, names_to = "method", values_to = "p.value") %>% 
+  ggplot(aes(x = cluster, y = p.value, color = method)) +
+  geom_bar(stat="identity", fill="white", position=position_dodge())+
+  geom_hline(yintercept=0.05, linetype="dashed") +
+  theme(axis.text.x = element_text(angle = 45))
 ```
