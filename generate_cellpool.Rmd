@@ -73,7 +73,8 @@ seuratObj2 = AddMetaData(object = seuratObj2, metadata = rep("ctrl2", dim(seurat
 ```{r}
 cluster_info = read.delim("./data/real_world/Exp6_Kang/GSE96583_batch2.total.tsne.df.tsv") %>% 
   rownames_to_column(var = "barcode")
-head(cluster_info)
+cluster_info %>% group_by(stim, cell) %>% 
+  summarise(n = n())
 summary(as.factor(cluster_info$cell))
 ```
 

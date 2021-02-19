@@ -1,0 +1,60 @@
+---
+title: "simulation_SPARSim"
+author: "Xinyi Lin"
+date: "2/19/2021"
+output: html_document
+---
+
+```{r}
+library(SPARSim)
+library(tidyverse)
+library(Seurat)
+```
+
+```{r}
+cluster_num = 3
+batch_size = cluster_num * 1000
+setresolu = 0.2
+batch_num = 4
+```
+
+```{r}
+# Load preset
+data(PBMC_10X_param_preset)
+# Create simulation parameter for condition A
+param <- SPARSim_create_simulation_parameter(
+  intensity = PBMC_10X_param_preset[[1]]$intensity, 
+  variability = PBMC_10X_param_preset[[1]]$variability, 
+  library_size = sample(PBMC_10X_param_preset[[1]]$lib_size, size = batch_size*batch_num, replace = TRUE), 
+  condition_name = "condA")
+paramL = list(param)
+
+# Batch effect
+batch_set = list(batch1 = SPARSim_create_batch(name = "Lane1", distribution = "gamma", param_A = i, param_B = 2))
+batch_sample_association = rep("Lane1", batch_size)
+for (i in 2:batch_num){
+  batch_set[[str_c("batch", as.character(i))]] = SPARSim_create_batch(name = str_c("Lane", as.character(i)), distribution = "normal", param_A = i-2, param_B = 1)
+  batch_sample_association = c(batch_sample_association, rep(str_c("Lane", as.character(i)), batch_size))
+}
+
+SPARSim_batch_parameter <- SPARSim_create_batch_parameter(batch_set = batch_set,  batch_sample = batch_sample_association)
+
+# Run SPARSim simulation using the just created simulation parameter, the 'parameter' object should be a list even there is only one condition
+sim_result <- SPARSim_simulation(dataset_parameter = paramL, 
+                                 batch_parameter = SPARSim_batch_parameter)
+```
+
+```{r}
+seuratObj <- CreateSeuratObject(counts = sim_result$count_matrix, project="SPARSim")
+seuratObj <- NormalizeData(seuratObj, verbose = FALSE)
+seuratObj <- FindVariableFeatures(seuratObj, selection.method = "vst", nfeatures = 2000, verbose = FALSE)
+seuratObj <- ScaleData(seuratObj)
+seuratObj <- RunPCA(seuratObj, features = VariableFeatures(object = seuratObj))
+seuratObj <- FindNeighbors(seuratObj, dims = 1:30, verbose = FALSE)
+seuratObj <- FindClusters(seuratObj, resolution = setresolu, verbose = FALSE)
+seuratObj <- RunUMAP(seuratObj, dims = 1:30, verbose = FALSE)
+DimPlot(seuratObj, reduction = "umap")
+```
+
+
+

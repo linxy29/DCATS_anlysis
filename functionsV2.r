@@ -274,8 +274,11 @@ fastMNN = function(slt_sim_matC1, slt_sim_matC2, slt_batchesC1, slt_batchesC2, s
   seuratObj <- AddMetaData(object = seuratObj, metadata = c(batchNor, batchMut), col.name = 'batch')
   seuratObj <- AddMetaData(object = seuratObj, metadata = c(rep("Cond1", length(batchNor)), rep("Cond2", length(batchMut))), col.name = 'condition')
   seuratObj <- NormalizeData(seuratObj, verbose = FALSE)
-  seuratObj <- FindVariableFeatures(seuratObj, verbose = FALSE)
+  #seuratObj <- FindVariableFeatures(seuratObj, verbose = FALSE)
   integratedSamples <- RunFastMNN(object.list = SplitObject(seuratObj, split.by = "batch"), verbose = FALSE)
+  integratedSamples <- FindVariableFeatures(integratedSamples, verbose = FALSE)
+  integratedSamples <- ScaleData(integratedSamples, verbose = FALSE)
+  integratedSamples <- RunPCA(integratedSamples, npcs = 30, verbose = FALSE)
   integratedSamples <- RunUMAP(integratedSamples, reduction = "mnn", dims = 1:30, verbose = FALSE)
   integratedSamples <- FindNeighbors(integratedSamples, reduction = "mnn", dims = 1:30, verbose = FALSE)
   integratedSamples <- FindClusters(integratedSamples, resolution = setresolu, verbose = FALSE)
@@ -620,3 +623,41 @@ dcats_betabinRW <- function(counts1, counts2, similarity_mat=NULL, n_samples=50,
   )
 }
 
+# function 12: get similarity matrix from rf and svm
+get_similarity_matRW = function(K, confuse_rate, method = "uniform", df){
+  library(tidymodels)
+  if (method == "uniform"){
+    simil_mat = diag(K) * (1 - confuse_rate) + confuse_rate * (1 - diag(K))/(K - 1)
+  } else if (method == "rf"| method == "svm"){
+    cv <- vfold_cv(df, v = 5)
+    recipe <- recipe(clusterRes ~ ., data = df)
+    if (method == "rf"){
+      model <- 
+        rand_forest() %>%
+        set_engine("ranger", importance = "impurity") %>%
+        set_mode("classification") 
+    } else {
+      model <-
+        svm_rbf() %>% 
+        set_mode("classification") %>%
+        set_engine("kernlab")
+    }
+    workflow <- workflow() %>%
+      add_recipe(recipe) %>%
+      add_model(model)
+    predDF = data.frame()
+    for (i in 1:5) {
+      onefold_split = cv[[1]][[i]]
+      fit <- workflow %>%
+        last_fit(onefold_split)
+      pred = fit %>% 
+        collect_predictions() %>% 
+        mutate(pred = .pred_class) %>% 
+        dplyr::select(pred, clusterRes)
+      predDF = rbind(predDF, pred)
+    }
+    conf.mat <- table(predDF$clusterRes, predDF$pred)
+    simil_mat <- t(t(conf.mat)/apply(conf.mat,2,sum))
+  }
+  return(simil_mat)
+}

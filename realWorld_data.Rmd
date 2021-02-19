@@ -239,8 +239,11 @@ seuratObj2 = AddMetaData(object = seuratObj2, metadata = rep("ctrl2", dim(seurat
 ```
 
 ```{r}
-cluster_info = read.delim("./data/real_word/Exp6_Kang/GSE96583_batch2.total.tsne.df.tsv")
-head(cluster_info)
+cluster_info = read.delim("./data/real_world/Exp6_Kang/GSE96583_batch2.total.tsne.df.tsv") 
+cluster_info %>% group_by(stim, cell) %>% 
+  summarise(n = n()) %>% 
+  pivot_wider(names_from = cell, values_from = n) %>% 
+  column_to_rownames("stim")
 summary(as.factor(cluster_info$cell))
 ```
 

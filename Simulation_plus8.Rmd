@@ -215,11 +215,6 @@ if (cell_pool == "discrete"){
 }
 ```
 
-```{r}
-simulation$dfRes %>% head()
-```
-
-
 ```{r, message=FALSE, warning=FALSE}
 ## output data
 simulationDF = data.frame()  # data frame to store test result
