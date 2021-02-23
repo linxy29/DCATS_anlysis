@@ -30,15 +30,15 @@ options(future.globals.maxSize = 15000 * 1024^2)
 ```
 
 ```{r}
-cell_pool = "realWorld"  # cell pool used, can be selected from ("mis1", "discrete", "realWorld")
-cluster_num = 7  # numbers of clusters
-concentration = 50 # indicate how simulated proportion far away from true, the larger the closer
-setresolu = 0.2
-rep1 = 6
-rep2 = 4
-simulation_times = 10
-sample_size1 = 1000
-sample_size2 = 2000
+cell_pool = "mis1"  # cell pool used, can be selected from ("mis1", "discrete", "realWorld")
+cluster_num = 3  # numbers of clusters
+concentration = 90 # indicate how simulated proportion far away from true, the larger the closer
+setresolu = 0.4
+rep1 = 3
+rep2 = 2
+simulation_times = 50
+sample_size1 = 700
+sample_size2 = 1000
 more_negative = "_pN"
 ```
 
@@ -234,7 +234,7 @@ for (i in 1:simulation_times){
 ## send email after finishing
 sendEmail("Simulation is done!!")
 
-file_name = str_c("./data/simulationRES/repplicates", as.character(rep1), "&", as.character(rep2), "_K", as.character(cluster_num), "_con", as.character(concentration), "_", cell_pool, more_negative, ".RData")
+file_name = str_c("./data/simulationRES/replicates", as.character(rep1), "&", as.character(rep2), "_K", as.character(cluster_num), "_con", as.character(concentration), "_", cell_pool, more_negative, ".RData")
 colnames(time) = c("DCATS_wtoM", "DCATS_wM", "fisher", "speckle", "diffcyt", "scDC")
 save(simulationDF, time, true_countL, seurat_countL, knn_matrixL, true_matrixL, file = file_name)
 head(simulationDF)
@@ -255,12 +255,51 @@ print(aucDF)
 ```
 
 ```{r}
+load(file_name)
+ResDF = simulationDF %>% 
+  mutate(betabin_noBC_Res = ifelse(betabin_noBC_pvals < 0.05, "P","N"),
+         betabin_wBCU_Res = ifelse(betabin_wBCU_pvals < 0.05, "P","N"),
+         betabin_wBCT_Res = ifelse(betabin_wBCT_pvals < 0.05, "P","N"),
+         betabin_wBCK_Res = ifelse(betabin_wBCK_pvals < 0.05, "P","N"),
+         betabin_wBCrf_Res = ifelse(betabin_wBCRF_pvals < 0.05, "P","N"),
+         betabin_wBCsvm_Res = ifelse(betabin_wBCSVM_pvals < 0.05, "P","N"),
+         betabin_wMU_Res = ifelse(betabin_wMU_pvals < 0.05, "P","N"),
+         betabin_wMT_Res = ifelse(betabin_wMT_pvals < 0.05, "P","N"),
+         betabin_wMK_Res = ifelse(betabin_wMK_pvals < 0.05, "P","N"),
+         betabin_wMrf_Res = ifelse(betabin_wMRF_pvals < 0.05, "P","N"),
+         betabin_wMsvm_Res = ifelse(betabin_wMSVM_pvals < 0.05, "P","N"),
+         bin_wMU_Res = ifelse(bin_wMU_pvals < 0.05, "P","N"),
+         bin_wMT_Res = ifelse(bin_wMT_pvals < 0.05, "P","N"),
+         bin_wMK_Res = ifelse(bin_wMK_pvals < 0.05, "P","N"),
+         bin_wMrf_Res = ifelse(bin_wMRF_pvals < 0.05, "P","N"),
+         bin_wMsvm_Res = ifelse(bin_wMSVM_pvals < 0.05, "P","N"),
+         fisher_Res = ifelse(fisher_pvals < 0.05, "P","N"),
+         scDC_Res = ifelse(scDC_pvals < 0.05, "P","N"),
+         speckle_Res = ifelse(speckle_pvals < 0.05, "P","N"),
+         diffcyt_Res = ifelse(diffcyt_pvals < 0.05, "P","N"),) %>% 
+  dplyr::select(contains("_Res"))
+
+methodL = str_replace(colnames(ResDF), "_Res", "")
+sensitivity = rep(NA, length(methodL))
+specificity = rep(NA, length(methodL))
+
+for (i in 1:length(methodL)) {
+  truth = simulationDF$truth
+  pred = ResDF[, i]
+  TP <- which(truth==pred&pred=="P") %>% length()
+  TN <- which(truth==pred&pred=="N") %>% length()
+  FP <- which(truth!=pred&pred=="P") %>% length()
+  FN <- which(truth!=pred&pred=="N") %>% length()
+  sensitivity[i] = TP/(TP+FN)
+  specificity[i] = TN/(TN+FP)
+}
+
+resSumDF = data.frame(methodL = methodL, sensitivity = sensitivity, specificity = specificity)
+```
+
+```{r}
 file_name = str_c("./data/simulationRES/repplicates", as.character(rep1), "&", as.character(rep2), "_K", as.character(cluster_num), "_con", as.character(concentration), "_", cell_pool, more_negative, ".RData")
 load(file_name)
-set.seed(123)
-for (i in 1:simulation_times){
-  
-  seurat_countL[[i]] = list(cond1 = numb_cond1[,order2], cond2 = numb_cond2[,order2])
 ```
 
 

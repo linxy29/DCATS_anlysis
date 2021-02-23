@@ -1,0 +1,183 @@
+---
+title: "test_simulation"
+author: "Xinyi Lin"
+date: "2/23/2021"
+output: html_document
+---
+
+This file is used to test whether the evaluation process has problems
+
+```{r}
+library(tidyverse)
+```
+
+```{r}
+source("functionsV2.r")
+```
+
+## one simulation, two condition
+
+Consistent sample size
+
+### try situation with more negative cases
+
+```{r}
+sample_size = 1000
+```
+
+```{r}
+rep1 = 2
+rep2 = 3
+cluster_num = 9
+probC1 = c(rep(0.1, 8), 0.2)  # True proportions
+probC2 = c(rep(0.1, 7), 0.15, 0.15)
+truthRes = c(rep("N", 7), "P", "P")
+```
+
+```{r}
+simil_mat = get_similarity_mat(cluster_num, confuse_rate=0)
+print(simil_mat)
+```
+
+```{r, warning=FALSE}
+numb_cond1 = rmultinom(rep1, sample_size, probC1) %>% t()
+numb_cond2 = rmultinom(rep2, sample_size, probC2) %>% t()
+### DCATS
+betabin_noBC = betabinLRT_rw(numb_cond1, numb_cond2, bias_corr = FALSE)
+betabin_wBC = betabinLRT_rw(numb_cond1, numb_cond2, bias_corr = TRUE, similarity_mat = simil_mat)
+betabin_wM = dcats_betabinRW(numb_cond1, numb_cond2, similarity_mat = simil_mat, n_samples = 50, binom_only = FALSE)
+bin_wM = dcats_betabinRW(numb_cond1, numb_cond2, similarity_mat = simil_mat, n_samples = 50, binom_only = TRUE)
+### fisher
+fisher_pvals1 = getFisher(numb_cond1, numb_cond2)
+pvalsDF = data.frame(truth = truthRes, noBC_pvals = betabin_noBC$pvals, wBC_pavls = betabin_wBC$pvals, betabin_pvals = betabin_wM$pvals, bin_pvals = bin_wM$pvals, fisher_pvals = fisher_pvals1)
+pvalsDF %>% 
+  mutate(noBC_res = ifelse(noBC_pvals < 0.05, "P","N"),
+         wBC_res = ifelse(wBC_pavls < 0.05, "P", "N"),
+         betabin_res = ifelse(betabin_pvals < 0.05, "P", "N"),
+         bin_res = ifelse(bin_pvals < 0.05, "P", "N"),
+         fisher_res = ifelse(fisher_pvals < 0.05, "P", "N"),) %>% 
+  dplyr::select(truth, contains("_res")) %>% print()
+```
+
+### try situation with more positive cases
+
+```{r}
+rep1 = 2
+rep2 = 3
+cluster_num = 7
+probC1 = c(rep(0.1, 4), 0.3, 0.15, 0.15)  # True proportions
+probC2 = c(rep(0.15, 4), 0.1, 0.15, 0.15)
+truthRes = c(rep("P", 5), "N", "N")
+```
+
+```{r}
+simil_mat = get_similarity_mat(cluster_num, confuse_rate=0)
+print(simil_mat)
+```
+
+```{r, warning=FALSE}
+numb_cond1 = rmultinom(rep1, sample_size, probC1) %>% t()
+numb_cond2 = rmultinom(rep2, sample_size, probC2) %>% t()
+### DCATS
+betabin_noBC = betabinLRT_rw(numb_cond1, numb_cond2, bias_corr = FALSE)
+betabin_wBC = betabinLRT_rw(numb_cond1, numb_cond2, bias_corr = TRUE, similarity_mat = simil_mat)
+betabin_wM = dcats_betabinRW(numb_cond1, numb_cond2, similarity_mat = simil_mat, n_samples = 50, binom_only = FALSE)
+bin_wM = dcats_betabinRW(numb_cond1, numb_cond2, similarity_mat = simil_mat, n_samples = 50, binom_only = TRUE)
+### fisher
+fisher_pvals1 = getFisher(numb_cond1, numb_cond2)
+pvalsDF = data.frame(truth = truthRes, noBC_pvals = betabin_noBC$pvals, wBC_pavls = betabin_wBC$pvals, betabin_pvals = betabin_wM$pvals, bin_pvals = bin_wM$pvals, fisher_pvals = fisher_pvals1)
+pvalsDF %>% 
+  mutate(noBC_res = ifelse(noBC_pvals < 0.05, "P","N"),
+         wBC_res = ifelse(wBC_pavls < 0.05, "P", "N"),
+         betabin_res = ifelse(betabin_pvals < 0.05, "P", "N"),
+         bin_res = ifelse(bin_pvals < 0.05, "P", "N"),
+         fisher_res = ifelse(fisher_pvals < 0.05, "P", "N"),) %>% 
+  dplyr::select(truth, contains("_res")) %>% print()
+```
+
+Without similarity matrix, betabin boostrap will be too sensitive while bin has the similar sensitivity as fisher. `noBC` and `wBC` might be too flexible?
+
+## add uniform matrix
+
+```{r}
+sample_size = 1000
+```
+
+```{r}
+rep1 = 2
+rep2 = 3
+cluster_num = 9
+probC1 = c(rep(0.1, 8), 0.2)  # True proportions
+probC2 = c(rep(0.1, 7), 0.15, 0.15)
+truthRes = c(rep("N", 7), "P", "P")
+```
+
+```{r}
+simil_mat = get_similarity_mat(cluster_num, confuse_rate=0.1)
+print(simil_mat)
+```
+
+```{r, warning=FALSE}
+numb_cond1 = rmultinom(rep1, sample_size, probC1) %>% t()
+numb_cond2 = rmultinom(rep2, sample_size, probC2) %>% t()
+### DCATS
+betabin_noBC = betabinLRT_rw(numb_cond1, numb_cond2, bias_corr = FALSE)
+betabin_wBC = betabinLRT_rw(numb_cond1, numb_cond2, bias_corr = TRUE, similarity_mat = simil_mat)
+betabin_wM = dcats_betabinRW(numb_cond1, numb_cond2, similarity_mat = simil_mat, n_samples = 50, binom_only = FALSE)
+bin_wM = dcats_betabinRW(numb_cond1, numb_cond2, similarity_mat = simil_mat, n_samples = 50, binom_only = TRUE)
+### fisher
+fisher_pvals1 = getFisher(numb_cond1, numb_cond2)
+pvalsDF = data.frame(truth = truthRes, noBC_pvals = betabin_noBC$pvals, wBC_pavls = betabin_wBC$pvals, betabin_pvals = betabin_wM$pvals, bin_pvals = bin_wM$pvals, fisher_pvals = fisher_pvals1)
+pvalsDF %>% 
+  mutate(noBC_res = ifelse(noBC_pvals < 0.05, "P","N"),
+         wBC_res = ifelse(wBC_pavls < 0.05, "P", "N"),
+         betabin_res = ifelse(betabin_pvals < 0.05, "P", "N"),
+         bin_res = ifelse(bin_pvals < 0.05, "P", "N"),
+         fisher_res = ifelse(fisher_pvals < 0.05, "P", "N"),) %>% 
+  dplyr::select(truth, contains("_res")) %>% print()
+```
+
+### try situation with more positive cases
+
+```{r}
+rep1 = 2
+rep2 = 3
+cluster_num = 7
+probC1 = c(rep(0.1, 4), 0.3, 0.15, 0.15)  # True proportions
+probC2 = c(rep(0.15, 4), 0.1, 0.15, 0.15)
+truthRes = c(rep("P", 5), "N", "N")
+```
+
+```{r}
+simil_mat = get_similarity_mat(cluster_num, confuse_rate=0.1)
+print(simil_mat)
+```
+
+```{r, warning=FALSE}
+numb_cond1 = rmultinom(rep1, sample_size, probC1) %>% t()
+numb_cond2 = rmultinom(rep2, sample_size, probC2) %>% t()
+### DCATS
+betabin_noBC = betabinLRT_rw(numb_cond1, numb_cond2, bias_corr = FALSE)
+betabin_wBC = betabinLRT_rw(numb_cond1, numb_cond2, bias_corr = TRUE, similarity_mat = simil_mat)
+betabin_wM = dcats_betabinRW(numb_cond1, numb_cond2, similarity_mat = simil_mat, n_samples = 50, binom_only = FALSE)
+bin_wM = dcats_betabinRW(numb_cond1, numb_cond2, similarity_mat = simil_mat, n_samples = 50, binom_only = TRUE)
+### fisher
+fisher_pvals1 = getFisher(numb_cond1, numb_cond2)
+pvalsDF = data.frame(truth = truthRes, noBC_pvals = betabin_noBC$pvals, wBC_pavls = betabin_wBC$pvals, betabin_pvals = betabin_wM$pvals, bin_pvals = bin_wM$pvals, fisher_pvals = fisher_pvals1)
+pvalsDF %>% 
+  mutate(noBC_res = ifelse(noBC_pvals < 0.05, "P","N"),
+         wBC_res = ifelse(wBC_pavls < 0.05, "P", "N"),
+         betabin_res = ifelse(betabin_pvals < 0.05, "P", "N"),
+         bin_res = ifelse(bin_pvals < 0.05, "P", "N"),
+         fisher_res = ifelse(fisher_pvals < 0.05, "P", "N"),) %>% 
+  dplyr::select(truth, contains("_res")) %>% print()
+```
+
+After adding uniform similarity matrix, the sensitivity: betabin < bin < noBC&WBC
+
+## evalulate the influence of other similarity matrix
+
+```{r}
+simil_mat = 
+```
+

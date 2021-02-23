@@ -22,7 +22,7 @@ cluster_num = 3
 prob = rep(1/cluster_num, cluster_num)
 batch_size = cluster_num * 1500
 de_prob = runif(cluster_num, 0.1, cluster_num/20 + 0.3)
-setresolu = 0.2
+setresolu = 0.1
 ```
 
 ```{r,eval=FALSE}
@@ -36,6 +36,10 @@ sim_mat <- counts(sim)
 origLabels = sim@colData@listData$Group
 # Save multiple objects
 save(sim_mat, origLabels, file = str_c("./data/cells_pool", as.character(cluster_num), "_close.RData"))
+```
+
+```{r}
+load(str_c("./data/cells_pool", as.character(cluster_num), ".RData"))
 ```
 
 ```{r}

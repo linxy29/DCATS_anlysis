@@ -441,8 +441,8 @@ getDiffcyt = function(numb_cond1, numb_cond2, dfRes){
   res_DA <- testDA_edgeR(d_counts, design, contrast)
   diffcytP = topTable(res_DA, format_vals = TRUE) %>% 
     as.data.frame() %>% 
-    rename(cluster = cluster_id) %>% 
-    rename(diffcyt_pvals = p_adj) %>% 
+    dplyr::rename(cluster = cluster_id) %>% 
+    dplyr::rename(diffcyt_pvals = p_adj) %>% 
     dplyr::select(cluster, diffcyt_pvals)
   
   return(diffcytP)
@@ -660,4 +660,44 @@ get_similarity_matRW = function(K, confuse_rate, method = "uniform", df){
     simil_mat <- t(t(conf.mat)/apply(conf.mat,2,sum))
   }
   return(simil_mat)
+}
+
+# function 13: plot ROC plot
+getROC = function(truth, pred){
+  ## sensitivity and specificity
+  library(pROC)
+  library(ggplot2)
+  roc = roc(truth, pred, quiet = TRUE)
+  thresholds = c(0, pred+0.0001)
+  sensitivity = rep(NA, length(thresholds))
+  specificity = rep(NA, length(thresholds))
+  index = 1:length(truth)
+  TP = rep(NA, length(thresholds))
+  TN = rep(NA, length(thresholds))
+  FP = rep(NA, length(thresholds))
+  FN = rep(NA, length(thresholds))
+  for (j in 1:length(thresholds)) {
+    pred_res = ifelse(pred < thresholds[j], "P", "N")
+    TP[j] <- sum(pred_res=="P"&truth=="P")
+    TN[j] <- sum(pred_res=="N"&truth=="N")
+    FP[j] <- sum(pred_res=="P"&truth=="N")
+    FN[j] <- sum(pred_res=="N"&truth=="P")
+    sensitivity[j] = TP[j]/(TP[j]+FN[j])
+    specificity[j] = TN[j]/(TN[j]+FP[j])
+  }
+  eval = data.frame(thresholds = thresholds, TP = TP, TN = TN, FP = FP, FN = FN)
+  df = data.frame(sensitivity = sensitivity, specificity = specificity, x = 1-specificity) %>% 
+    arrange(x)
+  ## plot
+  plot = df %>% 
+    ggplot(aes(x = x, y = sensitivity)) +
+    geom_point() + 
+    geom_abline(slope=1)
+  ## auc
+  auc = 0
+  for (n in 2:length(thresholds)){
+    subArea = (df$sensitivity[n-1]+df$sensitivity[n])*(df$x[n]-df$x[n-1])/2
+    auc = auc + subArea
+  }
+  return(list(plot = plot, auc = auc, df = df, eval = eval, rocDF = data.frame(sensitivity = roc$sensitivities, specificity = roc$specificities)))
 }
