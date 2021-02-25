@@ -665,7 +665,6 @@ get_similarity_matRW = function(K, confuse_rate, method = "uniform", df){
 # function 13: plot ROC plot
 getROC = function(truth, pred){
   ## sensitivity and specificity
-  library(pROC)
   library(ggplot2)
   roc = roc(truth, pred, quiet = TRUE)
   thresholds = c(0, pred+0.0001)

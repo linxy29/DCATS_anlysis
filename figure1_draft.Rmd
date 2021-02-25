@@ -27,7 +27,7 @@ Fig 1 (theoretical simulation might be enough): the usefulness of using similari
 Draw a boxplot to show AUC results of DCATS, chi-square, scDC(, fisher) without BC, with BC and with BC using resampling.
 
 ```{r}
-cluster_num = 9  # numbers of clusters
+cluster_num = 3  # numbers of clusters
 concentration = 70 # indicate how simulated proportion far away from true, the larger the closer
 rep1 = 2
 rep2 = 3
@@ -67,8 +67,8 @@ for (j in 1:simulation_times) {
   simulationDF = data.frame()
   for (i in 1:simulation_size){
     ## create confusion matrix that is not uniformly distributed
-    simil_mat = get_similarity_mat(cluster_num, confuse_rate=0)
-    ##simil_mat = matrix(c(1, 0, 0, 0, 0.6, 0.4, 0, 0.4, 0.6), ncol = 3)
+    #simil_mat = get_similarity_mat(cluster_num, confuse_rate=0)
+    simil_mat = matrix(c(1, 0, 0, 0, 0.6, 0.4, 0, 0.4, 0.6), ncol = 3)
     if (FALSE){
       mis_idx = runif(1, -0.2, 0.2)
       change_rate = simil_mat[1,1]*abs(mis_idx)

@@ -7,13 +7,14 @@ output: html_document
 
 This file is used to test whether the evaluation process has problems
 
-```{r}
+```{r, message=FALSE}
 library(tidyverse)
 library(DCATS)
 ```
 
 ```{r}
 source("functionsV2.r")
+options(future.globals.maxSize = 20000 * 1024^2)
 ```
 
 ## one simulation, two condition
@@ -345,9 +346,9 @@ probC2 = c(rep(0.1, 7), 0.15, 0.15)
 truthRes = c(rep("N", 7), "P", "P")
 ```
 
-```{r}
-simulation_size = 50
-simulation_time = 50
+```{r, warning=FALSE}
+simulation_size = 20
+simulation_time = 5
 set.seed(123)
 simulationDF_list = vector(mode = "list", length = simulation_time)
 simil_mat = get_similarity_mat(cluster_num, confuse_rate=0.1)
@@ -380,4 +381,41 @@ for (j in 1:simulation_time) {
 sendEmail("Simulation is done!!")
 ```
 
+```{r}
+evaluationDF = data.frame()
+len = length(simulationDF_list)
+for (j in 1:len){
+  simulationDF = simulationDF_list[[j]] %>% na.omit()
+  methods = colnames(simulationDF)[3:dim(simulationDF)[2]] %>% str_remove("_pvals")
+  numb_mthd = length(methods)
+  mcc = rep(NA, numb_mthd)
+  auc = rep(NA, numb_mthd)
+  sensitivity = rep(NA, numb_mthd)
+  FNR = rep(NA, numb_mthd)
+  FPR = rep(NA, numb_mthd)
+  specificity = rep(NA, numb_mthd)
+  truth = simulationDF$truth
+  for (i in 3:dim(simulationDF)[2]){
+    auc[i-2] = getROC(simulationDF$truth, simulationDF[,i])$auc
+    pred = simulationDF[, i]
+    pred_res = ifelse(pred < 0.05, "P", "N")
+    TP <- sum(pred_res=="P"&truth=="P")
+    TN <- sum(pred_res=="N"&truth=="N")
+    FP <- sum(pred_res=="P"&truth=="N")
+    FN <- sum(pred_res=="N"&truth=="P")
+    truthN = TN + FP
+    truthP = FN + TP
+    predP = TP + FP
+    predN = FN + TN
+    mcc[i-2] = (TP*TN-FP*FN)/sqrt(predP*truthP*truthN*predN)
+    sensitivity[i-2] = TP/truthP
+    specificity[i-2] = TN/truthN
+    FNR[i-2] = FN/truthP
+    FPR[i-2] = FP/truthN
+    
+    res = data.frame(trial = as.character(j), methods = methods, mcc = mcc, auc = auc, sensitivity = sensitivity, specificity = specificity, FNR = FNR, FPR = FPR)
+    }
+    evaluationDF = rbind(evaluationDF, res)
+}
+```
 
