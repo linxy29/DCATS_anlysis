@@ -14,7 +14,7 @@ library(DCATS)
 
 ```{r}
 source("functionsV2.r")
-options(future.globals.maxSize = 20000 * 1024^2)
+options(future.globals.maxSize = 20000 * 1024^2) # 20G memory
 ```
 
 ## one simulation, two condition
