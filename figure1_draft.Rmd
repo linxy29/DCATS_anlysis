@@ -55,6 +55,72 @@ if (cluster_num == 3){
 }
 ```
 
+Figure 1 b, c
+
+```{r, warning=FALSE}
+set.seed(123)
+simulationDF = data.frame()
+for (i in 1:simulation_size){
+  ## create confusion matrix that is not uniformly distributed
+  #simil_mat = get_similarity_mat(cluster_num, confuse_rate=0)
+  simil_mat = matrix(c(1, 0, 0, 0, 0.6, 0.4, 0, 0.4, 0.6), ncol = 3)
+  
+  ## Data generation part
+  totals1 = ceiling(runif(rep1, sample_size1, sample_size2))
+  totals2 = ceiling(runif(rep2, sample_size1, sample_size2))
+  diri_s1 = probC1 * concentration
+  diri_s2 = probC2 * concentration
+  sim_dat <- DCATS::simulator_base(totals1, totals2, diri_s1, diri_s2, simil_mat)
+  numb_cond1 = as.matrix(sim_dat$numb_cond1)
+  numb_cond2 = as.matrix(sim_dat$numb_cond2)
+  
+  ## Test part 1
+  ### DCATS
+  dcats_res1 = betabinLRT_rw(numb_cond1, numb_cond2, bias_corr = FALSE)
+  ### fisher
+  fisher_pvals1 = getFisher(numb_cond1, numb_cond2)
+  
+  ## Bias Correction
+  numb_cond1BC = numb_cond1
+  numb_cond2BC = numb_cond2
+  for (i in seq_len(nrow(numb_cond1))) {
+    numb_cond1BC[i, ] <- sum(numb_cond1[i, ]) * multinom_EM(numb_cond1[i, ], simil_mat, verbose = FALSE)$mu
+    numb_cond1BC[i, ] = ceiling(numb_cond1BC[i, ])}
+  for (i in seq_len(nrow(numb_cond2))) {
+    numb_cond2BC[i, ] <- sum(numb_cond2[i, ]) * multinom_EM(numb_cond2[i, ], simil_mat, verbose = FALSE)$mu
+    numb_cond2BC[i, ] = ceiling(numb_cond2BC[i, ])}
+  
+  ## Test part 2
+  ### DCATS
+  dcats_res2 = betabinLRT_rw(numb_cond1BC, numb_cond2BC, bias_corr = FALSE)
+  ### fisher
+  fisher_pvals2 = getFisher(numb_cond1BC, numb_cond2BC)
+  
+  all_res = data.frame(cluster = c("A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L")[1:cluster_num], truth = truthRes) %>%
+    mutate(dcats_noBC = dcats_res1$pvals,
+           fisher_noBC = fisher_pvals1,
+           dcats_withBC = dcats_res2$pvals,
+           fisher_withBC = fisher_pvals2)
+  
+  simulationDF = rbind(simulationDF, all_res)}
+```
+
+To test whether these auc are above 0.5 -> Yes
+
+```{r, eval=FALSE}
+getROC(simulationDF$truth, simulationDF$dcats_noBC)$plot
+getROC(simulationDF$truth, simulationDF$fisher_noBC)$plot
+getROC(simulationDF$truth, simulationDF$dcats_withBC)$plot
+getROC(simulationDF$truth, simulationDF$fisher_withBC)$plot
+```
+
+```{r}
+roc_rose <- plot(roc(simulationDF$truth, simulationDF[,3]), legacy.axes = TRUE, print.auc = TRUE, print.auc.y = .7, print.auc.x = .5, col = 1)
+graphics::text(paste("DCATS"), col=1)
+roc_rose <- plot(roc(simulationDF$truth, simulationDF[,4]), legacy.axes = TRUE, print.auc = TRUE, print.auc.y = .65, print.auc.x = .5, col = 2, add = TRUE)
+graphics::text(paste("Fisher"), col=2)
+```
+
 ```{r, warning=FALSE}
 set.seed(123)
 simulationDF_list = vector(mode = "list", length = simulation_times)
@@ -122,7 +188,7 @@ for (j in 1:simulation_times) {
   simulationDF_list[[j]] = simulationDF
 }
 
-#file_name = str_c("./data/simulationRES/repplicates", as.character(rep1), "&", as.character(rep2), "_K", as.character(cluster_num), "_con", as.character(concentration), "_countSim.RData")
+#file_name = str_c("./data/simulationRES/replicates", as.character(rep1), "&", as.character(rep2), "_K", as.character(cluster_num), "_con", as.character(concentration), "_countSim.RData")
 #save(simulationDF_list, file = file_name)
 
 ## send email after finishing
@@ -156,7 +222,7 @@ cond2DF = numb_cond2 %>% as.data.frame() %>%
 condDF = rbind(cond1DF, cond2DF)
 ```
 
-```{r}
+```{r, eval=FALSE}
 LM_plot1 = condDF %>% 
   ggplot(aes(x = rep, y = prop, fill = cluster))+
   geom_bar(stat="identity") + 

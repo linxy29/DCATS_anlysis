@@ -666,8 +666,7 @@ get_similarity_matRW = function(K, confuse_rate, method = "uniform", df){
 getROC = function(truth, pred){
   ## sensitivity and specificity
   library(ggplot2)
-  roc = roc(truth, pred, quiet = TRUE)
-  thresholds = c(0, pred+0.0001)
+  thresholds = c(0, pred)
   sensitivity = rep(NA, length(thresholds))
   specificity = rep(NA, length(thresholds))
   index = 1:length(truth)
@@ -690,13 +689,13 @@ getROC = function(truth, pred){
   ## plot
   plot = df %>% 
     ggplot(aes(x = x, y = sensitivity)) +
-    geom_point() + 
-    geom_abline(slope=1)
+    geom_line(orientation = "y") +
+    geom_abline(slope=1, color="gray", linetype="dashed")
   ## auc
   auc = 0
   for (n in 2:length(thresholds)){
     subArea = (df$sensitivity[n-1]+df$sensitivity[n])*(df$x[n]-df$x[n-1])/2
     auc = auc + subArea
   }
-  return(list(plot = plot, auc = auc, df = df, eval = eval, rocDF = data.frame(sensitivity = roc$sensitivities, specificity = roc$specificities)))
+  return(list(plot = plot, auc = auc, df = df, eval = eval))
 }
