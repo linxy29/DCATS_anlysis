@@ -669,7 +669,6 @@ getROC = function(truth, pred){
   thresholds = c(0, pred)
   sensitivity = rep(NA, length(thresholds))
   specificity = rep(NA, length(thresholds))
-  index = 1:length(truth)
   TP = rep(NA, length(thresholds))
   TN = rep(NA, length(thresholds))
   FP = rep(NA, length(thresholds))

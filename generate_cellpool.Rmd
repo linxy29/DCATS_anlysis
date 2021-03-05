@@ -18,10 +18,10 @@ library(tidyverse)
 ```{r,eval=FALSE}
 ## simulate cells pool setting
 set.seed(123)
-cluster_num = 3
+cluster_num = 5
 prob = rep(1/cluster_num, cluster_num)
 batch_size = cluster_num * 1500
-de_prob = runif(cluster_num, 0.1, cluster_num/20 + 0.3)
+de_prob = runif(cluster_num, 0.2, cluster_num/20 + 0.3)
 setresolu = 0.1
 ```
 
@@ -35,7 +35,7 @@ sim <- splatSimulateGroups(param.groups, group.prob = prob, de.prob = de_prob, d
 sim_mat <- counts(sim)
 origLabels = sim@colData@listData$Group
 # Save multiple objects
-save(sim_mat, origLabels, file = str_c("./data/cells_pool", as.character(cluster_num), "_close.RData"))
+save(sim_mat, origLabels, file = str_c("./data/cells_pool", as.character(cluster_num), ".RData"))
 ```
 
 ```{r}
@@ -125,5 +125,79 @@ DimPlot(GCTB5.integrated, group.by = "seurat_clusters",
         reduction = "umap", label = T, ncol = 2 )
 DimPlot(GCTB5.integrated, group.by = "celltype",
         reduction = "umap",  label = T)
+```
+
+## SPARSim
+
+```{r}
+library(SPARSim)
+library(tidyverse)
+library(Seurat)
+```
+
+```{r}
+cluster_num = 3
+batch_size = cluster_num * 1000
+setresolu = 0.2
+batch_num = 4
+cell.prop = c(1/3, 1/3, 1/3)
+de.prop = c(0, 0.1, 0.2)
+options(future.globals.maxSize = 15000 * 1024^2)
+```
+
+```{r}
+set.seed(123)
+# Load preset
+data(Chu_param_preset)
+cluster_name = c("A", "B", "C", "D", "E", "F", "G")
+sim_resultL = list()
+for (i in 1:cluster_num){
+  ## cluster Info
+  cluster_params <- SPARSim_create_simulation_parameter(
+    intensity = Chu_param_preset[[i]]$intensity, 
+    variability = Chu_param_preset[[i]]$variability, 
+    library_size = sample(Chu_param_preset[[i]]$lib_size, size = round(batch_size*cell.prop[i])*batch_num, replace = TRUE),
+    condition_name = str_c("cluster", cluster_name[i]))
+  
+  # Batch effect
+  batch_set = list(batch1 = SPARSim_create_batch(name = "Lane1", distribution = "normal", param_A = 0, param_B = 1))
+  batch_sample_association = rep("Lane1", round(batch_size*cell.prop[i]))
+  for (j in 2:batch_num){
+    batch_set[[str_c("batch", as.character(j))]] = SPARSim_create_batch(name = str_c("Lane", as.character(j)), distribution = "normal", param_A = j-2, param_B = 1)
+    batch_sample_association = c(batch_sample_association, rep(str_c("Lane", as.character(j)), round(batch_size*cell.prop[1])))
+}
+  batch_params <- SPARSim_create_batch_parameter(batch_set = batch_set,  batch_sample = batch_sample_association)
+  
+  # Run SPARSim simulation using the just created simulation parameter, the 'parameter' object should be a list even there is only one condi
+  sim_result <- SPARSim_simulation(dataset_parameter = list(cluster_params), batch_parameter = batch_params)
+  sim_resultL[[str_c("cluster", cluster_name[i])]] = sim_result
+}
+
+```
+
+```{r}
+sim_result = matrix(NA, nrow = dim(sim_resultL[[1]]$count_matrix)[1], ncol = 0)
+for (i in 1:length(sim_resultL)){
+  sim_result = cbind(sim_result, sim_resultL[[i]]$count_matrix)
+}
+```
+
+```{r}
+seuratObj <- CreateSeuratObject(counts = sim_result, project="SPARSim")
+seuratObj <- NormalizeData(seuratObj, verbose = FALSE)
+seuratObj <- FindVariableFeatures(seuratObj, selection.method = "vst", nfeatures = 2000, verbose = FALSE)
+seuratObj <- ScaleData(seuratObj)
+seuratObj <- RunPCA(seuratObj, features = VariableFeatures(object = seuratObj))
+seuratObj <- FindNeighbors(seuratObj, dims = 1:30, verbose = FALSE)
+seuratObj <- FindClusters(seuratObj, resolution = setresolu, verbose = FALSE)
+seuratObj <- RunUMAP(seuratObj, dims = 1:30, verbose = FALSE)
+DimPlot(seuratObj, reduction = "umap")
+```
+
+```{r}
+sim_mat = sim_result
+origLabels = colnames(sim_result) %>% str_extract("cluster[ABC]") %>% tail()
+batchInfo = rep(batch_sample_association, 3) %>% str_replace("Lane", "Batch")
+save(sim_mat, origLabels, batchInfo, file = str_c("./data/cells_pool", as.character(cluster_num), "_SPARSim.RData"))
 ```
 

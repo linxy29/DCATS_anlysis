@@ -21,7 +21,7 @@ de.prop = c(0, 0.1, 0.2)
 options(future.globals.maxSize = 15000 * 1024^2)
 ```
 
-```{r}
+```{r, eval=FALSE}
 # Load preset
 data(Chu_param_preset)
 # Create simulation parameter for condition A
@@ -30,6 +30,19 @@ clusterA <- SPARSim_create_simulation_parameter(
   variability = Chu_param_preset$Chu_C1$variability, 
   library_size = sample(Chu_param_preset$Chu_C1$lib_size, size = round(batch_size*cell.prop[1])*batch_num, replace = TRUE),
   condition_name = "clusterA")
+# Batch effect
+batch_set = list(batch1 = SPARSim_create_batch(name = "Lane1", distribution = "normal", param_A = 0, param_B = 1))
+batch_sample_association = rep("Lane1", round(batch_size*cell.prop[1]))
+for (i in 2:batch_num){
+  batch_set[[str_c("batch", as.character(i))]] = SPARSim_create_batch(name = str_c("Lane", as.character(i)), distribution = "normal", param_A = i-2, param_B = 1)
+  batch_sample_association = c(batch_sample_association, rep(str_c("Lane", as.character(i)), round(batch_size*cell.prop[1])))
+}
+
+batch_parameter <- SPARSim_create_batch_parameter(batch_set = batch_set,  batch_sample = batch_sample_association)
+
+# Run SPARSim simulation using the just created simulation parameter, the 'parameter' object should be a list even there is only one condition
+set.seed(123)
+sim_result <- SPARSim_simulation(dataset_parameter = list(clusterA), batch_parameter = batch_parameter)
 ```
 
 Try to simulate multiple clusters and different batches simultaneously, failed
@@ -65,35 +78,44 @@ sim_result <- SPARSim_simulation(dataset_parameter = cluster_params, batch_param
 The results of simulation is strange. Try simulate only one cluster one time.
 
 ```{r}
+set.seed(123)
 # Load preset
 data(Chu_param_preset)
 cluster_name = c("A", "B", "C", "D", "E", "F", "G")
 sim_resultL = list()
 for (i in 1:cluster_num){
   ## cluster Info
-  cluster <- SPARSim_create_simulation_parameter(
+  cluster_params <- SPARSim_create_simulation_parameter(
     intensity = Chu_param_preset[[i]]$intensity, 
     variability = Chu_param_preset[[i]]$variability, 
-    library_size = sample(Chu_param_preset[[i]]$lib_size, size = round(batch_size*cell.prop[1])*batch_num, replace = TRUE),
+    library_size = sample(Chu_param_preset[[i]]$lib_size, size = round(batch_size*cell.prop[i])*batch_num, replace = TRUE),
     condition_name = str_c("cluster", cluster_name[i]))
+  
   # Batch effect
   batch_set = list(batch1 = SPARSim_create_batch(name = "Lane1", distribution = "normal", param_A = 0, param_B = 1))
-  batch_sample_association = rep("Lane1", round(batch_size*cell.prop[1]))
+  batch_sample_association = rep("Lane1", round(batch_size*cell.prop[i]))
   for (j in 2:batch_num){
     batch_set[[str_c("batch", as.character(j))]] = SPARSim_create_batch(name = str_c("Lane", as.character(j)), distribution = "normal", param_A = j-2, param_B = 1)
     batch_sample_association = c(batch_sample_association, rep(str_c("Lane", as.character(j)), round(batch_size*cell.prop[1])))
 }
-  batch_parameter <- SPARSim_create_batch_parameter(batch_set = batch_set,  batch_sample = batch_sample_association)
-  # Run SPARSim simulation using the just created simulation parameter, the 'parameter' object should be a list even there is only one condition
-  set.seed(123)
-  sim_result <- SPARSim_simulation(dataset_parameter = cluster_params, batch_parameter = batch_parameter)
-  sim_resultL = c(sim_resultL, sim_result)
+  batch_params <- SPARSim_create_batch_parameter(batch_set = batch_set,  batch_sample = batch_sample_association)
+  
+  # Run SPARSim simulation using the just created simulation parameter, the 'parameter' object should be a list even there is only one condi
+  sim_result <- SPARSim_simulation(dataset_parameter = list(cluster_params), batch_parameter = batch_params)
+  sim_resultL[[str_c("cluster", cluster_name[i])]] = sim_result
 }
 
 ```
 
 ```{r}
-seuratObj <- CreateSeuratObject(counts = sim_result$count_matrix, project="SPARSim")
+sim_result = matrix(NA, nrow = dim(sim_resultL[[1]]$count_matrix)[1], ncol = 0)
+for (i in 1:length(sim_resultL)){
+  sim_result = cbind(sim_result, sim_resultL[[i]]$count_matrix)
+}
+```
+
+```{r}
+seuratObj <- CreateSeuratObject(counts = sim_result, project="SPARSim")
 seuratObj <- NormalizeData(seuratObj, verbose = FALSE)
 seuratObj <- FindVariableFeatures(seuratObj, selection.method = "vst", nfeatures = 2000, verbose = FALSE)
 seuratObj <- ScaleData(seuratObj)

@@ -427,16 +427,16 @@ evaluationDF %>%
 rep1 = 2
 rep2 = 3
 cluster_num = 9
-concentration = 50
+concentration = 90
 probC1 = c(rep(0.1, 8), 0.2)  # True proportions
-probC2 = c(rep(0.1, 7), 0.15, 0.15)
+probC2 = c(rep(0.1, 7), 0.17, 0.13)
 truthRes = c(rep("N", 7), "P", "P")
 ```
 
 ```{r, warning=FALSE}
+set.seed(123)
 simulation_size = 20
 simulation_time = 5
-set.seed(123)
 simulationDF_list = vector(mode = "list", length = simulation_time)
 simil_mat = get_similarity_mat(cluster_num, confuse_rate=0.1)
 for (j in 1:simulation_time) {
@@ -445,12 +445,12 @@ for (j in 1:simulation_time) {
     ## get numbers for each cell type
     numb_cond1 = matrix(nrow = rep1, ncol = cluster_num)
     numb_cond2 = matrix(nrow = rep2, ncol = cluster_num)
-    for (i in 1:rep1) {
+    for (rep in 1:rep1) {
       prop_cond1 <- MCMCpack::rdirichlet(1, probC1 * concentration)
-      numb_cond1[i, ] <- rmultinom(1, runif(1, 700, 2000), prop_cond1)}
-    for (i in 1:rep2) {
+      numb_cond1[rep, ] <- rmultinom(1, runif(1, 700, 2000), prop_cond1)}
+    for (rep in 1:rep2) {
       prop_cond2 <- MCMCpack::rdirichlet(1, probC2 * concentration)
-      numb_cond2[i, ] <- rmultinom(1, runif(1, 700, 2000), prop_cond2)}
+      numb_cond2[rep, ] <- rmultinom(1, runif(1, 700, 2000), prop_cond2)}
     ### DCATS
     betabin_noBC = betabinLRT_rw(numb_cond1, numb_cond2, bias_corr = FALSE)
     betabin_wBC = betabinLRT_rw(numb_cond1, numb_cond2, bias_corr = TRUE, similarity_mat = simil_mat)
@@ -458,7 +458,7 @@ for (j in 1:simulation_time) {
     bin_wM = dcats_betabinRW(numb_cond1, numb_cond2, similarity_mat = simil_mat, n_samples = 50, binom_only = TRUE)
     ### fisher
     fisher_pvals1 = getFisher(numb_cond1, numb_cond2)
-    all_res = data.frame(cluster = c("A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L")[1:cluster_num], truth = truthRes, noBC_pvals = betabin_noBC$pvals, wBC_pavls = betabin_wBC$pvals, betabin_pvals = betabin_wM$pvals, bin_pvals = bin_wM$pvals, fisher_pvals = fisher_pvals1)
+    all_res = data.frame(cluster = c("A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L")[1:cluster_num], truth = truthRes, noBC_pvals = betabin_noBC$pvals, wBC_pvals = betabin_wBC$pvals, betabin_pvals = betabin_wM$pvals, bin_pvals = bin_wM$pvals, fisher_pvals = fisher_pvals1)
     simulationDF = rbind(simulationDF, all_res)
     }
   simulationDF_list[[j]] = simulationDF
@@ -507,9 +507,275 @@ for (j in 1:len){
 
 ```{r}
 evaluationDF %>% 
-  select(-mcc, -FNR, -FPR) %>% 
-  pivot_longer(auc:specificity, names_to = "statistics", values_to = "value") %>% 
+  dplyr::select(-FNR, -FPR) %>% 
+  pivot_longer(mcc:specificity, names_to = "statistics", values_to = "value") %>% 
   ggplot(aes(x = statistics, y = value, color = methods)) +
   geom_boxplot()
-  
 ```
+
+```{r}
+simulationDF = data.frame()
+for (i in 1:length(simulationDF_list)){
+  simulationDF = rbind(simulationDF, simulationDF_list[[i]])
+}
+resDF = simulationDF %>% 
+  mutate(betabin_res = ifelse(betabin_pvals < 0.05, "P", "N"),
+         bin_res = ifelse(bin_pvals < 0.05, "P", "N"),
+         fisher_res = ifelse(fisher_pvals < 0.05, "P", "N"),
+         noBC_res = ifelse(noBC_pvals < 0.05, "P", "N"),
+         wBC_res = ifelse(wBC_pvals < 0.05, "P", "N")) %>% 
+  dplyr::select(cluster, truth, contains("_res"))
+```
+
+```{r}
+resDF %>% 
+  na.omit() %>% 
+  mutate(betabin_match = ifelse(truth == betabin_res, 1, 0),
+         bin_match = ifelse(truth == bin_res, 1, 0),
+         fisher_match = ifelse(truth == fisher_res, 1, 0),
+         noBC_match = ifelse(truth == noBC_res, 1, 0),
+         wBC_match = ifelse(truth == wBC_res, 1, 0)) %>% 
+  group_by(cluster) %>% 
+  summarise(betabin_mr = sum(betabin_match)/(simulation_size*simulation_time),
+            bin_mr = sum(bin_match)/(simulation_size*simulation_time),
+            fisher_mr = sum(fisher_match)/(simulation_size*simulation_time),
+            noBC_mr = sum(noBC_match)/(simulation_size*simulation_time),
+            wBC_mr = sum(wBC_match)/(simulation_size*simulation_time))
+```
+
+DCATS do not have significant benefit with the adding of dirichlet. DCATS needs a relatively large gap to give positive result. 
+
+## test in a three cluster scenario
+
+```{r}
+rep1 = 2
+rep2 = 3
+cluster_num = 3
+concentration = 90
+probC1 = c(1/3, 1/3, 1/3)  # True proportions
+probC2 = c(1/3, 1/2, 1/6)
+truthRes = c("N", "P", "P")
+```
+
+```{r, warning=FALSE}
+simulation_size = 20
+simulation_time = 20
+set.seed(123)
+simulationDF_list = vector(mode = "list", length = simulation_time)
+simil_mat = get_similarity_mat(cluster_num, confuse_rate=0.1)
+for (j in 1:simulation_time) {
+  simulationDF = data.frame()
+  for (i in 1:simulation_size){
+    ## get numbers for each cell type
+    numb_cond1 = matrix(nrow = rep1, ncol = cluster_num)
+    numb_cond2 = matrix(nrow = rep2, ncol = cluster_num)
+    for (rep in 1:rep1) {
+      prop_cond1 <- MCMCpack::rdirichlet(1, probC1 * concentration)
+      numb_cond1[rep, ] <- rmultinom(1, runif(1, 700, 2000), prop_cond1)}
+    for (rep in 1:rep2) {
+      prop_cond2 <- MCMCpack::rdirichlet(1, probC2 * concentration)
+      numb_cond2[rep, ] <- rmultinom(1, runif(1, 700, 2000), prop_cond2)}
+    ### DCATS
+    betabin_noBC = betabinLRT_rw(numb_cond1, numb_cond2, bias_corr = FALSE)
+    betabin_wBC = betabinLRT_rw(numb_cond1, numb_cond2, bias_corr = TRUE, similarity_mat = simil_mat)
+    betabin_wM = dcats_betabinRW(numb_cond1, numb_cond2, similarity_mat = simil_mat, n_samples = 50, binom_only = FALSE)
+    bin_wM = dcats_betabinRW(numb_cond1, numb_cond2, similarity_mat = simil_mat, n_samples = 50, binom_only = TRUE)
+    ### fisher
+    fisher_pvals1 = getFisher(numb_cond1, numb_cond2)
+    all_res = data.frame(cluster = c("A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L")[1:cluster_num], truth = truthRes, noBC_pvals = betabin_noBC$pvals, wBC_pvals = betabin_wBC$pvals, betabin_pvals = betabin_wM$pvals, bin_pvals = bin_wM$pvals, fisher_pvals = fisher_pvals1)
+    simulationDF = rbind(simulationDF, all_res)
+    }
+  simulationDF_list[[j]] = simulationDF
+}
+## send email after finishing
+sendEmail("Simulation is done!!")
+```
+
+```{r}
+evaluationDF = data.frame()
+len = length(simulationDF_list)
+for (j in 1:len){
+  simulationDF = simulationDF_list[[j]] %>% na.omit()
+  methods = colnames(simulationDF)[3:dim(simulationDF)[2]] %>% str_remove("_pvals")
+  numb_mthd = length(methods)
+  mcc = rep(NA, numb_mthd)
+  auc = rep(NA, numb_mthd)
+  sensitivity = rep(NA, numb_mthd)
+  FNR = rep(NA, numb_mthd)
+  FPR = rep(NA, numb_mthd)
+  specificity = rep(NA, numb_mthd)
+  truth = simulationDF$truth
+  for (i in 3:dim(simulationDF)[2]){
+    auc[i-2] = getROC(simulationDF$truth, simulationDF[,i])$auc
+    pred = simulationDF[, i]
+    pred_res = ifelse(pred < 0.05, "P", "N")
+    TP <- sum(pred_res=="P"&truth=="P")
+    TN <- sum(pred_res=="N"&truth=="N")
+    FP <- sum(pred_res=="P"&truth=="N")
+    FN <- sum(pred_res=="N"&truth=="P")
+    truthN = TN + FP
+    truthP = FN + TP
+    predP = TP + FP
+    predN = FN + TN
+    mcc[i-2] = (TP*TN-FP*FN)/sqrt(predP*truthP*truthN*predN)
+    sensitivity[i-2] = TP/truthP
+    specificity[i-2] = TN/truthN
+    FNR[i-2] = FN/truthP
+    FPR[i-2] = FP/truthN
+  }
+    res = data.frame(trial = as.character(j), methods = methods, mcc = mcc, auc = auc, sensitivity = sensitivity, specificity = specificity, FNR = FNR, FPR = FPR)
+    evaluationDF = rbind(evaluationDF, res)
+}
+```
+
+```{r}
+evaluationDF %>% 
+  dplyr::select(-FNR, -FPR) %>% 
+  pivot_longer(mcc:specificity, names_to = "statistics", values_to = "value") %>% 
+  ggplot(aes(x = statistics, y = value, color = methods)) +
+  geom_boxplot()
+```
+
+When the cluster number is smaller(3 vs 9), DCATS seems to perform better. Test what kind of situation, fisher will fail.
+
+```{r}
+simulationDF_list[[1]] = simulationDF
+resDF = simulationDF %>% 
+  mutate(betabin_res = ifelse(betabin_pvals < 0.05, "P", "N"),
+         bin_res = ifelse(bin_pvals < 0.05, "P", "N"),
+         fisher_res = ifelse(fisher_pvals < 0.05, "P", "N"),
+         noBC_res = ifelse(noBC_pvals < 0.05, "P", "N"),
+         wBC_res = ifelse(wBC_pvals < 0.05, "P", "N")) %>% 
+  dplyr::select(cluster, truth, contains("_res"))
+```
+
+Matching rate
+
+```{r}
+resDF %>% 
+  mutate(betabin_match = ifelse(truth == betabin_res, 1, 0),
+         bin_match = ifelse(truth == bin_res, 1, 0),
+         fisher_match = ifelse(truth == fisher_res, 1, 0),
+         noBC_match = ifelse(truth == noBC_res, 1, 0),
+         wBC_match = ifelse(truth == wBC_res, 1, 0)) %>% 
+  group_by(cluster) %>% 
+  summarise(betabin_mr = sum(betabin_match)/simulation_size,
+            bin_mr = sum(bin_match)/simulation_size,
+            fisher_mr = sum(fisher_match)/simulation_size,
+            noBC_mr = sum(noBC_match)/simulation_size,
+            wBC_mr = sum(wBC_match)/simulation_size)
+```
+
+## Add simple gene expression information
+
+```{r}
+set.seed(123)
+gene_num = 100
+cell_num = 1000
+sim_matA = matrix(nrow = gene_num, ncol = cell_num)
+for (i in 1:gene_num) {
+  sim_matA[i,] = rnorm(cell_num, mean = i*2, sd = 4) %>% abs()
+}
+
+sim_matB = sim_matA
+for (i in 1:30) {
+  sim_matB[i,] = sim_matA[i,] + rnorm(cell_num, 6, 2)
+}
+
+sim_matC = sim_matA
+for (i in 80:100) {
+  sim_matC[i,] = sim_matA[i,] + rnorm(cell_num, 6, 2)
+}
+
+sim_mat = cbind(sim_matA, sim_matB, sim_matC)
+colnames(sim_mat) = str_c("cell", as.character(1:(cell_num*3)))
+rownames(sim_mat) = str_c("gene", as.character(1:gene_num))
+origLabels = c(rep("clusterA", cell_num), rep("clusterB", cell_num), rep("clusterC", cell_num))
+```
+
+```{r}
+seuratObj <- CreateSeuratObject(counts = sim_mat)
+Idents(seuratObj) = origLabels
+seuratObj <- NormalizeData(seuratObj, verbose = FALSE)
+seuratObj <- FindVariableFeatures(seuratObj, selection.method = "vst", nfeatures = 2000, verbose = FALSE)
+seuratObj <- ScaleData(seuratObj)
+seuratObj <- RunPCA(seuratObj, features = VariableFeatures(object = seuratObj))
+seuratObj <- FindNeighbors(seuratObj, dims = 1:20, verbose = FALSE)
+seuratObj <- FindClusters(seuratObj, resolution = 0.4, verbose = FALSE)
+seuratObj <- RunUMAP(seuratObj, dims = 1:20, verbose = FALSE)
+seuratObj[['orig.ident']] = origLabels
+DimPlot(seuratObj, reduction = "umap", group.by = "orig.ident")
+```
+
+```{r}
+cluster_num = 3  # numbers of clusters
+concentration = 90 # indicate how simulated proportion far away from true, the larger the closer
+setresolu = 0.4
+rep1 = 3
+rep2 = 2
+simulation_times = 50
+sample_size1 = 700
+sample_size2 = 1000
+```
+
+```{r}
+probC1 = c(1/3, 1/3, 1/3)  # True proportions
+probC2 = c(1/3, 1/2, 1/6)
+truthRes = c("N", "P", "P")
+```
+
+If change the order of cluster to sample, the total proportion might not follow the dirichlet distribution as we thought!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+```{r}
+cell_slt_dup2 = function(cell_num, sim_mat, origLabels){
+  K = length(cell_num)
+  cellname = origLabels %>% as.factor() %>% levels()
+  index = numeric()
+  for (j in 1:K){
+    group_idx = c(1:length(origLabels))[origLabels == cellname[j]] %>% 
+      sample(cell_num[j])
+    index = c(index, group_idx)
+  }
+  sub_sim_mat = sim_mat[,index]
+  sub_origLabels = origLabels[index]
+  return(list(sub_sim_mat = sub_sim_mat, sub_origLabels = sub_origLabels))
+}
+```
+
+One time simulation
+
+```{r}
+simulationDF = data.frame()
+
+numb_cond1 = matrix(nrow = rep1, ncol = cluster_num)
+numb_cond2 = matrix(nrow = rep2, ncol = cluster_num)
+prop_cond1 = matrix(nrow = rep1, ncol = cluster_num)
+prop_cond2 = matrix(nrow = rep2, ncol = cluster_num)
+
+# cell selection
+slt_sim_matC1 = matrix(NA, ncol = 0, nrow = dim(sim_mat)[1])
+slt_origLabelsC1 = vector()
+slt_batchesC1 = character()
+for (rep in 1:rep1) {
+  prop_cond1 <- MCMCpack::rdirichlet(1, probC1 * concentration)
+  numb_cond1[rep, ] <- rmultinom(1, runif(1, 700, 2000), prop_cond1)
+  slt_cell = cell_slt_dup2(numb_cond1[rep,], sim_mat, origLabels)
+  slt_sim_matC1 = cbind(slt_sim_matC1, slt_cell$sub_sim_mat)
+  slt_origLabelsC1 = c(slt_origLabelsC1, slt_cell$sub_origLabels)
+  print(slt_origLabelsC1 %>% table())
+  slt_batchesC1 = c(slt_batchesC1, rep(str_c("cond1s", as.character(rep)), length(slt_cell$sub_origLabels)))}
+for (rep in 1:rep2) {
+  prop_cond2 <- MCMCpack::rdirichlet(1, probC2 * concentration)
+  numb_cond2[rep, ] <- rmultinom(1, runif(1, 700, 2000), prop_cond2)}
+
+
+  for (i in seq_len(n_rep1)) {
+    prop_cond1[i, ] <- MCMCpack::rdirichlet(1, probC1 * concentration)
+    numb_cond1[i, ] <- rmultinom(1, totals1[i], prop_cond1[i, ])
+    cell_slt = cell_slt_dup(numb_cond1[i,], sim_mat, origLabels)
+    slt_sim_matC1 = cbind(slt_sim_matC1, cell_slt$sub_sim_mat)
+    slt_origLabelsC1 = c(slt_origLabelsC1, cell_slt$sub_origLabels)
+    slt_batchesC1 = c(slt_batchesC1, rep(str_c("cond1s", as.character(i)), length(cell_slt$sub_origLabels)))
+  }
+```
+

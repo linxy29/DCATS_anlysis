@@ -30,7 +30,7 @@ options(future.globals.maxSize = 15000 * 1024^2)
 ```
 
 ```{r}
-cell_pool = "mis1"  # cell pool used, can be selected from ("mis1", "discrete", "realWorld")
+cell_pool = "discrete"  # cell pool used, can be selected from ("mis1", "discrete", "realWorld")
 cluster_num = 3  # numbers of clusters
 concentration = 90 # indicate how simulated proportion far away from true, the larger the closer
 setresolu = 0.4
@@ -38,8 +38,14 @@ rep1 = 3
 rep2 = 2
 simulation_times = 50
 sample_size1 = 700
-sample_size2 = 1000
+sample_size2 = 2000
 more_negative = "_pN"
+```
+
+```{r}
+probC1 = c(0.2, 0.2, 0.05, 0.3, 0.25)
+probC2 = c(0.2, 0.2, 0.05, 0.2, 0.35)
+truthRes = c("N", "N", "N", "P", "P")
 ```
 
 ```{r}
@@ -298,10 +304,36 @@ resSumDF = data.frame(methodL = methodL, sensitivity = sensitivity, specificity 
 ```
 
 ```{r}
+methods = colnames(simulationDF)[3:dim(simulationDF)[2]] %>% str_remove("_pvals")
+numb_mthd = length(methods)
+mcc = rep(NA, numb_mthd)
+auc = rep(NA, numb_mthd)
+sensitivity = rep(NA, numb_mthd)
+specificity = rep(NA, numb_mthd)
+truth = simulationDF$truth
+for (i in 3:dim(simulationDF)[2]){
+  auc[i-2] = getROC(simulationDF$truth, simulationDF[,i])$auc
+  pred = simulationDF[, i]
+  pred_res = ifelse(pred < 0.05, "P", "N")
+  TP <- sum(pred_res=="P"&truth=="P")
+  TN <- sum(pred_res=="N"&truth=="N")
+  FP <- sum(pred_res=="P"&truth=="N")
+  FN <- sum(pred_res=="N"&truth=="P")
+  truthN = TN + FP
+  truthP = FN + TP
+  predP = TP + FP
+  predN = FN + TN
+  mcc[i-2] = (TP*TN-FP*FN)/sqrt(predP*truthP*truthN*predN)
+  sensitivity[i-2] = TP/truthP
+  specificity[i-2] = TN/truthN
+}
+  res = data.frame(methods = methods, mcc = mcc, auc = auc, sensitivity = sensitivity, specificity = specificity)
+```
+
+```{r}
 file_name = str_c("./data/simulationRES/repplicates", as.character(rep1), "&", as.character(rep2), "_K", as.character(cluster_num), "_con", as.character(concentration), "_", cell_pool, more_negative, ".RData")
 load(file_name)
 ```
-
 
 ```{r, message=FALSE}
 roc_rose <- plot(roc(simulationDF$truth, simulationDF[,3]), legacy.axes = TRUE, print.auc = TRUE, print.auc.y = .7, print.auc.x = .5, col = 1)
@@ -315,4 +347,100 @@ for (i in 1:numb_res){
 
 print("Time")
 apply(na.omit(time), 2, mean)
+```
+
+
+## Use SPARSim to do the simulation
+
+```{r}
+library(tidyverse)
+library(Seurat)
+library(speckle)
+library(DCATS)
+library(ggplot2)
+library(tidyverse)
+library(diffcyt)
+```
+
+```{r, message=FALSE, warning=FALSE}
+source("functionsV2.r")
+source("glm.R")     # for scDC
+options(future.globals.maxSize = 15000 * 1024^2)
+```
+
+```{r}
+cell_pool = "SPARSim"  # cell pool used, can be selected from ("mis1", "discrete", "realWorld")
+cluster_num = 3  # numbers of clusters
+concentration = 90 # indicate how simulated proportion far away from true, the larger the closer
+setresolu = 0.4
+rep1 = 2 
+rep2 = 3
+simulation_times = 50
+sample_size1 = 700
+sample_size2 = 1500
+```
+
+```{r}
+if (cluster_num == 3){
+  probC1 = c(1/3, 1/3, 1/3)  # True proportions
+  probC2 = c(1/3, 1/2, 1/6)
+  truthRes = c("N", "P", "P")
+} else if (cluster_num == 5){
+  probC1 = c(0.2, 0.2, 0.05, 0.3, 0.25)
+  probC2 = c(0.2, 0.2, 0.05, 0.2, 0.35)
+  truthRes = c("N", "N", "N", "P", "P")
+} else if (cluster_num == 7){
+  probC1 = c(rep(0.1, 4), rep(0.2, 3))
+  probC2 = c(0.1, 0.1, 0.1, 0.15, 0.2, 0.3, 0.05)
+  truthRes = c("N", "N", "N", "P", "N", "P", "P")
+} else if (cluster_num == 9) {
+  probC1 = c(rep(0.1, 8), 0.2)
+  probC2 = c(rep(0.1, 7), 0.17, 0.13)
+  truthRes = c(rep("N", 7), "P", "P")
+} else if (cluster_num == 12) {
+  probC1 = c(rep(0.1, 4), rep(0.2, 2), rep(0.05, 2), rep(0.025, 4))
+  probC2 = c(0.1, 0.1, 0.1, 0.1, 0.2, 0.15, 0.05, 0.075, 0.05, 0.025, 0.025, 0.025)
+  truthRes = c("N", "N", "N", "N", "N", "P", "N", "P", "P", "N", "N", "N")
+}
+```
+
+```{r}
+if (cell_pool == "discrete"){
+  load(str_c("./data/cells_pool", as.character(cluster_num), ".RData"))
+} else if (cell_pool == "mis1") {
+    load(str_c("./data/cells_pool", as.character(cluster_num), "_close.RData"))
+} else if (cell_pool == "realWorld") {
+    load(str_c("./data/cells_pool", as.character(cluster_num), "_realWorld.RData"))
+} else if (cell_pool == "SPARSim") {
+    load(str_c("./data/cells_pool", as.character(cluster_num), "_SPARSim.RData"))
+}
+```
+
+One time simulation
+
+```{r}
+sim_mat[1:6, 1:6]
+dim(sim_mat)
+
+## condition 1
+for (rep in 1:rep1){
+  
+}
+```
+
+
+```{r, message=FALSE, warning=FALSE}
+## output data
+simulationDF = data.frame()  # data frame to store test result
+time = matrix(NA, nrow = simulation_times, ncol = 6) # matrix contains time for each test need in each simulation
+true_countL = vector(mode = "list", length = simulation_times) # list contains the count table of each true cluster
+seurat_countL = vector(mode = "list", length = simulation_times) # list contains the count table of each cluster defined by seurat
+knn_matrixL = vector(mode = "list", length = simulation_times) # list contains the knn matrix getting from each simulation
+true_matrixL = vector(mode = "list", length = simulation_times) # list contains the true similarity matrix getting from each simulation
+
+set.seed(123)
+for (i in 1:simulation_times){
+  
+}
+
 ```

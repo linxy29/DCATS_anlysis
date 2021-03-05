@@ -27,8 +27,38 @@ Fig 1 (theoretical simulation might be enough): the usefulness of using similari
 
 Draw a boxplot to show AUC results of DCATS, chi-square, scDC(, fisher) without BC, with BC and with BC using resampling.
 
-```{r}
+Avaliable figure 1 seeting:
+cluster_num = 5  # numbers of clusters
+concentration = 70 # indicate how simulated proportion far away from true, the larger the closer
+rep1 = 2
+rep2 = 3
+simulation_times = 50
+simulation_size = 50
+sample_size1 = 1000
+sample_size2 = 2000
+probC1 = c(0.2, 0.2, 0.05, 0.3, 0.25)
+probC2 = c(0.2, 0.2, 0.05, 0.2, 0.35)
+truthRes = c("N", "N", "N", "P", "P")
+simil_mat = get_similarity_mat(cluster_num, confuse_rate=0)
+simil_mat[5,5] = 0.6
+simil_mat[5,4] = 0.4
+simil_mat[4,5] = 0.4
+simil_mat[4,4] = 0.6
+
 cluster_num = 3  # numbers of clusters
+concentration = 70 # indicate how simulated proportion far away from true, the larger the closer
+rep1 = 2
+rep2 = 3
+simulation_times = 50
+simulation_size = 50
+sample_size1 = 1000
+sample_size2 = 2000
+probC1 = c(1/3, 1/3, 1/3)  # True proportions
+probC2 = c(1/3, 1/2, 1/6)
+truthRes = c("N", "P", "P")
+
+```{r}
+cluster_num = 5  # numbers of clusters
 concentration = 70 # indicate how simulated proportion far away from true, the larger the closer
 rep1 = 2
 rep2 = 3
@@ -39,15 +69,29 @@ sample_size2 = 2000
 ```
 
 ```{r}
+probC1 = c(0.2, 0.2, 0.05, 0.3, 0.25)
+probC2 = c(0.2, 0.2, 0.05, 0.2, 0.35)
+truthRes = c("N", "N", "N", "P", "P")
+```
+
+```{r}
 ## more negative
 if (cluster_num == 3){
   probC1 = c(1/3, 1/3, 1/3)  # True proportions
   probC2 = c(1/3, 1/2, 1/6)
   truthRes = c("N", "P", "P")
+} else if (cluster_num == 4){
+  probC1 = c(0.25, 0.25, 0.25, 0.25)
+  probC2 = c(0.25, 0.25, 0.15, 0.4)
+  truthRes = c("N", "N", "P", "P")
 } else if (cluster_num == 7){
   probC1 = c(rep(0.1, 4), rep(0.2, 3))
   probC2 = c(0.1, 0.1, 0.1, 0.15, 0.2, 0.3, 0.05)
   truthRes = c("N", "N", "N", "P", "N", "P", "P")
+} else if (cluster_num == 9) {
+  probC1 = c(rep(0.1, 8), 0.2)
+  probC2 = c(rep(0.1, 7), 0.17, 0.13)
+  truthRes = c(rep("N", 7), "P", "P")
 } else if (cluster_num == 12) {
   probC1 = c(rep(0.1, 4), rep(0.2, 2), rep(0.05, 2), rep(0.025, 4))
   probC2 = c(0.1, 0.1, 0.1, 0.1, 0.2, 0.15, 0.05, 0.075, 0.05, 0.025, 0.025, 0.025)
@@ -62,9 +106,12 @@ set.seed(123)
 simulationDF = data.frame()
 for (i in 1:simulation_size){
   ## create confusion matrix that is not uniformly distributed
-  #simil_mat = get_similarity_mat(cluster_num, confuse_rate=0)
-  simil_mat = matrix(c(1, 0, 0, 0, 0.6, 0.4, 0, 0.4, 0.6), ncol = 3)
-  
+  simil_mat = get_similarity_mat(cluster_num, confuse_rate=0)
+  #simil_mat = matrix(c(1, 0, 0, 0, 0.6, 0.4, 0, 0.4, 0.6), ncol = 3)
+  simil_mat[5,5] = 0.6
+  simil_mat[5,3] = 0.4
+  simil_mat[3,5] = 0.4
+  simil_mat[3,3] = 0.6
   ## Data generation part
   totals1 = ceiling(runif(rep1, sample_size1, sample_size2))
   totals2 = ceiling(runif(rep2, sample_size1, sample_size2))
@@ -114,11 +161,54 @@ getROC(simulationDF$truth, simulationDF$dcats_withBC)$plot
 getROC(simulationDF$truth, simulationDF$fisher_withBC)$plot
 ```
 
+## plot method 1
+
+```{r}
+dcats_noBC_ROCobj = getROC(simulationDF$truth, simulationDF$dcats_noBC)
+fisher_noBC_ROCobj = getROC(simulationDF$truth, simulationDF$fisher_noBC)
+dcats_withBC_ROCobj = getROC(simulationDF$truth, simulationDF$dcats_withBC)
+fisher_withBC_ROCobj = getROC(simulationDF$truth, simulationDF$fisher_withBC)
+```
+
+```{r}
+ggplot() +
+  geom_line(data = dcats_noBC_ROCobj$df, aes(x = x, y = sensitivity, color = "2a9d8f"), orientation = "y") +
+  geom_line(data = fisher_noBC_ROCobj$df, aes(x = x, y = sensitivity, color = "e9c46a"), orientation = "y") +
+  geom_abline(slope=1, color="gray", linetype="dashed")
+```
+
+## plot method 2
+
 ```{r}
 roc_rose <- plot(roc(simulationDF$truth, simulationDF[,3]), legacy.axes = TRUE, print.auc = TRUE, print.auc.y = .7, print.auc.x = .5, col = 1)
 graphics::text(paste("DCATS"), col=1)
 roc_rose <- plot(roc(simulationDF$truth, simulationDF[,4]), legacy.axes = TRUE, print.auc = TRUE, print.auc.y = .65, print.auc.x = .5, col = 2, add = TRUE)
 graphics::text(paste("Fisher"), col=2)
+```
+
+## plot method 3
+
+```{r}
+dcats_noBC_ROCobj = getROC(simulationDF$truth, simulationDF$dcats_noBC)
+fisher_noBC_ROCobj = getROC(simulationDF$truth, simulationDF$fisher_noBC)
+dcats_withBC_ROCobj = getROC(simulationDF$truth, simulationDF$dcats_withBC)
+fisher_withBC_ROCobj = getROC(simulationDF$truth, simulationDF$fisher_withBC)
+
+size = nrow(dcats_noBC_ROCobj$df)
+res = rbind(dcats_noBC_ROCobj$df, fisher_noBC_ROCobj$df, dcats_withBC_ROCobj$df, fisher_withBC_ROCobj$df) %>% 
+  mutate(method = c(rep("dcats_noBC", size), rep("fisher_noBC", size), rep("dcats_withBC", size), rep("fisher_withBC", size)),
+         index = rep(1:size, 4)) %>% 
+  tidyr::separate(method, c("method", "condition"), sep = "_")
+
+plotF1 =  res %>% 
+  ggplot(aes(x = x, y = sensitivity, color = method)) + 
+  geom_line(orientation = "y") + 
+  facet_grid(.~condition) +
+  geom_abline(slope=1, color="gray", linetype="dashed") +
+  ylab("Sensitivity") +
+  xlab("1-Specificity")
+ggsave(str_c("./data/figure1_cluster", as.character(cluster_num), ".png"), plot = plotF1)
+print(plotF1)
 ```
 
 ```{r, warning=FALSE}
