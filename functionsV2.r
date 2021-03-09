@@ -198,15 +198,12 @@ betabinLRT_rw <- function(counts1, counts2, pseudo_count=NULL, binom_only=FALSE,
 
 ## function4: cell selection for each duplicate
 cell_slt_dup = function(cell_num, sim_mat, origLabels){
-  cell_numO = sort(cell_num, decreasing = TRUE)
-  cellname = as.factor(origLabels) %>% 
-    fct_infreq() %>% 
-    levels()
-  K = length(cell_numO)
+  K = length(cell_num)
+  cellname = origLabels %>% as.factor() %>% levels()
   index = numeric()
   for (j in 1:K){
     group_idx = c(1:length(origLabels))[origLabels == cellname[j]] %>% 
-      sample(cell_numO[j])
+      sample(cell_num[j])
     index = c(index, group_idx)
   }
   sub_sim_mat = sim_mat[,index]
@@ -261,7 +258,7 @@ runSeurat_mul = function(slt_sim_matC1, slt_sim_matC2, slt_batchesC1, slt_batche
   return(integratedSamples)
 }
 
-# function 6: fastMNN
+# function 6: fastMNN(useless)
 fastMNN = function(slt_sim_matC1, slt_sim_matC2, slt_batchesC1, slt_batchesC2, setresolu){
   # set input
   simNor_mat = slt_sim_matC1
@@ -306,57 +303,75 @@ simulator_fastMNN = function(totals1, totals2, probC1, probC2, setresolu, sim_ma
   slt_sim_matC1 = matrix(NA, ncol = 0, nrow = dim(sim_mat)[1])
   slt_origLabelsC1 = vector()
   slt_batchesC1 = character()
-  for (i in seq_len(n_rep1)) {
-    prop_cond1[i, ] <- MCMCpack::rdirichlet(1, probC1 * concentration)
-    numb_cond1[i, ] <- rmultinom(1, totals1[i], prop_cond1[i, ])
-    #numb_cond1[i, ] = (totals1[i] * prop_cond1[i, ]) %>% ceiling()
-    cell_slt = cell_slt_dup(numb_cond1[i,], sim_mat, origLabels)
+  for (rep in seq_len(n_rep1)) {
+    prop_cond1[rep, ] <- MCMCpack::rdirichlet(1, probC1 * concentration)
+    numb_cond1[rep, ] <- rmultinom(1, totals1[rep], prop_cond1[rep, ])
+    #numb_cond1[rep, ] = (totals1[rep] * prop_cond1[rep, ]) %>% ceiling()
+    cell_slt = cell_slt_dup(numb_cond1[rep,], sim_mat, origLabels)
     slt_sim_matC1 = cbind(slt_sim_matC1, cell_slt$sub_sim_mat)
     slt_origLabelsC1 = c(slt_origLabelsC1, cell_slt$sub_origLabels)
-    slt_batchesC1 = c(slt_batchesC1, rep(str_c("cond1s", as.character(i)), length(cell_slt$sub_origLabels)))
+    slt_batchesC1 = c(slt_batchesC1, rep(str_c("cond1s", as.character(rep)), length(cell_slt$sub_origLabels)))
   }
   
   slt_sim_matC2 = matrix(NA, ncol = 0, nrow = dim(sim_mat)[1])
   slt_origLabelsC2 = factor()
   slt_batchesC2 = character()
-  for (i in seq_len(n_rep2)) {
-    prop_cond2[i, ] <- MCMCpack::rdirichlet(1, probC2 * concentration)
-    numb_cond2[i, ] <- rmultinom(1, totals2[i], prop_cond2[i, ])
-    cell_slt = cell_slt_dup(numb_cond2[i,], sim_mat, origLabels)
+  for (rep in seq_len(n_rep2)) {
+    prop_cond2[rep, ] <- MCMCpack::rdirichlet(1, probC2 * concentration)
+    numb_cond2[rep, ] <- rmultinom(1, totals2[rep], prop_cond2[rep, ])
+    cell_slt = cell_slt_dup(numb_cond2[rep,], sim_mat, origLabels)
     slt_sim_matC2 = cbind(slt_sim_matC2, cell_slt$sub_sim_mat)
     slt_origLabelsC2 = c(slt_origLabelsC2, cell_slt$sub_origLabels)
-    slt_batchesC2 = c(slt_batchesC2, rep(str_c("cond2s", as.character(i)), length(cell_slt$sub_origLabels)))
+    slt_batchesC2 = c(slt_batchesC2, rep(str_c("cond2s", as.character(rep)), length(cell_slt$sub_origLabels)))
   }
   
   print(numb_cond1)
   print(numb_cond2)
-  integratedSamples = fastMNN(slt_sim_matC1, slt_sim_matC2, slt_batchesC1, slt_batchesC2, setresolu)
+  
+  ## seurat process
+  ### pre-process
+  seuratObj <- CreateSeuratObject(counts = cbind(slt_sim_matC1, slt_sim_matC2), project="Splatter")
+  seuratObj <- AddMetaData(object = seuratObj, metadata = c(slt_batchesC1, slt_batchesC2), col.name = 'batch')
+  seuratObj <- AddMetaData(object = seuratObj, metadata = c(rep("Cond1", length(slt_batchesC1)), rep("Cond2", length(slt_batchesC2))), col.name = 'condition')
+  seuratObj <- NormalizeData(seuratObj, verbose = FALSE)
+  integratedSamples <- RunFastMNN(object.list = SplitObject(seuratObj, split.by = "batch"), verbose = FALSE)
+  integratedSamples <- FindVariableFeatures(integratedSamples, verbose = FALSE)
+  integratedSamples <- ScaleData(integratedSamples, verbose = FALSE)
+  integratedSamples <- RunPCA(integratedSamples, npcs = 30, verbose = FALSE)
+  #integratedSamples <- RunUMAP(integratedSamples, reduction = "mnn", dims = 1:30, verbose = FALSE)
+  #integratedSamples <- FindNeighbors(integratedSamples, reduction = "mnn", dims = 1:30, verbose = FALSE)
+  integratedSamples <- RunUMAP(integratedSamples, dims = 1:30, verbose = FALSE)
+  integratedSamples <- FindNeighbors(integratedSamples, dims = 1:30, verbose = FALSE)
+  integratedSamples <- FindClusters(integratedSamples, resolution = setresolu, verbose = FALSE)
+  
+  ## decide resolution
   Kprep = integratedSamples@active.ident %>% as.factor() %>% summary() %>% length()
   str_c("Kprep: ", as.character(Kprep)) %>% print()
   str_c("setresolu: ", as.character(setresolu)) %>% print()
   while (Kprep != K & setresolu > 0.03) {
-  #while (Kprep != K) {
     if (Kprep > K){
       setresolu = setresolu - 0.03
-      #if (setresolu <= 0) {setresolu = setresolu + 0.02}
-      integratedSamples = fastMNN(slt_sim_matC1, slt_sim_matC2, slt_batchesC1, slt_batchesC2, setresolu)
+      integratedSamples <- FindClusters(integratedSamples, resolution = setresolu, verbose = FALSE)
       Kprep = integratedSamples@active.ident %>% as.factor() %>% summary() %>% length()
       str_c("Kprep: ", as.character(Kprep)) %>% print()
       str_c("setresolu: ", as.character(setresolu)) %>% print()
     } else {
       setresolu = setresolu + 0.01
-      integratedSamples = fastMNN(slt_sim_matC1, slt_sim_matC2, slt_batchesC1, slt_batchesC2, setresolu)
+      integratedSamples <- FindClusters(integratedSamples, resolution = setresolu, verbose = FALSE)
       Kprep = integratedSamples@active.ident %>% as.factor() %>% summary() %>% length()
       str_c("Kprep: ", as.character(Kprep)) %>% print()
       str_c("setresolu: ", as.character(setresolu)) %>% print()
     }
   }
+  ### change labels to A, B, C
+  integratedSamples@active.ident = integratedSamples@active.ident %>% 
+    plyr::mapvalues(from = c(0:11), to = c("A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L"))
   
   # get count data
   dfRes = data.frame(clusterRes = integratedSamples@active.ident, batch = integratedSamples$batch, condition = integratedSamples$condition) %>% 
     tibble::rownames_to_column("cellID")
   if(Kprep == K){
-    Res = list(integratedSamples = integratedSamples, dfRes = dfRes, trueLabels = c(slt_origLabelsC1, slt_origLabelsC2), numb_cond1 = numb_cond1, numb_cond2 = numb_cond2)
+    Res = list(integratedSamples = integratedSamples, dfRes = dfRes, trueLabels = c(slt_origLabelsC1, slt_origLabelsC2), numb_cond1 = numb_cond1, numb_cond2 = numb_cond2, prop_cond1 = prop_cond1, prop_cond2 = prop_cond2)
     return(Res)
   } else {
     return(NA)
