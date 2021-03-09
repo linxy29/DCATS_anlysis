@@ -10,6 +10,8 @@ if(FALSE){
   library(diffcyt)
 }
 
+print("You are really a smart gril!!!!")
+
 ## function1: cell selection
 cellSelect = function(sim_mat, origLabels, ppC1, ppC2, sample_size){
   set.seed(123)

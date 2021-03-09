@@ -127,7 +127,7 @@ DimPlot(GCTB5.integrated, group.by = "celltype",
         reduction = "umap",  label = T)
 ```
 
-## SPARSim
+## SPARSim with batch
 
 ```{r}
 library(SPARSim)
@@ -199,5 +199,68 @@ sim_mat = sim_result
 origLabels = colnames(sim_result) %>% str_extract("cluster[ABC]") %>% tail()
 batchInfo = rep(batch_sample_association, 3) %>% str_replace("Lane", "Batch")
 save(sim_mat, origLabels, batchInfo, file = str_c("./data/cells_pool", as.character(cluster_num), "_SPARSim.RData"))
+```
+
+## SPARSim without batch
+
+```{r}
+library(SPARSim)
+library(tidyverse)
+library(Seurat)
+```
+
+```{r}
+cluster_num = 3
+batch_size = cluster_num * 1000
+setresolu = 0.2
+batch_num = 4
+cell.prop = c(1/3, 1/3, 1/3)
+de.prop = c(0, 0.05, 0.2) ## percentage of DE genes, total is 1000 genes
+options(future.globals.maxSize = 15000 * 1024^2)
+```
+
+```{r}
+set.seed(123)
+# Load preset
+data(Chu_param_preset)
+cluster_name = c("A", "B", "C", "D", "E", "F", "G")
+cluster_params = list()
+cluster_params[["clusterA"]] = SPARSim_create_simulation_parameter(
+    intensity = Chu_param_preset$Chu_C1$intensity, 
+    variability = Chu_param_preset$Chu_C1$variability, 
+    library_size = sample(Chu_param_preset$Chu_C1$lib_size, size = round(batch_size*cell.prop[1]), replace = TRUE),
+    condition_name = "clusterA")
+
+for (clu in 2:cluster_num) {
+  DE_multiplier = c(runif(n = 1000*de.prop[clu]/2, min = 0.1, max = 0.8), runif(n = 1000*de.prop[clu]/2, min = 3, max = 20))
+  genes_num = length(cluster_params$clusterA$intensity)
+  add_foldchange = rep(1, genes_num)
+  add_foldchange[sample(1:genes_num, 1000*de.prop[clu])] = DE_multiplier
+  cluster_params[[str_c("cluster", cluster_name[clu])]] = SPARSim_create_DE_genes_parameter(
+                                  sim_param = cluster_params[[1]], 
+                                  fc_multiplier = add_foldchange, 
+                                  N_cells = 1000,
+                                  condition_name = str_c("cluster", cluster_name[clu]))
+}
+
+SPARSim_result <- SPARSim_simulation(cluster_params)
+```
+
+```{r}
+seuratObj <- CreateSeuratObject(counts = SPARSim_result$count_matrix, project="SPARSim")
+seuratObj <- NormalizeData(seuratObj, verbose = FALSE)
+seuratObj <- FindVariableFeatures(seuratObj, selection.method = "vst", nfeatures = 2000, verbose = FALSE)
+seuratObj <- ScaleData(seuratObj)
+seuratObj <- RunPCA(seuratObj, features = VariableFeatures(object = seuratObj))
+seuratObj <- FindNeighbors(seuratObj, dims = 1:30, verbose = FALSE)
+seuratObj <- FindClusters(seuratObj, resolution = setresolu, verbose = FALSE)
+seuratObj <- RunUMAP(seuratObj, dims = 1:30, verbose = FALSE)
+DimPlot(seuratObj, reduction = "umap")
+```
+
+```{r}
+sim_mat = SPARSim_result$count_matrix
+origLabels = colnames(sim_mat) %>% str_extract("cluster.") %>% tail()
+save(sim_mat, origLabels, file = str_c("./data/cells_pool", as.character(cluster_num), "_SPARSim.RData"))
 ```
 

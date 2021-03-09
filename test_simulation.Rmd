@@ -730,7 +730,7 @@ rep2 = 2
 simulation_times = 20
 sample_size1 = 700
 sample_size2 = 1000
-cell_pool = "discrete"  # cell pool used, can be selected from ("mis1", "discrete", "realWorld")
+cell_pool = "mis1"  # cell pool used, can be selected from ("mis1", "discrete", "realWorld")
 more_negative = ""
 ```
 
@@ -970,6 +970,15 @@ for (i in 3:dim(simulationDF)[2]){
   sensitivity[i-2] = TP/truthP
   specificity[i-2] = TN/truthN
 }
-  res = data.frame(methods = methods, mcc = mcc, auc = auc, sensitivity = sensitivity, specificity = specificity)
+res = data.frame(methods = methods, mcc = mcc, auc = auc, sensitivity = sensitivity, specificity = specificity) %>% 
+  arrange(desc(mcc))
+print(res)
+```
+
+Check the time cost for each test and calculating rf/svm confusion matrices
+
+```{r}
+print("Time")
+apply(na.omit(time), 2, mean)
 ```
 
