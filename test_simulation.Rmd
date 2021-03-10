@@ -727,7 +727,7 @@ concentration = 90 # indicate how simulated proportion far away from true, the l
 setresolu = 0.3
 rep1 = 3
 rep2 = 2
-simulation_times = 20
+simulation_times = 50
 sample_size1 = 700
 sample_size2 = 1000
 cell_pool = "mis1"  # cell pool used, can be selected from ("mis1", "discrete", "realWorld")
@@ -780,7 +780,8 @@ if (more_negative == "_pN"){
 if (cell_pool == "discrete"){
   load(str_c("./data/cells_pool", as.character(cluster_num), ".RData"))
 } else if (cell_pool == "mis1") {
-    load(str_c("./data/cells_pool", as.character(cluster_num), "_close.RData"))
+    load(str_c("./data/cells_pool", as.character(cluster_num), "_SPARSim.RData"))
+  
 } else if (cell_pool == "realWorld") {
     load(str_c("./data/cells_pool", as.character(cluster_num), "_realWorld.RData"))
 }
@@ -795,7 +796,7 @@ seurat_countL = vector(mode = "list", length = simulation_times) # list contains
 knn_matrixL = vector(mode = "list", length = simulation_times) # list contains the knn matrix getting from each simulation
 true_matrixL = vector(mode = "list", length = simulation_times) # list contains the true similarity matrix getting from each simulation
 
-#set.seed(123)
+set.seed(123)
 for (sim in 1:simulation_times){
   print(sim)
   timeL = rep(NA, 8) # DCATS w/wto simularity matrix, fisher, speckle, diffcyt, scDC
