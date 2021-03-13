@@ -69,6 +69,17 @@ sample_size2 = 2000
 ```
 
 ```{r}
+cluster_num = 3  # numbers of clusters
+concentration = 70 # indicate how simulated proportion far away from true, the larger the closer
+rep1 = 2
+rep2 = 3
+simulation_times = 50
+simulation_size = 50
+sample_size1 = 1000
+sample_size2 = 2000
+```
+
+```{r}
 probC1 = c(0.2, 0.2, 0.05, 0.3, 0.25)
 probC2 = c(0.2, 0.2, 0.05, 0.2, 0.35)
 truthRes = c("N", "N", "N", "P", "P")
@@ -107,7 +118,7 @@ simulationDF = data.frame()
 for (i in 1:simulation_size){
   ## create confusion matrix that is not uniformly distributed
   simil_mat = get_similarity_mat(cluster_num, confuse_rate=0)
-  #simil_mat = matrix(c(1, 0, 0, 0, 0.6, 0.4, 0, 0.4, 0.6), ncol = 3)
+  #simil_mat = matrix(c(1, 0, 0, 0, 0.7, 0.3, 0, 0.3, 0.7), ncol = 3)
   simil_mat[5,5] = 0.6
   simil_mat[5,3] = 0.4
   simil_mat[3,5] = 0.4
@@ -186,7 +197,7 @@ roc_rose <- plot(roc(simulationDF$truth, simulationDF[,4]), legacy.axes = TRUE, 
 graphics::text(paste("Fisher"), col=2)
 ```
 
-## plot method 3
+## plot method 3(Use this one)
 
 ```{r}
 dcats_noBC_ROCobj = getROC(simulationDF$truth, simulationDF$dcats_noBC)
