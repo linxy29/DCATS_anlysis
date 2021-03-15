@@ -737,12 +737,12 @@ DimPlot(seuratObj, reduction = "umap", group.by = "orig.ident")
 If change the order of cluster to sample, the total proportion might not follow the dirichlet distribution as we thought!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 ```{r}
-cluster_num = 3  # numbers of clusters
+cluster_num = 5  # numbers of clusters
 concentration = 70 # indicate how simulated proportion far away from true, the larger the closer
-setresolu = 0.3
+setresolu = 0.4
 rep1 = 3
 rep2 = 2
-simulation_times = 50
+simulation_times = 20
 sample_size1 = 700
 sample_size2 = 1000
 cell_pool = "mis1"  # cell pool used, can be selected from ("mis1", "discrete", "realWorld")
@@ -825,7 +825,7 @@ for (sim in 1:simulation_times){
   ## simulation
   simulation = simulator_fastMNN(totals1 = runif(rep1, sample_size1, sample_size2), totals2 = runif(rep2, sample_size1, sample_size2), probC1, probC2, setresolu, sim_mat)
   if (is.na(simulation)[1] == FALSE){
-    true_countL[[sim]] = list(cond1 = simulation$numb_cond1, cond2 = simulation$numb_cond2)
+    true_countL[[sim]] = c(cond1 = simulation$numb_cond1, cond2 = simulation$numb_cond2)
     
     ## data convert
     numb_cond1 = simulation$dfRes %>% 
@@ -860,6 +860,9 @@ for (sim in 1:simulation_times){
       order1 = colnames(numb_cond1)
       simil_matK = knn_mat[order1, order1]
       knn_matrixL[[sim]] = simil_matK
+      ### True matrix
+      #simil_matT = true.conf[,order2]
+      #true_matrixL[[sim]] = simil_matT
       ### Uniform matrix
       simil_matU = get_similarity_mat(cluster_num, confuse_rate=0.1)
       ### svm&rf
@@ -960,6 +963,17 @@ file_name = str_c("./data/simulationRES/replicates", as.character(rep1), "&", as
 colnames(time) = c("DCATS_wtoM", "DCATS_wM", "fisher", "speckle", "diffcyt", "scDC", "rfM", "svmM")
 save(simulationDF, time, true_countL, seurat_countL, knn_matrixL, true_matrixL, file = file_name)
 head(simulationDF)
+```
+
+Test for one simulation
+
+```{r}
+simil_matT %>% print()
+simil_matK %>% print()
+simil_matRF %>% print()
+simil_matSVM %>% print()
+DimPlot(simSeuratOj, reduction = "umap", group.by = "orig.ident") %>% print()
+DimPlot(simSeuratOj, reduction = "umap") %>% print()
 ```
 
 ```{r}

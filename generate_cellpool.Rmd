@@ -183,7 +183,7 @@ for (i in 1:length(sim_resultL)){
 ```
 
 ```{r}
-seuratObj <- CreateSeuratObject(counts = sim_result, project="SPARSim")
+seuratObj <- CreateSeuratObject(counts = sim_mat, project="SPARSim")
 seuratObj <- NormalizeData(seuratObj, verbose = FALSE)
 seuratObj <- FindVariableFeatures(seuratObj, selection.method = "vst", nfeatures = 2000, verbose = FALSE)
 seuratObj <- ScaleData(seuratObj)
@@ -191,7 +191,8 @@ seuratObj <- RunPCA(seuratObj, features = VariableFeatures(object = seuratObj))
 seuratObj <- FindNeighbors(seuratObj, dims = 1:30, verbose = FALSE)
 seuratObj <- FindClusters(seuratObj, resolution = setresolu, verbose = FALSE)
 seuratObj <- RunUMAP(seuratObj, dims = 1:30, verbose = FALSE)
-DimPlot(seuratObj, reduction = "umap")
+seuratObj[['orig.ident']] = origLabels
+DimPlot(seuratObj, reduction = "umap", group.by = "orig.ident")
 ```
 
 ```{r}
