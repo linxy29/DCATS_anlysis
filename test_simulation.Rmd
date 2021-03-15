@@ -972,6 +972,7 @@ simil_matT %>% print()
 simil_matK %>% print()
 simil_matRF %>% print()
 simil_matSVM %>% print()
+simSeuratOj = simulation$integratedSamples
 DimPlot(simSeuratOj, reduction = "umap", group.by = "orig.ident") %>% print()
 DimPlot(simSeuratOj, reduction = "umap") %>% print()
 ```
