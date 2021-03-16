@@ -18,11 +18,13 @@ library(tidyverse)
 ```{r,eval=FALSE}
 ## simulate cells pool setting
 set.seed(123)
-cluster_num = 5
+cluster_num = 12
 prob = rep(1/cluster_num, cluster_num)
 batch_size = cluster_num * 1500
-de_prob = runif(cluster_num, 0.2, cluster_num/20 + 0.3)
-setresolu = 0.1
+de_prob = rep(NA, cluster_num)
+de_prob[1:round(cluster_num/3)] = runif(round(cluster_num/3), 0.1, 0.3)
+de_prob[(round(cluster_num/3)+1):cluster_num] = runif((cluster_num - round(cluster_num/3)), 0.4, 1)
+setresolu = 0.5
 ```
 
 ```{r,eval=FALSE}
@@ -34,12 +36,15 @@ param.groups <- setParams(params, batchCells = batch_size, nGenes = 1000)
 sim <- splatSimulateGroups(param.groups, group.prob = prob, de.prob = de_prob, de.facLoc = 0.01, verbose = FALSE)
 sim_mat <- counts(sim)
 origLabels = sim@colData@listData$Group
-# Save multiple objects
-save(sim_mat, origLabels, file = str_c("./data/cells_pool", as.character(cluster_num), ".RData"))
 ```
 
 ```{r}
-load(str_c("./data/cells_pool", as.character(cluster_num), ".RData"))
+# Save multiple objects
+save(sim_mat, origLabels, file = str_c("./data/cells_pool", as.character(cluster_num), "_splatter.RData"))
+```
+
+```{r}
+load(str_c("./data/cells_pool", as.character(cluster_num), "_splatter.RData"))
 ```
 
 ```{r}
@@ -136,12 +141,12 @@ library(Seurat)
 ```
 
 ```{r}
-cluster_num = 5
-batch_size = cluster_num * 1000
+cluster_num = 12
+batch_size = cluster_num * 1500
 setresolu = 0.2
 batch_num = 4
 cell.prop = c(1/3, 1/3, 1/3)
-de.prop = c(0, 0.1, 0.2, 0.1, 0.2)
+de.prop = c(runif(round(cluster_num/3), 0.01, 0.2), runif((cluster_num - round(cluster_num/3)), 0., 1))
 options(future.globals.maxSize = 15000 * 1024^2)
 ```
 
@@ -211,13 +216,12 @@ library(Seurat)
 ```
 
 ```{r}
-cluster_num = 5
-batch_size = cluster_num * 1000
-setresolu = 0.05
+cluster_num = 12
+batch_size = cluster_num * 1500
+setresolu = 0.2
 batch_num = 4
 cell.prop = rep(1/cluster_num, cluster_num)
-#de.prop = c(0, 0.03, 0.15, 0.15, 0.2) ## percentage of DE genes, total is 1000 genes
-de.prop = c(0, 0.07, 0.15, 0.15, 0.2) ## percentage of DE genes, total is 1000 genes
+de.prop = c(runif(round(cluster_num/3), 0.1, 0.2), runif((cluster_num - round(cluster_num/3)), 0.2, 0.4))
 options(future.globals.maxSize = 15000 * 1024^2)
 ```
 

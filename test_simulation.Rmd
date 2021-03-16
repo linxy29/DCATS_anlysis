@@ -737,16 +737,22 @@ DimPlot(seuratObj, reduction = "umap", group.by = "orig.ident")
 If change the order of cluster to sample, the total proportion might not follow the dirichlet distribution as we thought!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 ```{r}
-cluster_num = 5  # numbers of clusters
-concentration = 70 # indicate how simulated proportion far away from true, the larger the closer
-setresolu = 0.4
+cluster_num = 10  # numbers of clusters
+concentration = 140 # indicate how simulated proportion far away from true, the larger the closer
+setresolu = 1.4
 rep1 = 3
 rep2 = 2
 simulation_times = 20
 sample_size1 = 700
 sample_size2 = 1000
-cell_pool = "mis1"  # cell pool used, can be selected from ("mis1", "discrete", "realWorld")
+cell_pool = "splatter"  # cell pool used, can be selected from ("SPAR", "splatter", "realWorld")
 more_negative = ""
+```
+
+```{r}
+probC1 = c(rep(0.1, 5), 0.05, 0.05, 0.05, 0.1, 0.15, 0.05, 0.05)  # True proportions
+probC2 = c(rep(0.1, 10), 0.05, 0.05)
+truthRes = c(rep("N", 5), rep("P", 5), "N", "N")
 ```
 
 ```{r, message=FALSE, warning=FALSE}
@@ -799,9 +805,9 @@ if (more_negative == "_pN"){
 ```
 
 ```{r}
-if (cell_pool == "discrete"){
-  load(str_c("./data/cells_pool", as.character(cluster_num), ".RData"))
-} else if (cell_pool == "mis1") {
+if (cell_pool == "splatter"){
+  load(str_c("./data/cells_pool", as.character(cluster_num), "_splatter.RData"))
+} else if (cell_pool == "SPAR") {
     load(str_c("./data/cells_pool", as.character(cluster_num), "_SPARSim.RData"))
   
 } else if (cell_pool == "realWorld") {
@@ -861,8 +867,8 @@ for (sim in 1:simulation_times){
       simil_matK = knn_mat[order1, order1]
       knn_matrixL[[sim]] = simil_matK
       ### True matrix
-      #simil_matT = true.conf[,order2]
-      #true_matrixL[[sim]] = simil_matT
+      simil_matT = true.conf[order2,]
+      true_matrixL[[sim]] = simil_matT
       ### Uniform matrix
       simil_matU = get_similarity_mat(cluster_num, confuse_rate=0.1)
       ### svm&rf
@@ -887,7 +893,7 @@ for (sim in 1:simulation_times){
       ###  DCATS---betabinLRT with Bias correction from similarity matrix
       betabin_wBC_K = betabinLRT_rw(as.matrix(numb_cond1), as.matrix(numb_cond2), bias_corr = TRUE, similarity_mat = simil_matK)
       betabin_wBC_U = betabinLRT_rw(as.matrix(numb_cond1), as.matrix(numb_cond2), bias_corr = TRUE, similarity_mat = simil_matU)
-      #betabin_wBC_T = betabinLRT_rw(as.matrix(numb_cond1), as.matrix(numb_cond2), bias_corr = TRUE, similarity_mat = simil_matT)
+      betabin_wBC_T = betabinLRT_rw(as.matrix(numb_cond1), as.matrix(numb_cond2), bias_corr = TRUE, similarity_mat = simil_matT)
       betabin_wBC_RF = betabinLRT_rw(as.matrix(numb_cond1), as.matrix(numb_cond2), bias_corr = TRUE, similarity_mat = simil_matRF)
       betabin_wBC_SVM = betabinLRT_rw(as.matrix(numb_cond1), as.matrix(numb_cond2), bias_corr = TRUE, similarity_mat = simil_matSVM)
       ## DCATS---betabin with similarity matrix (backward-forward)
@@ -895,12 +901,12 @@ for (sim in 1:simulation_times){
       betabin_wMK = dcats_betabinRW(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = simil_matK, n_samples = 50, binom_only = FALSE)
       timeL[2] = Sys.time() - t2start
       betabin_wMU = dcats_betabinRW(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = simil_matU, n_samples = 50, binom_only = FALSE)
-      #betabin_wMT = dcats_betabinRW(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = simil_matT, n_samples = 50, binom_only = FALSE)
+      betabin_wMT = dcats_betabinRW(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = simil_matT, n_samples = 50, binom_only = FALSE)
       betabin_wMRF = dcats_betabinRW(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = simil_matRF, n_samples = 50, binom_only = FALSE)
       betabin_wMSVM = dcats_betabinRW(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = simil_matSVM, n_samples = 50, binom_only = FALSE)
       bin_wMK = dcats_betabinRW(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = simil_matK, n_samples = 50)
       bin_wMU = dcats_betabinRW(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = simil_matU, n_samples = 50)
-      #bin_wMT = dcats_betabinRW(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = simil_matT, n_samples = 50)
+      bin_wMT = dcats_betabinRW(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = simil_matT, n_samples = 50)
       bin_wMRF = dcats_betabinRW(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = simil_matRF, n_samples = 50)
       bin_wMSVM = dcats_betabinRW(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = simil_matSVM, n_samples = 50)
       ## Fisher's exact test
@@ -933,17 +939,17 @@ for (sim in 1:simulation_times){
         mutate(betabin_noBC_pvals = betabin_noBC$pvals,
                betabin_wBCK_pvals = betabin_wBC_K$pvals,
                betabin_wBCU_pvals = betabin_wBC_U$pvals,
-               #betabin_wBCT_pvals = betabin_wBC_T$pvals,
+               betabin_wBCT_pvals = betabin_wBC_T$pvals,
                betabin_wBCRF_pvals = betabin_wBC_RF$pvals,
                betabin_wBCSVM_pvals = betabin_wBC_SVM$pvals,
                betabin_wMK_pvals = betabin_wMK$pvals,
                betabin_wMU_pvals = betabin_wMU$pvals,
-               #betabin_wMT_pvals = betabin_wMT$pvals,
+               betabin_wMT_pvals = betabin_wMT$pvals,
                betabin_wMRF_pvals = betabin_wMRF$pvals,
                betabin_wMSVM_pvals = betabin_wMSVM$pvals,
                bin_wMK_pvals = bin_wMK$pvals,
                bin_wMU_pvals = bin_wMU$pvals,
-               #bin_wMT_pvals = bin_wMT$pvals,
+               bin_wMT_pvals = bin_wMT$pvals,
                bin_wMRF_pvals = bin_wMRF$pvals,
                bin_wMSVM_pvals = bin_wMSVM$pvals,
                fisher_pvals = fisher_pvals,
@@ -957,7 +963,7 @@ for (sim in 1:simulation_times){
 }
 
 ## send email after finishing
-sendEmail("Simulation is done!!")
+#sendEmail('Simulation is done!!')
 
 file_name = str_c("./data/simulationRES/replicates", as.character(rep1), "&", as.character(rep2), "_K", as.character(cluster_num), "_con", as.character(concentration), "_", cell_pool, more_negative, ".RData")
 colnames(time) = c("DCATS_wtoM", "DCATS_wM", "fisher", "speckle", "diffcyt", "scDC", "rfM", "svmM")
@@ -973,6 +979,7 @@ simil_matK %>% print()
 simil_matRF %>% print()
 simil_matSVM %>% print()
 simSeuratOj = simulation$integratedSamples
+simSeuratOj[['orig.ident']] = simulation$trueLabels
 DimPlot(simSeuratOj, reduction = "umap", group.by = "orig.ident") %>% print()
 DimPlot(simSeuratOj, reduction = "umap") %>% print()
 ```
