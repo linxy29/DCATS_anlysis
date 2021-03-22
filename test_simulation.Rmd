@@ -738,10 +738,10 @@ If change the order of cluster to sample, the total proportion might not follow 
 
 ```{r}
 cluster_num = 8  # numbers of clusters
-concentration = 90 # indicate how simulated proportion far away from true, the larger the closer
+concentration = 100 # indicate how simulated proportion far away from true, the larger the closer
 setresolu = 0.8
-rep1 = 3
-rep2 = 2
+rep1 = 5
+rep2 = 4
 simulation_times = 50
 sample_size1 = 1000
 sample_size2 = 1500
@@ -990,11 +990,6 @@ for (sim in 1:simulation_times){
 
 ## send email after finishing
 sendEmail('Simulation is done!!')
-
-file_name = str_c("./data/simulationRES/replicates", as.character(rep1), "&", as.character(rep2), "_K", as.character(cluster_num), "_con", as.character(concentration), "_", cell_pool, more_negative, sample_size1, "&", sample_size2, ".RData")
-colnames(time) = c("DCATS_wtoM", "DCATS_wM", "fisher", "speckle", "diffcyt", "scDC", "rfM", "svmM")
-save(simulationDF, time, true_countL, seurat_countL, knn_matrixL, true_matrixL, file = file_name)
-head(simulationDF, 15)
 ```
 
 ```{r}
