@@ -70,7 +70,7 @@ runSeurat = function(cell_sltL, setresolu){
   # change labels to A, B, C
   integratedSamples@active.ident = integratedSamples@active.ident %>% 
     #plyr::mapvalues(from = c("0", "1", "2", "3", "4", "5"), to = c("A", "B", "C", "D", "E", "F"))
-    plyr::mapvalues(from = c(0:11), to = c("A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L"))
+    plyr::mapvalues(from = c(0:15), to = c("A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P"))
   
   return(integratedSamples)
 }
@@ -255,7 +255,7 @@ runSeurat_mul = function(slt_sim_matC1, slt_sim_matC2, slt_batchesC1, slt_batche
   # change labels to A, B, C
   integratedSamples@active.ident = integratedSamples@active.ident %>% 
     #plyr::mapvalues(from = c("0", "1", "2", "3", "4", "5"), to = c("A", "B", "C", "D", "E", "F"))
-    plyr::mapvalues(from = c(0:11), to = c("A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L"))
+    plyr::mapvalues(from = c(0:15), to = c("A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P"))
   
   return(integratedSamples)
 }
@@ -285,7 +285,7 @@ fastMNN = function(slt_sim_matC1, slt_sim_matC2, slt_batchesC1, slt_batchesC2, s
   # change labels to A, B, C
   integratedSamples@active.ident = integratedSamples@active.ident %>% 
     #plyr::mapvalues(from = c("0", "1", "2", "3", "4", "5"), to = c("A", "B", "C", "D", "E", "F"))
-    plyr::mapvalues(from = c(0:11), to = c("A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L"))
+    plyr::mapvalues(from = c(0:15), to = c("A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P"))
   
   return(integratedSamples)
 }
@@ -307,6 +307,7 @@ simulator_fastMNN = function(totals1, totals2, probC1, probC2, setresolu, sim_ma
   slt_batchesC1 = character()
   for (rep in seq_len(n_rep1)) {
     prop_cond1[rep, ] <- MCMCpack::rdirichlet(1, probC1 * concentration)
+    #prop_cond1[rep, ] = probC1
     numb_cond1[rep, ] <- rmultinom(1, totals1[rep], prop_cond1[rep, ])
     #numb_cond1[rep, ] = (totals1[rep] * prop_cond1[rep, ]) %>% ceiling()
     cell_slt = cell_slt_dup(numb_cond1[rep,], sim_mat, origLabels)
@@ -320,6 +321,7 @@ simulator_fastMNN = function(totals1, totals2, probC1, probC2, setresolu, sim_ma
   slt_batchesC2 = character()
   for (rep in seq_len(n_rep2)) {
     prop_cond2[rep, ] <- MCMCpack::rdirichlet(1, probC2 * concentration)
+    #prop_cond2[rep, ] = probC2
     numb_cond2[rep, ] <- rmultinom(1, totals2[rep], prop_cond2[rep, ])
     cell_slt = cell_slt_dup(numb_cond2[rep,], sim_mat, origLabels)
     slt_sim_matC2 = cbind(slt_sim_matC2, cell_slt$sub_sim_mat)
@@ -367,7 +369,7 @@ simulator_fastMNN = function(totals1, totals2, probC1, probC2, setresolu, sim_ma
   }
   ### change labels to A, B, C
   integratedSamples@active.ident = integratedSamples@active.ident %>% 
-    plyr::mapvalues(from = c(0:11), to = c("A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L"))
+    plyr::mapvalues(from = c(0:15), to = c("A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P"))
   
   # get count data
   dfRes = data.frame(clusterRes = integratedSamples@active.ident, batch = integratedSamples$batch, condition = integratedSamples$condition) %>% 

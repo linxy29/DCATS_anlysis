@@ -365,7 +365,7 @@ for (j in 1:simulation_time) {
     bin_wM = dcats_betabinRW(numb_cond1, numb_cond2, similarity_mat = simil_mat, n_samples = 50, binom_only = TRUE)
     ### fisher
     fisher_pvals1 = getFisher(numb_cond1, numb_cond2)
-    all_res = data.frame(cluster = c("A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L")[1:cluster_num], truth = truthRes, noBC_pvals = betabin_noBC$pvals, wBC_pavls = betabin_wBC$pvals, betabin_pvals = betabin_wM$pvals, bin_pvals = bin_wM$pvals, fisher_pvals = fisher_pvals1)
+    all_res = data.frame(cluster = c("A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P")[1:cluster_num], truth = truthRes, noBC_pvals = betabin_noBC$pvals, wBC_pavls = betabin_wBC$pvals, betabin_pvals = betabin_wM$pvals, bin_pvals = bin_wM$pvals, fisher_pvals = fisher_pvals1)
     simulationDF = rbind(simulationDF, all_res)
     }
   simulationDF_list[[j]] = simulationDF
@@ -458,7 +458,7 @@ for (j in 1:simulation_time) {
     bin_wM = dcats_betabinRW(numb_cond1, numb_cond2, similarity_mat = simil_mat, n_samples = 50, binom_only = TRUE)
     ### fisher
     fisher_pvals1 = getFisher(numb_cond1, numb_cond2)
-    all_res = data.frame(cluster = c("A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L")[1:cluster_num], truth = truthRes, noBC_pvals = betabin_noBC$pvals, wBC_pvals = betabin_wBC$pvals, betabin_pvals = betabin_wM$pvals, bin_pvals = bin_wM$pvals, fisher_pvals = fisher_pvals1)
+    all_res = data.frame(cluster = c("A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P")[1:cluster_num], truth = truthRes, noBC_pvals = betabin_noBC$pvals, wBC_pvals = betabin_wBC$pvals, betabin_pvals = betabin_wM$pvals, bin_pvals = bin_wM$pvals, fisher_pvals = fisher_pvals1)
     simulationDF = rbind(simulationDF, all_res)
     }
   simulationDF_list[[j]] = simulationDF
@@ -582,7 +582,7 @@ for (j in 1:simulation_time) {
     bin_wM = dcats_betabinRW(numb_cond1, numb_cond2, similarity_mat = simil_mat, n_samples = 50, binom_only = TRUE)
     ### fisher
     fisher_pvals1 = getFisher(numb_cond1, numb_cond2)
-    all_res = data.frame(cluster = c("A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L")[1:cluster_num], truth = truthRes, noBC_pvals = betabin_noBC$pvals, wBC_pvals = betabin_wBC$pvals, betabin_pvals = betabin_wM$pvals, bin_pvals = bin_wM$pvals, fisher_pvals = fisher_pvals1)
+    all_res = data.frame(cluster = c("A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P")[1:cluster_num], truth = truthRes, noBC_pvals = betabin_noBC$pvals, wBC_pvals = betabin_wBC$pvals, betabin_pvals = betabin_wM$pvals, bin_pvals = bin_wM$pvals, fisher_pvals = fisher_pvals1)
     simulationDF = rbind(simulationDF, all_res)
     }
   simulationDF_list[[j]] = simulationDF
@@ -737,22 +737,44 @@ DimPlot(seuratObj, reduction = "umap", group.by = "orig.ident")
 If change the order of cluster to sample, the total proportion might not follow the dirichlet distribution as we thought!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 ```{r}
-cluster_num = 10  # numbers of clusters
-concentration = 140 # indicate how simulated proportion far away from true, the larger the closer
-setresolu = 1.4
+cluster_num = 8  # numbers of clusters
+concentration = 90 # indicate how simulated proportion far away from true, the larger the closer
+setresolu = 0.8
 rep1 = 3
 rep2 = 2
-simulation_times = 20
-sample_size1 = 700
-sample_size2 = 1000
+simulation_times = 50
+sample_size1 = 1000
+sample_size2 = 1500
 cell_pool = "splatter"  # cell pool used, can be selected from ("SPAR", "splatter", "realWorld")
 more_negative = ""
 ```
 
 ```{r}
-probC1 = c(rep(0.1, 5), 0.05, 0.05, 0.05, 0.1, 0.15, 0.05, 0.05)  # True proportions
-probC2 = c(rep(0.1, 10), 0.05, 0.05)
-truthRes = c(rep("N", 5), rep("P", 5), "N", "N")
+## cluster num == 8
+probC1 = c(rep(0.1, 6), 0.2, 0.2)  # True proportions
+probC2 = c(rep(0.1, 3), 0.05, 0.15, 0.2, 0.2, 0.1)
+truthRes = c(rep("N", 3), rep("P", 3), "N", "P")
+```
+
+```{r}
+## cluster num == 10
+probC1 = c(rep(0.1, 5), 0.05, 0.05, 0.05, 0.1, 0.15)  # True proportions
+probC2 = c(rep(0.1, 10))
+truthRes = c(rep("N", 5), rep("P", 5))
+```
+
+```{r}
+## cluster num == 12
+probC1 = c(rep(0.1, 4), 0.05, 0.05, 0.05, 0.15, 0.05, 0.05, 0.1, 0.1)  # True proportions
+probC2 = c(rep(0.1, 8), rep(0.05, 4))
+truthRes = c(rep("N", 4), rep("P", 4), "N", "N", "P", "P")
+```
+
+```{r}
+## cluster num == 14
+probC1 = c(rep(0.1, 2), rep(0.05, 8), rep(0.1, 4))  # True proportions
+probC2 = c(rep(0.1, 6), rep(0.05, 8))
+truthRes = c(rep("N", 2), rep("P", 4), rep("N", 4), rep("P", 4))
 ```
 
 ```{r, message=FALSE, warning=FALSE}
@@ -823,11 +845,13 @@ true_countL = vector(mode = "list", length = simulation_times) # list contains t
 seurat_countL = vector(mode = "list", length = simulation_times) # list contains the count table of each cluster defined by seurat
 knn_matrixL = vector(mode = "list", length = simulation_times) # list contains the knn matrix getting from each simulation
 true_matrixL = vector(mode = "list", length = simulation_times) # list contains the true similarity matrix getting from each simulation
+rf_matrixL = vector(mode = "list", length = simulation_times) # list contains the knn matrix getting from each simulation
+svm_matrixL = vector(mode = "list", length = simulation_times) # list contains the true similarity matrix getting from each simulation
 
 set.seed(123)
 for (sim in 1:simulation_times){
   print(sim)
-  timeL = rep(NA, 8) # DCATS w/wto simularity matrix, fisher, speckle, diffcyt, scDC
+  timeL = rep(NA, 8) # DCATS w/wto similarity matrix, fisher, speckle, diffcyt, scDC
   ## simulation
   simulation = simulator_fastMNN(totals1 = runif(rep1, sample_size1, sample_size2), totals2 = runif(rep2, sample_size1, sample_size2), probC1, probC2, setresolu, sim_mat)
   if (is.na(simulation)[1] == FALSE){
@@ -848,8 +872,8 @@ for (sim in 1:simulation_times){
       column_to_rownames(var = "batch")
     numb_cond1[is.na(numb_cond1)] <- 0
     numb_cond2[is.na(numb_cond2)] <- 0
-    conf.mat<-table(simulation$trueLabels, Idents(simulation$integratedSamples))
-    true.conf<-t(t(conf.mat)/apply(conf.mat,2,sum))
+    conf.mat <- table(simulation$trueLabels, Idents(simulation$integratedSamples))
+    true.conf <- conf.mat/rowSums(conf.mat)
     library(clue)
     order2 = as.vector(solve_LSAP(true.conf, maximum = TRUE))
     L_sum1 = colSums(numb_cond1)
@@ -867,7 +891,7 @@ for (sim in 1:simulation_times){
       simil_matK = knn_mat[order1, order1]
       knn_matrixL[[sim]] = simil_matK
       ### True matrix
-      simil_matT = true.conf[order2,]
+      simil_matT = true.conf[,order2]
       true_matrixL[[sim]] = simil_matT
       ### Uniform matrix
       simil_matU = get_similarity_mat(cluster_num, confuse_rate=0.1)
@@ -884,6 +908,8 @@ for (sim in 1:simulation_times){
       t8start = Sys.time()
       simil_matSVM = get_similarity_matRW(method = "svm", df = mlDF)
       timeL[8] = Sys.time() - t8start
+      rf_matrixL[[sim]] = simil_matRF
+      svm_matrixL[[sim]] = simil_matSVM
       
       ## Test
       ### DCATS---betabinLRT
@@ -963,21 +989,28 @@ for (sim in 1:simulation_times){
 }
 
 ## send email after finishing
-#sendEmail('Simulation is done!!')
+sendEmail('Simulation is done!!')
 
-file_name = str_c("./data/simulationRES/replicates", as.character(rep1), "&", as.character(rep2), "_K", as.character(cluster_num), "_con", as.character(concentration), "_", cell_pool, more_negative, ".RData")
+file_name = str_c("./data/simulationRES/replicates", as.character(rep1), "&", as.character(rep2), "_K", as.character(cluster_num), "_con", as.character(concentration), "_", cell_pool, more_negative, sample_size1, "&", sample_size2, ".RData")
 colnames(time) = c("DCATS_wtoM", "DCATS_wM", "fisher", "speckle", "diffcyt", "scDC", "rfM", "svmM")
 save(simulationDF, time, true_countL, seurat_countL, knn_matrixL, true_matrixL, file = file_name)
-head(simulationDF)
+head(simulationDF, 15)
+```
+
+```{r}
+file_name = str_c("./data/simulationRES/replicates", as.character(rep1), "&", as.character(rep2), "_K", as.character(cluster_num), "_con", as.character(concentration), "_", cell_pool, more_negative, sample_size1, "&", sample_size2, ".RData")
+colnames(time) = c("DCATS_wtoM", "DCATS_wM", "fisher", "speckle", "diffcyt", "scDC", "rfM", "svmM")
+save(simulationDF, time, true_countL, seurat_countL, knn_matrixL, true_matrixL, file = file_name)
+head(simulationDF, 15)
 ```
 
 Test for one simulation
 
 ```{r}
-simil_matT %>% print()
-simil_matK %>% print()
-simil_matRF %>% print()
-simil_matSVM %>% print()
+knn_matrixL[[1]] %>% print()
+true_matrixL[[1]] %>% print()
+rf_matrixL[[1]] %>% print()
+svm_matrixL[[1]] %>% print()
 simSeuratOj = simulation$integratedSamples
 simSeuratOj[['orig.ident']] = simulation$trueLabels
 DimPlot(simSeuratOj, reduction = "umap", group.by = "orig.ident") %>% print()
@@ -1016,6 +1049,28 @@ res = data.frame(methods = methods, mcc = mcc, auc = auc, sensitivity = sensitiv
   arrange(desc(mcc)) %>% 
   #filter(methods == "betabin_wMK" | methods == "diffcyt" | methods == "speckle" | methods == "fisher" | methods == "scDC")
 print(res)
+```
+
+```{r}
+simulationDF %>% 
+  filter(cluster %in% c("A", "B", "C", "D", "E", "F")) %>% 
+  pivot_longer(betabin_noBC_pvals:diffcyt_pvals, names_to = "methods", values_to = "pvals") %>% 
+  mutate(methods = str_remove(methods, "_pvals")) %>% 
+  ggplot(aes(x = methods, y = pvals)) + 
+  geom_boxplot() + 
+  theme(axis.text.x = element_text(angle = 45)) + 
+  facet_grid(.~cluster)
+```
+
+```{r}
+simulationDF %>% 
+  filter(cluster %in% c("G", "H", "I", "J", "K", "L")) %>% 
+  pivot_longer(betabin_noBC_pvals:diffcyt_pvals, names_to = "methods", values_to = "pvals") %>% 
+  mutate(methods = str_remove(methods, "_pvals")) %>% 
+  ggplot(aes(x = methods, y = pvals)) + 
+  geom_boxplot() + 
+  theme(axis.text.x = element_text(angle = 45)) + 
+  facet_grid(.~cluster)
 ```
 
 Check the time cost for each test and calculating rf/svm confusion matrices
