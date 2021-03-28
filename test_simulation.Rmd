@@ -737,14 +737,14 @@ DimPlot(seuratObj, reduction = "umap", group.by = "orig.ident")
 If change the order of cluster to sample, the total proportion might not follow the dirichlet distribution as we thought!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 ```{r}
-cluster_num = 8  # numbers of clusters
-concentration = 100 # indicate how simulated proportion far away from true, the larger the closer
-setresolu = 0.8
-rep1 = 5
-rep2 = 4
-simulation_times = 50
-sample_size1 = 1000
-sample_size2 = 1500
+cluster_num = 12  # numbers of clusters
+concentration = 160 # indicate how simulated proportion far away from true, the larger the closer
+setresolu = 1
+rep1 = 3
+rep2 = 2
+simulation_times = 30
+sample_size1 = 1500
+sample_size2 = 1800
 cell_pool = "splatter"  # cell pool used, can be selected from ("SPAR", "splatter", "realWorld")
 more_negative = ""
 ```
