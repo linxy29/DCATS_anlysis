@@ -18,7 +18,7 @@ library(tidyverse)
 ```{r,eval=FALSE}
 ## simulate cells pool setting
 set.seed(123)
-cluster_num = 12
+cluster_num = 8
 prob = rep(1/cluster_num, cluster_num)
 batch_size = cluster_num * 1500
 de_prob = rep(NA, cluster_num)

@@ -71,7 +71,7 @@ sample_size2 = 2000
 ```{r}
 cluster_num = 3  # numbers of clusters
 concentration = 70 # indicate how simulated proportion far away from true, the larger the closer
-rep1 = 2
+rep1 = 3
 rep2 = 3
 simulation_times = 50
 simulation_size = 50
@@ -298,8 +298,8 @@ sendEmail("Simulation is done!!")
 
 ```{r, eval=FALSE}
 ## plots for lab meeting
-colnames(numb_cond1) = c("A", "B", "C", "D", "E", "F", "G",)
-cond1DF = numb_cond1[1:4,] %>% as.data.frame() %>% 
+colnames(numb_cond1) = c("A", "B", "C")
+cond1DF = numb_cond1 %>% as.data.frame() %>% 
   rownames_to_column("rep") %>% 
   mutate(rep = str_c("rep", rep),
          cond = "cond1",
@@ -328,8 +328,10 @@ LM_plot1 = condDF %>%
   ggplot(aes(x = rep, y = prop, fill = cluster))+
   geom_bar(stat="identity") + 
   coord_flip() + 
-  facet_grid(. ~ cond)
-ggsave("LM_plot1.png", plot = LM_plot1)
+  facet_grid(. ~ cond) +
+  xlab("Replicates") +
+  ylab("Proportions")
+ggsave("C:/#Code/R/slides/image/RPG_discussion/dcats_background.png", plot = LM_plot1, bg = "transparent", width = 7, height = 3.5)
 ```
 
 ```{r, eval=FALSE}

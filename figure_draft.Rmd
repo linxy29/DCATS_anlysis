@@ -2,8 +2,14 @@
 title: "Figures Draft"
 author: "Xinyi Lin"
 date: "3/26/2021"
-output: html_document
+output:
+  pdf_document: default
+  html_document: default
 ---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
 
 ```{r,message=FALSE,warning=FALSE}
 library(splatter)
@@ -14,6 +20,7 @@ library(ggplot2)
 library(tidyverse)
 library(MCMCpack)
 library(pROC)
+library(patchwork)
 ```
 
 ```{r}
@@ -22,7 +29,18 @@ options(future.globals.maxSize = 20000 * 1024^2) # 20G memory
 ```
 
 ```{r}
-theme_set(theme_minimal())
+theme_set(theme_classic()+
+    theme(panel.border = element_blank(),
+          legend.key = element_blank(),
+          axis.ticks = element_blank(),
+          panel.grid = element_blank(),
+          panel.grid.minor = element_blank(), 
+          panel.grid.major = element_blank(),
+          panel.background = element_blank(),
+          legend.background = element_blank(),
+          plot.background = element_rect(fill = "transparent",colour = NA))+
+      theme(axis.text=element_text(size=12),
+        axis.title=element_text(size=14)))
 ```
 
 ```{r}
@@ -37,24 +55,179 @@ sample_size2 = 2000
 ```
 
 ```{r}
-probC1 = c(1/3, 1/3, 1/3)  # True proportions
-probC2 = c(1/3, 1/2, 1/6)
-truthRes = c("N", "P", "P")
+if (cluster_num == 3){
+  probC1 = c(1/3, 1/3, 1/3)  # True proportions
+  probC2 = c(1/3, 1/2, 1/6)
+  truthRes = c("N", "P", "P")
+  } else if (cluster_num == 5){
+    #probC1 = c(0.2, 0.2, 0.1, 0.3, 0.2)
+    #probC2 = c(0.2, 0.2, 0.1, 0.15, 0.35)
+    #truthRes = c("N", "N", "N", "P", "P")
+    probC1 = c(0.2, 0.2, 0.2, 0.3, 0.1)
+    probC2 = c(0.2, 0.2, 0.35, 0.15, 0.1)
+    truthRes = c("N", "N", "P", "P", "N")
+  }
 ```
 
 ## Figure A
 
-```{r, warning=FALSE}
+confusion matrix
+
+![Figure A-1](./data/PictureA-1.png)
+
+![Figure A-1](./data/PictureA-1-5.png)
+```{r, warning=FALSE, message=FALSE}
+set.seed(123)
+
+simulationDF_list = vector(mode = "list", length = simulation_times)
+for (sim in 1:simulation_times) {
+  simulationDF = data.frame()
+  for (simsim in 1:simulation_size){
+    ## create confusion matrix that is not uniformly distributed
+    #simil_mat = get_similarity_mat(cluster_num, confuse_rate=0)
+    simil_mat = matrix(c(1, 0, 0, 0, 0.7, 0.3, 0, 0.3, 0.7), ncol = 3)
+    #simil_mat[5,5] = 0.6
+    #simil_mat[5,3] = 0.4
+    #simil_mat[3,5] = 0.4
+    #simil_mat[3,3] = 0.6
+    
+    ## Data generation part
+    totals1 = ceiling(runif(rep1, sample_size1, sample_size2))
+    totals2 = ceiling(runif(rep2, sample_size1, sample_size2))
+    diri_s1 = probC1 * concentration
+    diri_s2 = probC2 * concentration
+    sim_dat <- DCATS::simulator_base(totals1, totals2, diri_s1, diri_s2, simil_mat)
+    numb_cond1 = as.matrix(sim_dat$numb_cond1)
+    numb_cond2 = as.matrix(sim_dat$numb_cond2)
+    
+    ## Test part 1
+    ### DCATS
+    dcats_res1 = betabinLRT_rw(numb_cond1, numb_cond2, bias_corr = FALSE)
+    ### fisher
+    fisher_pvals1 = getFisher(numb_cond1, numb_cond2)
+    
+    ## Bias Correction
+    numb_cond1BC = numb_cond1
+    numb_cond2BC = numb_cond2
+    for (i in seq_len(nrow(numb_cond1))) {
+      numb_cond1BC[i, ] <- sum(numb_cond1[i, ]) * multinom_EM(numb_cond1[i, ], simil_mat, verbose = FALSE)$mu
+      numb_cond1BC[i, ] = ceiling(numb_cond1BC[i, ])}
+    for (i in seq_len(nrow(numb_cond2))) {
+      numb_cond2BC[i, ] <- sum(numb_cond2[i, ]) * multinom_EM(numb_cond2[i, ], simil_mat, verbose = FALSE)$mu
+      numb_cond2BC[i, ] = ceiling(numb_cond2BC[i, ])}
+    
+    ## Test part 2
+    ### DCATS
+    dcats_res2 = betabinLRT_rw(numb_cond1BC, numb_cond2BC, bias_corr = FALSE)
+    ### fisher
+    fisher_pvals2 = getFisher(numb_cond1BC, numb_cond2BC)
+    
+    all_res = data.frame(cluster = c("A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L")[1:cluster_num], truth = truthRes) %>%
+      mutate(dcats_wtoBC = dcats_res1$pvals,
+             fisher_wtoBC = fisher_pvals1,
+             dcats_withBC = dcats_res2$pvals,
+             fisher_withBC = fisher_pvals2)
+    
+    simulationDF = rbind(simulationDF, all_res)}
+  simulationDF_list[[sim]] = simulationDF
+}
+
+#file_name = str_c("./data/simulationRES/replicates", as.character(rep1), "&", as.character(rep2), "_K", as.character(cluster_num), "_con", as.character(concentration), "_countSim.RData")
+#save(simulationDF_list, file = file_name)
+
+## send email after finishing
+sendEmail("Simulation is done!!")
+```
+
+```{r}
+evaluationDF = data.frame()
+len = length(simulationDF_list)
+for (j in 1:len){
+  simulationDF = simulationDF_list[[j]] %>% na.omit()
+  method = colnames(simulationDF)[3:dim(simulationDF)[2]]
+  numb_mthd = length(method)
+  sensitivity = rep(NA, numb_mthd)
+  specificity = rep(NA, numb_mthd)
+  mcc = rep(NA, numb_mthd)
+  auc = rep(NA, numb_mthd)
+  F1 = rep(NA, numb_mthd)
+  truth = simulationDF$truth
+  for (i in 3:dim(simulationDF)[2]){
+    pred = simulationDF[, i]
+    pred_res = ifelse(pred < 0.05, "P", "N")
+    TP <- sum(pred_res=="P"&truth=="P")
+    TN <- sum(pred_res=="N"&truth=="N")
+    FP <- sum(pred_res=="P"&truth=="N")
+    FN <- sum(pred_res=="N"&truth=="P")
+    truthN = TN + FP
+    truthP = FN + TP
+    predP = TP + FP
+    predN = FN + TN
+    sensitivity[i-2] = TP/truthP
+    specificity[i-2] = TN/truthN
+    mcc[i-2] = (TP*TN-FP*FN)/sqrt(predP*truthP*truthN*predN)
+    auc = getROC(truth, pred)$auc
+    F1 = 2*TP/(2*TP+FP+FN)
+    
+    res = data.frame(trial = as.character(j), method = method, sensitivity = sensitivity, specificity = specificity, mcc = mcc, auc = auc, F1 = F1)
+    }
+    evaluationDF = rbind(evaluationDF, res)
+}
+```
+
+```{r}
+evaluationDF %>% 
+  tidyr::separate(method, c("method", "condition"), sep = "_") %>% 
+  pivot_longer(
+    sensitivity:specificity,
+    names_to = "statistics", 
+    values_to = "value") %>% 
+  ggplot(aes(x = statistics, y = value, color = method)) + geom_boxplot() + facet_grid(.~condition)
+  #ggplot(aes(x = statistics, y = value, color = method)) + geom_boxplot()
+```
+
+```{r}
+evaluationDF %>% 
+  tidyr::separate(method, c("method", "condition"), sep = "_") %>% 
+  dplyr::select(-sensitivity, -specificity) %>% 
+  ggplot(aes(x = condition, y = mcc, color = method)) + geom_boxplot()
+ggsave("C:/#Code/R/slides/image/RPG_discussion/dcats_result1.png", bg = "transparent")
+```
+
+```{r}
+cluster_num = 5  # numbers of clusters
+concentration = 70 # indicate how simulated proportion far away from true, the larger the closer
+rep1 = 2
+rep2 = 3
+simulation_times = 50
+simulation_size = 50
+sample_size1 = 1000
+sample_size2 = 2000
+```
+
+```{r}
+if (cluster_num == 3){
+  probC1 = c(1/3, 1/3, 1/3)  # True proportions
+  probC2 = c(1/3, 1/2, 1/6)
+  truthRes = c("N", "P", "P")
+  } else if (cluster_num == 5){
+    probC1 = c(0.2, 0.2, 0.05, 0.3, 0.25)
+    probC2 = c(0.2, 0.2, 0.05, 0.2, 0.35)
+    truthRes = c("N", "N", "N", "P", "P")
+  }
+```
+
+```{r, warning=FALSE, message=FALSE}
 set.seed(123)
 simulationDF = data.frame()
 for (i in 1:simulation_size){
   ## create confusion matrix that is not uniformly distributed
-  #simil_mat = get_similarity_mat(cluster_num, confuse_rate=0)
-  simil_mat = matrix(c(1, 0, 0, 0, 0.7, 0.3, 0, 0.3, 0.7), ncol = 3)
-  #simil_mat[5,5] = 0.6
-  #simil_mat[5,3] = 0.4
-  #simil_mat[3,5] = 0.4
-  #simil_mat[3,3] = 0.6
+  simil_mat = get_similarity_mat(cluster_num, confuse_rate=0)
+  #simil_mat = matrix(c(1, 0, 0, 0, 0.7, 0.3, 0, 0.3, 0.7), ncol = 3)
+  simil_mat[5,5] = 0.7
+  simil_mat[5,4] = 0.3
+  simil_mat[4,5] = 0.3
+  simil_mat[4,4] = 0.7
   ## Data generation part
   totals1 = ceiling(runif(rep1, sample_size1, sample_size2))
   totals2 = ceiling(runif(rep2, sample_size1, sample_size2))
@@ -87,8 +260,8 @@ for (i in 1:simulation_size){
   fisher_pvals2 = getFisher(numb_cond1BC, numb_cond2BC)
   
   all_res = data.frame(cluster = c("A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L")[1:cluster_num], truth = truthRes) %>%
-    mutate(dcats_noBC = dcats_res1$pvals,
-           fisher_noBC = fisher_pvals1,
+    mutate(dcats_wtoBC = dcats_res1$pvals,
+           fisher_wtoBC = fisher_pvals1,
            dcats_withBC = dcats_res2$pvals,
            fisher_withBC = fisher_pvals2)
   
@@ -98,14 +271,14 @@ for (i in 1:simulation_size){
 ### plot
 
 ```{r}
-dcats_noBC_ROCobj = getROC(simulationDF$truth, simulationDF$dcats_noBC)
-fisher_noBC_ROCobj = getROC(simulationDF$truth, simulationDF$fisher_noBC)
+dcats_noBC_ROCobj = getROC(simulationDF$truth, simulationDF$dcats_wtoBC)
+fisher_noBC_ROCobj = getROC(simulationDF$truth, simulationDF$fisher_wtoBC)
 dcats_withBC_ROCobj = getROC(simulationDF$truth, simulationDF$dcats_withBC)
 fisher_withBC_ROCobj = getROC(simulationDF$truth, simulationDF$fisher_withBC)
 
 size = nrow(dcats_noBC_ROCobj$df)
 res = rbind(dcats_noBC_ROCobj$df, fisher_noBC_ROCobj$df, dcats_withBC_ROCobj$df, fisher_withBC_ROCobj$df) %>% 
-  mutate(method = c(rep("dcats_noBC", size), rep("fisher_noBC", size), rep("dcats_withBC", size), rep("fisher_withBC", size)),
+  mutate(method = c(rep("DCATS_wtoBC", size), rep("Fisher_wtoBC", size), rep("DCATS_withBC", size), rep("Fisher_withBC", size)),
          index = rep(1:size, 4)) %>% 
   tidyr::separate(method, c("method", "condition"), sep = "_")
 
@@ -122,12 +295,218 @@ print(plotF1)
 
 ## Figure B
 
-## Different number of replicates
+### Different number of replicates
 
 ```{r}
 ## cluster number = 8
-simulationDF_all = data.frame()
-load("./data/simulationRES/replicates3&2_K8_con90_splatter1000&1500.RData")
-simulationDF_all = 
+filenames = list.files("./data/simulationRES/replicates", pattern = ".1000&1500.", full.names = TRUE)
+```
+
+```{r}
+res_all = data.frame()
+
+for (file in filenames) {
+  load(file)
+  simulationDF = simulationDF %>% na.omit()
+  method = colnames(simulationDF)[3:dim(simulationDF)[2]] %>% str_remove("_pvals")
+  numb_mthd = length(method)
+  mcc = rep(NA, numb_mthd)
+  auc = rep(NA, numb_mthd)
+  F1 = rep(NA, numb_mthd)
+  sensitivity = rep(NA, numb_mthd)
+  specificity = rep(NA, numb_mthd)
+  truth = simulationDF$truth
+  for (i in 3:dim(simulationDF)[2]){
+    auc[i-2] = getROC(simulationDF$truth, simulationDF[,i])$auc
+    pred = simulationDF[, i]
+    pred_res = ifelse(pred < 0.05, "P", "N")
+    TP <- sum(pred_res=="P"&truth=="P")
+    TN <- sum(pred_res=="N"&truth=="N")
+    FP <- sum(pred_res=="P"&truth=="N")
+    FN <- sum(pred_res=="N"&truth=="P")
+    truthN = TN + FP
+    truthP = FN + TP
+    predP = TP + FP
+    predN = FN + TN
+    mcc[i-2] = (TP*TN-FP*FN)/sqrt(predP*truthP*truthN*predN)
+    F1[i-2] = 2*TP/(2*TP+FP+FN)
+    sensitivity[i-2] = TP/truthP
+    specificity[i-2] = TN/truthN
+}
+  res = data.frame(method = method, mcc = mcc, auc = auc, sensitivity = sensitivity, specificity = specificity, F1 = F1) %>% 
+    mutate(replicates = str_extract(file, "\\d&\\d"))
+  res_all = rbind(res_all, res)
+}
+```
+
+```{r, warning=FALSE}
+p1 = res_all %>% 
+  filter(method == "betabin_wMU" | method == "speckle" | method == "diffcyt" | method == "fisher" | method == "scDC") %>%
+  mutate(method = ifelse(method == "betabin_wMU", "DCATS", method),
+         method = ifelse(method == "fisher", "Fisher", method)) %>% 
+  ggplot(aes(x = replicates, y = mcc, color = method, group = method)) + 
+  geom_point(shape = 0) +
+  geom_line()+
+  xlab("# of Replicates") +
+  theme(legend.position = "none")
+```
+
+```{r}
+p2 = res_all %>% 
+  filter(method == "betabin_wMK" | method == "speckle" | method == "diffcyt" | method == "fisher" | method == "scDC") %>%
+  mutate(method = ifelse(method == "betabin_wMK", "DCATS", method),
+         method = ifelse(method == "fisher", "Fisher", method)) %>% 
+  dplyr::select(method, sensitivity, specificity, replicates) %>% 
+  pivot_longer(
+    sensitivity:specificity,
+    names_to = "statistics", 
+    values_to = "value") %>% 
+  ggplot(aes(x = replicates, y = value, color = method, group = method)) + 
+  geom_point(shape = 0) +
+  geom_line()+
+  xlab("# of Replicates") +
+  theme(legend.position = "none") + 
+  facet_grid(.~statistics)
+```
+
+Try to use heatmap
+
+```{r}
+pH1 = res_all %>% 
+  filter(method == "betabin_wMU" | method == "speckle" | method == "diffcyt" | method == "fisher" | method == "scDC") %>%
+  mutate(method = ifelse(method == "betabin_wMU", "DCATS", method),
+         method = ifelse(method == "fisher", "Fisher", method),
+         method = factor(method, level = c("Fisher", "scDC", "speckle", "diffcyt", "DCATS"))) %>% 
+  arrange(desc(mcc)) %>% 
+  dplyr::select(method, mcc, replicates) %>% 
+  ggplot(aes(replicates, method)) +
+    geom_tile(aes(fill = mcc)) + 
+    geom_text(aes(label = round(mcc, 3))) +
+    scale_fill_gradient(low = "white", high = "red", limits = c(0.2,0.8)) +
+  xlab("# of Replicates") +
+  theme(legend.position = "none")
+pH1
+```
+
+```{r}
+res_all %>% 
+  filter(method == "betabin_wMU" | method == "betabin_wMU" | method == "diffcyt" | method == "betabin_wMU" | method == "speckle" | method == "diffcyt" | method == "fisher" | method == "scDC")
+```
+
+### Different number of cell types
+
+```{r}
+## cluster number = 8
+filenames = list.files("./data/simulationRES/clusters", pattern = "replicates3.", full.names = TRUE)
+```
+
+```{r}
+res_all = data.frame()
+
+for (file in filenames) {
+  load(file)
+  simulationDF = simulationDF %>% na.omit()
+  method = colnames(simulationDF)[3:dim(simulationDF)[2]] %>% str_remove("_pvals")
+  numb_mthd = length(method)
+  mcc = rep(NA, numb_mthd)
+  auc = rep(NA, numb_mthd)
+  auprc = rep(NA, numb_mthd)
+  sensitivity = rep(NA, numb_mthd)
+  specificity = rep(NA, numb_mthd)
+  truth = simulationDF$truth
+  for (i in 3:dim(simulationDF)[2]){
+    auc[i-2] = getROC(simulationDF$truth, simulationDF[,i])$auc
+    pred = simulationDF[, i]
+    pred_res = ifelse(pred < 0.05, "P", "N")
+    TP <- sum(pred_res=="P"&truth=="P")
+    TN <- sum(pred_res=="N"&truth=="N")
+    FP <- sum(pred_res=="P"&truth=="N")
+    FN <- sum(pred_res=="N"&truth=="P")
+    truthN = TN + FP
+    truthP = FN + TP
+    predP = TP + FP
+    predN = FN + TN
+    mcc[i-2] = (TP*TN-FP*FN)/sqrt(predP*truthP*truthN*predN)
+    auprc[i-2] = binaryROC(pred, truth, cut_direction = "<")$AUPRC
+    sensitivity[i-2] = TP/truthP
+    specificity[i-2] = TN/truthN
+}
+  res = data.frame(method = method, mcc = mcc, auc = auc, sensitivity = sensitivity, specificity = specificity) %>% 
+    mutate(clustersN = str_extract(file, "K\\d\\d"))
+  res_all = rbind(res_all, res)
+}
+```
+
+```{r, warning=FALSE}
+p3 = res_all %>% 
+  mutate(clustersN = ifelse(is.na(clustersN), "K8", clustersN),
+         clustersN = str_remove(clustersN, "K"),
+         clustersN = factor(clustersN, levels = c("8", "10", "12"))) %>% 
+  filter(method == "betabin_wMK" | method == "speckle" | method == "diffcyt" | method == "fisher" | method == "scDC") %>%
+  mutate(method = ifelse(method == "betabin_wMK", "DCATS", method),
+         method = ifelse(method == "fisher", "Fisher", method)) %>% 
+  ggplot(aes(x = clustersN, y = mcc, color = method, group = method)) + 
+  geom_point(shape = 0) +
+  geom_line()+
+  xlab("# of Cell Types")
+```
+
+```{r}
+p4 = res_all %>% 
+  mutate(clustersN = ifelse(is.na(clustersN), "K8", clustersN),
+         clustersN = str_remove(clustersN, "K"),
+         clustersN = factor(clustersN, levels = c("8", "10", "12"))) %>% 
+  filter(method == "betabin_wMK" | method == "speckle" | method == "diffcyt" | method == "fisher" | method == "scDC") %>%
+  mutate(method = ifelse(method == "betabin_wMK", "DCATS", method),
+         method = ifelse(method == "fisher", "Fisher", method)) %>% 
+  dplyr::select(method, sensitivity, specificity, clustersN) %>% 
+  pivot_longer(
+    sensitivity:specificity,
+    names_to = "statistics", 
+    values_to = "value") %>% 
+  ggplot(aes(x = clustersN, y = value, color = method, group = method)) + 
+  geom_point(shape = 0) +
+  geom_line()+
+  xlab("# of Cell Types") +
+  facet_grid(.~statistics)
+```
+
+```{r}
+pH2 = res_all %>% 
+  mutate(clustersN = ifelse(is.na(clustersN), "K8", clustersN),
+         clustersN = str_remove(clustersN, "K"),
+         clustersN = factor(clustersN, levels = c("8", "10", "12"))) %>% 
+  filter(method == "betabin_wMK" | method == "speckle" | method == "diffcyt" | method == "fisher" | method == "scDC") %>%
+  mutate(method = ifelse(method == "betabin_wMK", "DCATS", method),
+         method = ifelse(method == "fisher", "Fisher", method),
+         method = factor(method, level = c("Fisher", "scDC", "speckle", "diffcyt", "DCATS"))) %>% 
+  ggplot(aes(clustersN, method)) +
+    geom_tile(aes(fill = mcc)) + 
+    geom_text(aes(label = round(mcc, 3))) +
+    scale_fill_gradient(low = "white", high = "red", limits = c(0.2,0.8))+
+  xlab("# of Cell Types") +
+  theme(axis.text.y = element_blank(),
+        axis.title.y = element_blank(),
+        panel.grid.minor.y = element_blank())
+
+#ggsave("C:/#Code/R/slides/image/RPG_discussion/test.png", bg = "transparent")
+pH2
+```
+
+```{r}
+p1+p3
+p2+p4
+pH1+pH2
+```
+
+```{r, eval=FALSE}
+pH1+pH2
+ggsave("C:/#Code/R/slides/image/RPG_discussion/dcats_result1.png", bg = "transparent")
+```
+
+## Figure C
+
+```{r}
+
 ```
 

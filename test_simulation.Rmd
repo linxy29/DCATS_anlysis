@@ -680,71 +680,17 @@ library(MCMCpack)
 library(scdney)
 ```
 
-```{r, eval=FALSE}
-set.seed(123)
-gene_num = 100
-cell_num = 1000
-sim_matA = matrix(nrow = gene_num, ncol = cell_num)
-for (i in 1:gene_num) {
-  sim_matA[i,] = rnorm(cell_num, mean = i*2, sd = 4) %>% abs()
-}
-
-sim_matB = sim_matA
-for (i in 1:20) {
-  sim_matB[i,] = sim_matA[i,] + rnorm(cell_num, 4, 2)
-}
-
-sim_matC = sim_matA
-for (i in 20:40) {
-  sim_matC[i,] = sim_matA[i,] + rnorm(cell_num, 6, 2)
-}
-
-sim_matD = sim_matA
-for (i in 20:40) {
-  sim_matC[i,] = sim_matA[i,] + rnorm(cell_num, 6, 2)
-}
-
-sim_matE = sim_matA
-for (i in 20:40) {
-  sim_matC[i,] = sim_matA[i,] + rnorm(cell_num, 6, 2)
-}
-
-sim_matF = sim_matA
-for (i in 20:40) {
-  sim_matC[i,] = sim_matA[i,] + rnorm(cell_num, 6, 2)
-}
-
-sim_mat = cbind(sim_matA, sim_matB, sim_matC)
-colnames(sim_mat) = str_c("cell", as.character(1:(cell_num*3)))
-rownames(sim_mat) = str_c("gene", as.character(1:gene_num))
-origLabels = c(rep("clusterA", cell_num), rep("clusterB", cell_num), rep("clusterC", cell_num)) %>% as.factor()
-```
-
-```{r, eval=FALSE}
-seuratObj <- CreateSeuratObject(counts = sim_mat)
-Idents(seuratObj) = origLabels
-seuratObj <- NormalizeData(seuratObj, verbose = FALSE)
-seuratObj <- FindVariableFeatures(seuratObj, selection.method = "vst", nfeatures = 2000, verbose = FALSE)
-seuratObj <- ScaleData(seuratObj)
-seuratObj <- RunPCA(seuratObj, features = VariableFeatures(object = seuratObj))
-seuratObj <- FindNeighbors(seuratObj, dims = 1:20, verbose = FALSE)
-seuratObj <- FindClusters(seuratObj, resolution = 0.4, verbose = FALSE)
-seuratObj <- RunUMAP(seuratObj, dims = 1:20, verbose = FALSE)
-seuratObj[['orig.ident']] = origLabels
-DimPlot(seuratObj, reduction = "umap", group.by = "orig.ident")
-```
-
 If change the order of cluster to sample, the total proportion might not follow the dirichlet distribution as we thought!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 ```{r}
-cluster_num = 12  # numbers of clusters
-concentration = 160 # indicate how simulated proportion far away from true, the larger the closer
-setresolu = 1
-rep1 = 3
+cluster_num = 8  # numbers of clusters
+concentration = 100 # indicate how simulated proportion far away from true, the larger the closer
+setresolu = 0.8
+rep1 = 2
 rep2 = 2
-simulation_times = 30
-sample_size1 = 1500
-sample_size2 = 1800
+simulation_times = 50
+sample_size1 = 1200
+sample_size2 = 1500
 cell_pool = "splatter"  # cell pool used, can be selected from ("SPAR", "splatter", "realWorld")
 more_negative = ""
 ```
@@ -902,14 +848,8 @@ for (sim in 1:simulation_times){
         merge(simulation$dfRes, by = "cellID") %>% 
         dplyr::select(-cellID)
       set.seed(123)
-      t7start = Sys.time()
       simil_matRF = get_similarity_matRW(method = "rf", df = mlDF)
-      timeL[7] = Sys.time() - t7start
-      t8start = Sys.time()
       simil_matSVM = get_similarity_matRW(method = "svm", df = mlDF)
-      timeL[8] = Sys.time() - t8start
-      rf_matrixL[[sim]] = simil_matRF
-      svm_matrixL[[sim]] = simil_matSVM
       
       ## Test
       ### DCATS---betabinLRT
@@ -929,6 +869,7 @@ for (sim in 1:simulation_times){
       betabin_wMU = dcats_betabinRW(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = simil_matU, n_samples = 50, binom_only = FALSE)
       betabin_wMT = dcats_betabinRW(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = simil_matT, n_samples = 50, binom_only = FALSE)
       betabin_wMRF = dcats_betabinRW(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = simil_matRF, n_samples = 50, binom_only = FALSE)
+      timeL[2] = Sys.time() - t2start
       betabin_wMSVM = dcats_betabinRW(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = simil_matSVM, n_samples = 50, binom_only = FALSE)
       bin_wMK = dcats_betabinRW(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = simil_matK, n_samples = 50)
       bin_wMU = dcats_betabinRW(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = simil_matU, n_samples = 50)
