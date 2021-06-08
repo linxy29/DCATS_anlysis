@@ -17,7 +17,6 @@ library(tidyverse)
 
 ```{r,eval=FALSE}
 ## simulate cells pool setting
-set.seed(123)
 cluster_num = 8
 prob = rep(1/cluster_num, cluster_num)
 batch_size = cluster_num * 1500
@@ -32,7 +31,7 @@ setresolu = 0.5
 set.seed(123)
 #params = readRDS("./data/ovarian_params.rds")
 params = readRDS("./data/mnnCT7params.rds")
-param.groups <- setParams(params, batchCells = batch_size, nGenes = 1000)
+param.groups <- setParams(params, batchCells = batch_size*prob, nGenes = 1000)
 sim <- splatSimulateGroups(param.groups, group.prob = prob, de.prob = de_prob, de.facLoc = 0.01, verbose = FALSE)
 sim_mat <- counts(sim)
 origLabels = sim@colData@listData$Group

@@ -26,6 +26,15 @@ source("functionsV2.r")
 The 'group' column started with 'B' is the indicators of replicates
 
 ```{r}
+## save data as RData
+Haber2017 = list(svmDF = exp7DF, ctrl_Hpoly3 = ctrl_Hpoly3, ctrl_Hpoly10 = ctrl_Hpoly10, ctrl_Salma = ctrl_Salma, source = "A single-cell survey of the small intestinal epithelium")
+ctrl_Hpoly3 = list(numb_cond1 = as.matrix(numb_cond1), numb_cond2 = as.matrix(numb_cond2), svm_mat = svm_mat)
+ctrl_Hpoly10 = list(numb_cond1 = as.matrix(numb_cond1), numb_cond2 = as.matrix(numb_cond2), svm_mat = svm_mat)
+ctrl_Salma = list(numb_cond1 = as.matrix(numb_cond1), numb_cond2 = as.matrix(numb_cond2), svm_mat = svm_mat)
+save(Haber2017, file = "./data/real_world/Haber2017.RData")
+```
+
+```{r}
 exp7_data <- read.csv("./data/real_world/Exp7_Adam_2017/celltypelabels_Haber.txt", sep="") %>% 
   rownames_to_column("cell") %>% 
   separate(cell, c("batch", "barcode", "condition", "clusterRes"), sep = "_") 
@@ -132,6 +141,10 @@ scDCRes = scDCRes_temp[c(cluster_num+1,(dim(scDCRes_temp)[1]-cluster_num+2):dim(
 ```
 
 ```{r}
+all_res %>% arrange(betabin_wMU_pvals) %>% .$cluster
+```
+
+```{r}
 ## results
 all_res = data.frame(cluster = rownames(betabin_noBC), truth = c(rep("N", 7), "P")) %>% 
   mutate(betabin_noBC_pvals = betabin_noBC$pvals,
@@ -148,21 +161,22 @@ all_res = data.frame(cluster = rownames(betabin_noBC), truth = c(rep("N", 7), "P
          scDC_pvals = scDCRes$p.value) %>%
   merge(speckleRes, by = "cluster") %>% 
   mutate(betabin_noBC_Res = ifelse(betabin_noBC_pvals < 0.05, "P","N"),
-         #betabin_wBCU_Res = ifelse(betabin_wBCU_pvals < 0.05, "P","N"),
-         #betabin_wBCrf_Res = ifelse(betabin_wBCrf_pvals < 0.05, "P","N"),
-         #betabin_wBCsvm_Res = ifelse(betabin_wBCsvm_pvals < 0.05, "P","N"),
+         betabin_wBCU_Res = ifelse(betabin_wBCU_pvals < 0.05, "P","N"),
+         betabin_wBCrf_Res = ifelse(betabin_wBCrf_pvals < 0.05, "P","N"),
+         betabin_wBCsvm_Res = ifelse(betabin_wBCsvm_pvals < 0.05, "P","N"),
          betabin_wMU_Res = ifelse(betabin_wMU_pvals < 0.05, "P","N"),
-         #betabin_wMrf_Res = ifelse(betabin_wMrf_pvals < 0.05, "P","N"),
-         #betabin_wMsvm_Res = ifelse(betabin_wMsvm_pvals < 0.05, "P","N"),
-         #bin_wMU_Res = ifelse(bin_wMU_pvals < 0.05, "P","N"),
-         #bin_wMrf_Res = ifelse(bin_wMrf_pvals < 0.05, "P","N"),
-         #bin_wMsvm_Res = ifelse(bin_wMsvm_pvals < 0.05, "P","N"),
+         betabin_wMrf_Res = ifelse(betabin_wMrf_pvals < 0.05, "P","N"),
+         betabin_wMsvm_Res = ifelse(betabin_wMsvm_pvals < 0.05, "P","N"),
+         bin_wMU_Res = ifelse(bin_wMU_pvals < 0.05, "P","N"),
+         bin_wMrf_Res = ifelse(bin_wMrf_pvals < 0.05, "P","N"),
+         bin_wMsvm_Res = ifelse(bin_wMsvm_pvals < 0.05, "P","N"),
          fisher_Res = ifelse(fisher_pvals < 0.05, "P","N"),
          scDC_Res = ifelse(scDC_pvals < 0.05, "P","N"),
          speckle_Res = ifelse(speckle_pvals < 0.05, "P","N"))
 
 ResDF = all_res %>% 
   dplyr::select(contains("_Res"))
+  #dplyr::select(truth, contains("_Res"))
 
 methodL = str_replace(colnames(ResDF), "_Res", "")
 sensitivity = rep(NA, length(methodL))
@@ -306,6 +320,7 @@ all_res = data.frame(cluster = rownames(betabin_noBC), truth = c("N","P","N","P"
 
 ResDF = all_res %>% 
   dplyr::select(contains("_Res"))
+  #dplyr::select(truth, contains("_Res"))
 
 methodL = str_replace(colnames(ResDF), "_Res", "")
 sensitivity = rep(NA, length(methodL))
@@ -449,6 +464,7 @@ all_res = data.frame(cluster = rownames(betabin_noBC), truth = c("N","P","N","N"
 
 ResDF = all_res %>% 
   dplyr::select(contains("_Res"))
+  #dplyr::select(truth, contains("_Res"))
 
 methodL = str_replace(colnames(ResDF), "_Res", "")
 sensitivity = rep(NA, length(methodL))
@@ -749,6 +765,7 @@ rw3_clusterInfo %>%
   group_by(cluster) %>% 
   summarise(n = n())
 ```
+
 ```{r}
 pathL = list.files(path = "./data/real_world/Tikhonova_2019/raw_data", full.names = TRUE, recursive = FALSE)
 seuratObjL = vector(mode = "list")
@@ -1222,6 +1239,20 @@ resSumDF = data.frame(methodL = methodL, sensitivity = sensitivity, specificity 
 
 ## real-world data 5: Exp6-demuxlet
 
+```{r}
+## save data as demonstarate data
+Kang2017 = list(numb_cond1 = as.matrix(numb_cond1), numb_cond2 = as.matrix(numb_cond2), svm_mat = svm_mat, svmDF = exp6DF, source = "Multiplexed droplet single-cell RNA-sequencing using natural genetic variation")
+save(Kang2017, file = "./data/real_world/Kang2017.RData")
+```
+
+```{r}
+graphs = seurat_intg@graphs$RNA_snn
+labels = exp6DF$clusterRes
+knn_mat = KNN_transition(graphs, labels)
+order1 = colnames(numb_cond1)
+simil_matK = knn_mat[order1, order1]
+```
+
 ### one replicate version
 
 ```{r}
@@ -1259,6 +1290,7 @@ expression_matrix2 <- Read10X(data.dir = data_dir2)
 seuratObj2 = CreateSeuratObject(counts = expression_matrix2)
 seuratObj2 = AddMetaData(object = seuratObj2, metadata = rep("stim", dim(seuratObj2)[2]), col.name = 'sample')
 ```
+
 ```{r}
 seuratObjL = c(sub1 = seuratObj1, sub2 = seuratObj2)
 ```
@@ -1326,16 +1358,16 @@ fisher_pvals = getFisher(as.matrix(numb_cond1), as.matrix(numb_cond2))
 
 ```{r}
 all_res = data.frame(cluster = rownames(betabin_wMU), truth = rep("N", 8)) %>%
-  mutate(#betabin_wMU_pvals = betabin_wMU$pvals,
-         #betabin_wMrf_pvals = betabin_wMrf$pvals,
-         #betabin_wMsvm_pvals = betabin_wMsvm$pvals,
+  mutate(betabin_wMU_pvals = betabin_wMU$pvals,
+         betabin_wMrf_pvals = betabin_wMrf$pvals,
+         betabin_wMsvm_pvals = betabin_wMsvm$pvals,
          bin_wMU_pvals = bin_wMU$pvals,
          bin_wMrf_pvals = bin_wMrf$pvals,
          bin_wMsvm_pvals = bin_wMsvm$pvals,
          fisher_pvals = fisher_pvals) %>%
-  mutate(#betabin_wMU_Res = ifelse(betabin_wMU_pvals < 0.05, "P","N"),
-         #betabin_wMrf_Res = ifelse(betabin_wMrf_pvals < 0.05, "P","N"),
-         #betabin_wMsvm_Res = ifelse(betabin_wMsvm_pvals < 0.05, "P","N"),
+  mutate(betabin_wMU_Res = ifelse(betabin_wMU_pvals < 0.05, "P","N"),
+         betabin_wMrf_Res = ifelse(betabin_wMrf_pvals < 0.05, "P","N"),
+         betabin_wMsvm_Res = ifelse(betabin_wMsvm_pvals < 0.05, "P","N"),
          bin_wMU_Res = ifelse(bin_wMU_pvals < 0.05, "P","N"),
          bin_wMrf_Res = ifelse(bin_wMrf_pvals < 0.05, "P","N"),
          bin_wMsvm_Res = ifelse(bin_wMsvm_pvals < 0.05, "P","N"),
@@ -1380,6 +1412,8 @@ for (i in 1:length(methodL)) {
 
 resSumDF = data.frame(methodL = methodL, sensitivity = sensitivity, specificity = specificity)
 ```
+
+
 
 ### multiple replicates version
 
@@ -1471,15 +1505,15 @@ all_res = data.frame(cluster = rownames(betabin_noBC), truth = rep("N", 8)) %>%
          scDC_pvals = scDCRes$p.value) %>%
   merge(speckleRes, by = "cluster") %>% 
   mutate(betabin_noBC_Res = ifelse(betabin_noBC_pvals < 0.05, "P","N"),
-         #betabin_wBCU_Res = ifelse(betabin_wBCU_pvals < 0.05, "P","N"),
-         #betabin_wBCrf_Res = ifelse(betabin_wBCrf_pvals < 0.05, "P","N"),
-         #betabin_wBCsvm_Res = ifelse(betabin_wBCsvm_pvals < 0.05, "P","N"),
+         betabin_wBCU_Res = ifelse(betabin_wBCU_pvals < 0.05, "P","N"),
+         betabin_wBCrf_Res = ifelse(betabin_wBCrf_pvals < 0.05, "P","N"),
+         betabin_wBCsvm_Res = ifelse(betabin_wBCsvm_pvals < 0.05, "P","N"),
          betabin_wMU_Res = ifelse(betabin_wMU_pvals < 0.05, "P","N"),
-         #betabin_wMrf_Res = ifelse(betabin_wMrf_pvals < 0.05, "P","N"),
-         #betabin_wMsvm_Res = ifelse(betabin_wMsvm_pvals < 0.05, "P","N"),
-         #bin_wMU_Res = ifelse(bin_wMU_pvals < 0.05, "P","N"),
-         #bin_wMrf_Res = ifelse(bin_wMrf_pvals < 0.05, "P","N"),
-         #bin_wMsvm_Res = ifelse(bin_wMsvm_pvals < 0.05, "P","N"),
+         betabin_wMrf_Res = ifelse(betabin_wMrf_pvals < 0.05, "P","N"),
+         betabin_wMsvm_Res = ifelse(betabin_wMsvm_pvals < 0.05, "P","N"),
+         bin_wMU_Res = ifelse(bin_wMU_pvals < 0.05, "P","N"),
+         bin_wMrf_Res = ifelse(bin_wMrf_pvals < 0.05, "P","N"),
+         bin_wMsvm_Res = ifelse(bin_wMsvm_pvals < 0.05, "P","N"),
          fisher_Res = ifelse(fisher_pvals < 0.05, "P","N"),
          scDC_Res = ifelse(scDC_pvals < 0.05, "P","N"),
          speckle_Res = ifelse(speckle_pvals < 0.05, "P","N"))
@@ -1530,3 +1564,58 @@ print(resSumDF)
 all_res %>% 
   dplyr::select(cluster, truth, betabin_noBC_Res, betabin_wMU_Res, fisher_Res, scDC_Res, speckle_Res)
 ```
+
+
+## Schafflick_2020
+
+```{r}
+library(readxl)    
+read_excel_allsheets <- function(filename, tibble = FALSE) {
+    # I prefer straight data.frames
+    # but if you like tidyverse tibbles (the default with read_excel)
+    # then just pass tibble = TRUE
+    sheets <- readxl::excel_sheets(filename)
+    x <- lapply(sheets, function(X) readxl::read_excel(filename, sheet = X))
+    if(!tibble) x <- lapply(x, as.data.frame)
+    names(x) <- sheets
+    x
+}
+flow_rw1 <- read_excel_allsheets("./data/real_world/Schafflick_2020/flow_cellcounts.xlsx")
+```
+
+```{r}
+## check data format
+flow_rw1$csf_ctrl %>% print()
+flow_rw1$csf_ms
+```
+
+I can't find the information of each cell getting from flow cytometry process, thus I used the uniform confusion matrix here.
+
+For this dataset, as we don't know the total numbers of cells, we can get the result. 
+
+### csf_ctrl vs csf_ms
+
+```{r}
+simil_matU = get_similarity_matRW(dim(flow_rw1$csf_ctrl)[2], confuse_rate=0.1)
+colnames(flow_rw1$csf_ctrl)
+truth = c("P", "N", "N", "P", "N", "P", "N", "N", "N", "N", "P", "P")
+```
+
+```{r}
+numb_cond1 =round(as.matrix(flow_rw1$csf_ctrl) * 10^4)
+numb_cond2 =round(as.matrix(flow_rw1$csf_ms) * 10^4)
+```
+
+```{r}
+## DCATS
+simil_matU = get_similarity_matRW(dim(flow_rw1$csf_ctrl)[2], confuse_rate=0.1)
+betabin_wMU = dcats_betabin(numb_cond1, numb_cond2, similarity_mat = simil_matU, n_samples = 100)
+## Fisher
+fisher_pvals = getFisher(numb_cond1, numb_cond2)
+all_res = data.frame(cluster = colnames(flow_rw1$csf_ctrl), truth = truth) %>% 
+  mutate(betabin_wMU_pvals = betabin_wMU$pvals,
+         fisher_pvals = fisher_pvals) %>%
+  mutate(betabin_wMU_Res = ifelse(betabin_wMU_pvals < 0.05, "P","N"),
+         fisher_Res = ifelse(fisher_pvals < 0.05, "P","N"))
+```
+

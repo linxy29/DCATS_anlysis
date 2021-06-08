@@ -10,7 +10,7 @@ if(FALSE){
   library(diffcyt)
 }
 
-#print("You are really a smart gril!!!!")
+#print("You are really a smart girl!!!!")
 
 ## function1: cell selection
 cellSelect = function(sim_mat, origLabels, ppC1, ppC2, sample_size){
@@ -602,7 +602,7 @@ dcats_betabinRW <- function(counts1, counts2, similarity_mat=NULL, n_samples=50,
     }
   }
   
-  ## Averaging the coeffcients errors
+  ## Averaging the coeficients errors
   if (is.null(n_samples) || is.null(similarity_mat) || n_samples == 1) {
     coeff_val_mean <- colMeans(coeffs_val)
     coeff_err_pool <- colMeans(coeffs_err**2)

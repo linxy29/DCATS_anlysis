@@ -5,7 +5,7 @@ date: "2/23/2021"
 output: html_document
 ---
 
-This file is used to test whether the evaluation process has problems
+This file is used to test whether the evaluation process has problems and the file used for final simulation results
 
 ```{r, message=FALSE}
 library(tidyverse)
@@ -668,6 +668,12 @@ resDF %>%
 
 ## Add simple gene expression information
 
+```{r}
+## save data as demonstarate data
+simulation = list(numb_cond1 = as.matrix(numb_cond1), numb_cond2 = as.matrix(numb_cond2), knn_mat = simil_matK, knnGraphs = graphs, labels = labels)
+save(simulation, file = "./data/real_world/simulation.RData")
+```
+
 ```{r, message=FALSE, warning=FALSE}
 library(Seurat)
 library(SeuratWrappers)
@@ -684,13 +690,13 @@ If change the order of cluster to sample, the total proportion might not follow 
 
 ```{r}
 cluster_num = 8  # numbers of clusters
-concentration = 100 # indicate how simulated proportion far away from true, the larger the closer
+concentration = 120 # indicate how simulated proportion far away from true, the larger the closer
 setresolu = 0.8
-rep1 = 2
-rep2 = 2
-simulation_times = 50
-sample_size1 = 1200
-sample_size2 = 1500
+rep1 = 4
+rep2 = 4
+simulation_times = 20
+sample_size1 = 2500
+sample_size2 = 3000
 cell_pool = "splatter"  # cell pool used, can be selected from ("SPAR", "splatter", "realWorld")
 more_negative = ""
 ```
@@ -727,49 +733,6 @@ truthRes = c(rep("N", 2), rep("P", 4), rep("N", 4), rep("P", 4))
 source("functionsV2.r")
 source("glm.R")     # for scDC
 options(future.globals.maxSize = 15000 * 1024^2)
-```
-
-```{r}
-if (more_negative == ""){
-  if (cluster_num == 3){
-  probC1 = c(1/3, 1/3, 1/3)  # True proportions
-  probC2 = c(1/3, 1/2, 1/6)
-  truthRes = c("N", "P", "P")
-  } else if (cluster_num == 5){
-    #probC1 = c(0.2, 0.2, 0.1, 0.3, 0.2)
-    #probC2 = c(0.2, 0.2, 0.1, 0.15, 0.35)
-    #truthRes = c("N", "N", "N", "P", "P")
-    probC1 = c(0.2, 0.2, 0.2, 0.3, 0.1)
-    probC2 = c(0.2, 0.2, 0.35, 0.15, 0.1)
-    truthRes = c("N", "N", "P", "P", "N")
-    } else if (cluster_num == 7){
-    probC1 = c(rep(0.1, 4), rep(0.2, 3))
-    probC2 = c(0.1, 0.1, 0.2, 0.05, 0.2, 0.3, 0.05)
-    truthRes = c("N", "N", "P", "P", "N", "P", "P")
-    } else if (cluster_num == 12) {
-      probC1 = c(rep(0.1, 4), rep(0.2, 2), rep(0.05, 2), rep(0.025, 4))
-      probC2 = c(0.1, 0.1, 0.15, 0.05, 0.2, 0.1, 0.05, 0.1, 0.025, 0.025, 0.05, 0.05)
-      truthRes = c("N", "N", "P", "P", "N", "P", "N", "P", "N", "N", "P", "P")
-    }
-  }
-```
-
-```{r}
-if (more_negative == "_pN"){
-  if (cluster_num == 3){
-    probC1 = c(1/3, 1/3, 1/3)  # True proportions
-    probC2 = c(1/3, 1/2, 1/6)
-    truthRes = c("N", "P", "P")
-    } else if (cluster_num == 7){
-      probC1 = c(rep(0.1, 4), rep(0.2, 3))
-      probC2 = c(0.1, 0.1, 0.1, 0.15, 0.2, 0.3, 0.05)
-      truthRes = c("N", "N", "N", "P", "N", "P", "P")
-      } else if (cluster_num == 12) {
-        probC1 = c(rep(0.1, 4), rep(0.2, 2), rep(0.05, 2), rep(0.025, 4))
-        probC2 = c(0.1, 0.1, 0.1, 0.1, 0.2, 0.15, 0.05, 0.075, 0.05, 0.025, 0.025, 0.025)
-        truthRes = c("N", "N", "N", "N", "N", "P", "N", "P", "P", "N", "N", "N")
-      }
-  }
 ```
 
 ```{r}
@@ -848,8 +811,10 @@ for (sim in 1:simulation_times){
         merge(simulation$dfRes, by = "cellID") %>% 
         dplyr::select(-cellID)
       set.seed(123)
-      simil_matRF = get_similarity_matRW(method = "rf", df = mlDF)
+      #simil_matRF = get_similarity_matRW(method = "rf", df = mlDF)
       simil_matSVM = get_similarity_matRW(method = "svm", df = mlDF)
+      #rf_matrixL[[sim]] = simil_matRF
+      svm_matrixL[[sim]] = simil_matSVM
       
       ## Test
       ### DCATS---betabinLRT
@@ -860,7 +825,7 @@ for (sim in 1:simulation_times){
       betabin_wBC_K = betabinLRT_rw(as.matrix(numb_cond1), as.matrix(numb_cond2), bias_corr = TRUE, similarity_mat = simil_matK)
       betabin_wBC_U = betabinLRT_rw(as.matrix(numb_cond1), as.matrix(numb_cond2), bias_corr = TRUE, similarity_mat = simil_matU)
       betabin_wBC_T = betabinLRT_rw(as.matrix(numb_cond1), as.matrix(numb_cond2), bias_corr = TRUE, similarity_mat = simil_matT)
-      betabin_wBC_RF = betabinLRT_rw(as.matrix(numb_cond1), as.matrix(numb_cond2), bias_corr = TRUE, similarity_mat = simil_matRF)
+      #betabin_wBC_RF = betabinLRT_rw(as.matrix(numb_cond1), as.matrix(numb_cond2), bias_corr = TRUE, similarity_mat = simil_matRF)
       betabin_wBC_SVM = betabinLRT_rw(as.matrix(numb_cond1), as.matrix(numb_cond2), bias_corr = TRUE, similarity_mat = simil_matSVM)
       ## DCATS---betabin with similarity matrix (backward-forward)
       t2start = Sys.time()
@@ -868,13 +833,13 @@ for (sim in 1:simulation_times){
       timeL[2] = Sys.time() - t2start
       betabin_wMU = dcats_betabinRW(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = simil_matU, n_samples = 50, binom_only = FALSE)
       betabin_wMT = dcats_betabinRW(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = simil_matT, n_samples = 50, binom_only = FALSE)
-      betabin_wMRF = dcats_betabinRW(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = simil_matRF, n_samples = 50, binom_only = FALSE)
+      #betabin_wMRF = dcats_betabinRW(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = simil_matRF, n_samples = 50, binom_only = FALSE)
       timeL[2] = Sys.time() - t2start
       betabin_wMSVM = dcats_betabinRW(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = simil_matSVM, n_samples = 50, binom_only = FALSE)
       bin_wMK = dcats_betabinRW(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = simil_matK, n_samples = 50)
       bin_wMU = dcats_betabinRW(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = simil_matU, n_samples = 50)
       bin_wMT = dcats_betabinRW(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = simil_matT, n_samples = 50)
-      bin_wMRF = dcats_betabinRW(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = simil_matRF, n_samples = 50)
+      #bin_wMRF = dcats_betabinRW(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = simil_matRF, n_samples = 50)
       bin_wMSVM = dcats_betabinRW(as.matrix(numb_cond1), as.matrix(numb_cond2), similarity_mat = simil_matSVM, n_samples = 50)
       ## Fisher's exact test
       t3start = Sys.time()
@@ -907,17 +872,17 @@ for (sim in 1:simulation_times){
                betabin_wBCK_pvals = betabin_wBC_K$pvals,
                betabin_wBCU_pvals = betabin_wBC_U$pvals,
                betabin_wBCT_pvals = betabin_wBC_T$pvals,
-               betabin_wBCRF_pvals = betabin_wBC_RF$pvals,
+               #betabin_wBCRF_pvals = betabin_wBC_RF$pvals,
                betabin_wBCSVM_pvals = betabin_wBC_SVM$pvals,
                betabin_wMK_pvals = betabin_wMK$pvals,
                betabin_wMU_pvals = betabin_wMU$pvals,
                betabin_wMT_pvals = betabin_wMT$pvals,
-               betabin_wMRF_pvals = betabin_wMRF$pvals,
+               #betabin_wMRF_pvals = betabin_wMRF$pvals,
                betabin_wMSVM_pvals = betabin_wMSVM$pvals,
                bin_wMK_pvals = bin_wMK$pvals,
                bin_wMU_pvals = bin_wMU$pvals,
                bin_wMT_pvals = bin_wMT$pvals,
-               bin_wMRF_pvals = bin_wMRF$pvals,
+               #bin_wMRF_pvals = bin_wMRF$pvals,
                bin_wMSVM_pvals = bin_wMSVM$pvals,
                fisher_pvals = fisher_pvals,
                scDC_pvals = scDCRes$p.value) %>%
