@@ -5,6 +5,8 @@ date: "10/27/2020"
 output: html_document
 ---
 
+Try different real world data
+
 Read real world data and some basic information
 
 * Simulation data: experiment 1, 2, 4
@@ -312,6 +314,26 @@ fisherP = get_fisherP(exp7_CS)
 print(fisherP)
 ```
 
+## Davie 2018
+
+```{r}
+Davie2018 = read.delim(gzfile("/storage/holab/linxy/DCATS/GSE107451_DGRP-551_w1118_WholeBrain_57k_Metadata.tsv.gz")) %>% janitor::clean_names()
+summary(Davie2018)
+```
+
+Need some big cluster to do clustering
+
+```{r}
+Davie2018 %>% 
+  mutate(annotation = ifelse(str_detect(annotation, "^\\d"), "unknown", annotation)) %>% 
+  group_by(age, genotype, annotation) %>% 
+  summarise(n = n())
+```
+
+
+```{r}
+
+```
 
 
 ## Codes
