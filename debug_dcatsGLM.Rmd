@@ -199,6 +199,7 @@ Kaufmann2021 %>% group_by(group) %>%
 ## treated vs untreated
 
 ```{r}
+simil_mat = create_simMat(dim(numb_ms1)[2], confuse_rate=0.1)
 numb_ms1Nat = Kaufmann2021 %>% 
   filter(group == "MS1_nat") %>% 
   group_by(donor, cluster_names) %>% 
@@ -220,18 +221,18 @@ print(numb_ms1Nat)
 ```
 
 ```{r}
-simil_mat = create_simMat(dim(numb_ms1)[2], confuse_rate=0.1)
-res = dcats_betabin(numb_ms1Nat, numb_ms1, similarity_mat = simil_mat) %>% 
+set.seed(123)
+dcats_betabin(numb_ms1Nat, numb_ms1, similarity_mat = simil_mat) %>% 
   mutate(wether_sig = ifelse(pvals < 0.05, "P", "N")) %>% 
   select(pvals, wether_sig)
 ```
 
-
 ```{r}
+set.seed(123)
 count_mat = rbind(numb_ms1Nat, numb_ms1)
 design_mat = c(rep("ms1Nat", dim(numb_ms1Nat)[1]), rep("ms1", dim(numb_ms1)[1])) %>% as.matrix(ncol = 1)
 res_GLM = dcats_GLM(count_mat = count_mat, design_mat = design_mat, similarity_mat = simil_mat)
-sig_GLM = ifelse(res_GLM$pvals < 0.05, "P", "N") 
+ifelse(res_GLM$pvals < 0.05, "P", "N") 
 ```
 
 ```{r}
