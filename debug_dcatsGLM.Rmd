@@ -236,6 +236,13 @@ ifelse(res_GLM$pvals < 0.05, "P", "N")
 ```
 
 ```{r}
+load("./temp/count_use.RData")
+counts1_use = count_use[1:500, ]
+counts2_use = count_use[501:950, ]
+```
+
+
+```{r}
 dcats_betabin <- function(counts1, counts2, similarity_mat=NULL, n_samples=50,
                           pseudo_count=NULL) {
     ## Check counts1 and counts2 shape
