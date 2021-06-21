@@ -199,7 +199,6 @@ Kaufmann2021 %>% group_by(group) %>%
 ## treated vs untreated
 
 ```{r}
-simil_mat = create_simMat(dim(numb_ms1)[2], confuse_rate=0.1)
 numb_ms1Nat = Kaufmann2021 %>% 
   filter(group == "MS1_nat") %>% 
   group_by(donor, cluster_names) %>% 
@@ -218,6 +217,7 @@ numb_ms1 = Kaufmann2021 %>%
   as.matrix()
 print(numb_ms1)
 print(numb_ms1Nat)
+simil_mat = create_simMat(dim(numb_ms1)[2], confuse_rate=0.1)
 ```
 
 ```{r}
@@ -231,7 +231,7 @@ dcats_betabin(numb_ms1Nat, numb_ms1, similarity_mat = simil_mat) %>%
 set.seed(123)
 count_mat = rbind(numb_ms1Nat, numb_ms1)
 design_mat = c(rep("ms1Nat", dim(numb_ms1Nat)[1]), rep("ms1", dim(numb_ms1)[1])) %>% as.matrix(ncol = 1)
-res_GLM = dcats_GLM(count_mat = count_mat, design_mat = design_mat, similarity_mat = simil_mat)
+res_GLM = dcats_GLM_rw(count_mat = count_mat, design_mat = design_mat, similarity_mat = simil_mat)
 ifelse(res_GLM$pvals < 0.05, "P", "N") 
 ```
 
@@ -382,8 +382,7 @@ dcats_betabin <- function(counts1, counts2, similarity_mat=NULL, n_samples=50,
 ```
 
 ```{r}
-dcats_GLM <- function(count_mat, design_mat, similarity_mat=NULL, n_samples=50,
-                      pseudo_count=NULL,  base_model='NULL') {
+dcats_GLM_rw <- function(count_mat, design_mat, similarity_mat=NULL, n_samples=50,pseudo_count=NULL,  base_model='NULL') {
   # Output matrices
   coeffs     <- matrix(NA, ncol(count_mat), ncol(design_mat))
   coeffs_err <- matrix(NA, ncol(count_mat), ncol(design_mat))
@@ -445,28 +444,46 @@ dcats_GLM <- function(count_mat, design_mat, similarity_mat=NULL, n_samples=50,
   count_use = round(count_use)
   
   # Test each factor
-  for (m in seq_len(ncol(count_use))) {
-    for (k in seq_len(ncol(design_mat))) {
-      df_use <- data.frame(n1 = count_use[, m], total=rowSums(count_use))
-      df_use <- cbind(df_use, as.data.frame(design_mat)[, k, drop=FALSE])
-
-      df_tmp <- df_use[!is.na(design_mat[, k]), ]
+  for (k in seq_len(ncol(design_mat))) {    ## for each factor
+    sub_LR_val <- matrix(NA, n_samples, K)
+    sub_coeffs_val <- matrix(NA, n_samples, K)
+    sub_coeffs_err <- matrix(NA, n_samples, K)
+    for (ir in seq_len(n_samples)) {          ## for each sampling
+      for (m in seq_len(ncol(count_use))) {       ## for each cluster
+        idx <- seq(1, nrow(count_use), n_samples) + ir - 1
+        
+        df_use <- data.frame(n1 = count_use[, m], total=rowSums(count_use))
+        df_use <- cbind(df_use, as.data.frame(design_mat)[, k, drop=FALSE])[idx,]
+        df_tmp <- df_use[!is.na(design_mat[, k]), ]
       
       ## model fitting using betabin
       fm0 <- aod::betabin(cbind(n1, total-n1) ~ 1, ~ 1, data = df_tmp)
-      formula_fix <- as.formula(paste0('cbind(n1, total-n1)', '~ 1+',
-                                         colnames(design_mat)[k], sep=''))
+      #formula_fix <- as.formula(paste0('cbind(n1, total-n1)', '~ 1+', colnames(design_mat)[k], sep=''))
+      formula_fix <- as.formula(paste0('cbind(n1, total-n1)', '~ ', colnames(design_mat)[k], sep=''))
       fm1 <- aod::betabin(formula_fix, ~ 1, data = df_tmp)
 
       ## ignore the fitting if the hessian matrix is singular
       if (length(fm1@varparam) < 4 || is.na(fm1@varparam[2, 2])) {next}
-
-      LR_vals[m, k] <- fm0@dev - fm1@dev
-      LRT_pvals[m, k] <- pchisq(LR_vals[m, k], df=1, lower.tail = FALSE, log.p = FALSE)
-
-      coeffs[m, k] <- fm1@param[2]
-      coeffs_err[m, k] <- fm1@varparam[2, 2]
+      
+      sub_LR_val[ir, m] <- fm0@dev - fm1@dev
+      sub_coeffs_val[ir, m] <- fm1@param[2]
+      sub_coeffs_err[ir, m] <-fm1@varparam[2, 2]
+      }
     }
+      ## averaging the estimation to get the final result
+      if (is.null(n_samples) || is.null(similarity_mat) || n_samples == 1){
+        sub_coeff_err_pool <- colMeans(sub_coeffs_err**2, na.rm = TRUE)
+      } else {
+        sub_coeff_err_pool <- colMeans(sub_coeffs_err**2, na.rm = TRUE) +
+            matrixStats::colSds(sub_coeffs_val) +
+            matrixStats::colSds(sub_coeffs_val) / n_samples
+      }
+      LR_median = robustbase::colMedians(sub_LR_val, na.rm = TRUE)
+      
+      LR_vals[, k] <- LR_median
+      LRT_pvals[, k] <- pchisq(LR_median, df=1, lower.tail = FALSE, log.p = FALSE)
+      coeffs[, k] <- colMeans(sub_coeffs_val, na.rm = TRUE)
+      coeffs_err[, k] <- sqrt(sub_coeff_err_pool)
   }
 
   # Return list
