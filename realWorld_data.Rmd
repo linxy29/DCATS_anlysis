@@ -475,8 +475,13 @@ dcats_GLM(count_mat, design_mat)
 ## Kaufmann 2021
 
 ```{r}
+#pathSPC = "/storage/holab/linxy"  ## for server
+pathSPC = "D:/Data"
+```
+
+```{r}
 #Kaufmann2021 = read.delim(gzfile("/storage/holab/linxy/DCATS/Kaufmann2021_metadata_per_sample.csv.gz"), sep = ",") %>% janitor::clean_names()
-Kaufmann2021 = read.delim(gzfile("/storage/holab/linxy/DCATS/Kaufmann2021_metadata_per_cell.csv.gz"), sep = ",") %>% 
+Kaufmann2021 = read.delim(gzfile(str_c(pathSPC, "/DCATS/Kaufmann2021_metadata_per_cell.csv.gz")), sep = ",") %>% 
   janitor::clean_names() %>% 
   mutate_if(is.character, as.factor)
 head(Kaufmann2021)
@@ -487,6 +492,8 @@ Kaufmann2021 %>% group_by(group) %>%
 ```
 
 ## treated vs untreated
+
+should give positive result for T09&T06 -> correct
 
 ```{r}
 numb_ms1Nat = Kaufmann2021 %>% 
@@ -510,18 +517,89 @@ print(numb_ms1Nat)
 ```
 
 ```{r}
-simil_mat = create_simMat(dim(numb_ms1)[2], confuse_rate=0.1)
+simil_mat = create_simMat(dim(numb_ms1)[2], confuse_rate=0.2)
 res = dcats_betabin(numb_ms1Nat, numb_ms1, similarity_mat = simil_mat) %>% 
   mutate(wether_sig = ifelse(pvals < 0.05, "P", "N")) %>% 
   select(pvals, wether_sig)
 ```
-
 
 ```{r}
 count_mat = rbind(numb_ms1Nat, numb_ms1)
 design_mat = c(rep("ms1Nat", dim(numb_ms1Nat)[1]), rep("ms1", dim(numb_ms1)[1])) %>% as.matrix(ncol = 1)
 res_GLM = dcats_GLM(count_mat = count_mat, design_mat = design_mat, similarity_mat = simil_mat)
 sig_GLM = ifelse(res_GLM$pvals < 0.05, "P", "N") 
+```
+
+## cohort-1
+
+should give negative results for T09 -> true
+
+```{r}
+numb_hi1 = Kaufmann2021 %>% 
+  filter(group == "HI1") %>% 
+  group_by(donor, cluster_names) %>% 
+  summarise(n = n()) %>% 
+  pivot_wider(names_from = cluster_names, values_from = n) %>% 
+  replace(is.na(.), 0) %>% 
+  column_to_rownames("donor") %>% 
+  as.matrix()
+numb_ms1 = Kaufmann2021 %>% 
+  filter(group == "MS1") %>% 
+  group_by(donor, cluster_names) %>% 
+  summarise(n = n()) %>% 
+  pivot_wider(names_from = cluster_names, values_from = n) %>% 
+  replace(is.na(.), 0) %>% 
+  column_to_rownames("donor") %>% 
+  as.matrix()
+print(numb_hi1)
+print(numb_ms1)
+```
+
+```{r}
+simil_mat = create_simMat(dim(numb_hi1)[2], confuse_rate=0.2)
+res = dcats_betabin(numb_hi1, numb_ms1, similarity_mat = simil_mat) %>% 
+  mutate(wether_sig = ifelse(pvals < 0.05, "P", "N")) %>% 
+  select(pvals, wether_sig)
+```
+
+```{r}
+count_mat = rbind(numb_hi1, numb_ms1Nat)
+design_mat = c(rep("hi1", dim(numb_hi1)[1]), rep("ms1", dim(numb_ms1Nat)[1])) %>% as.matrix(ncol = 1)
+res_GLM = dcats_GLM(count_mat = count_mat, design_mat = design_mat, similarity_mat = simil_mat)
+sig_GLM = ifelse(res_GLM$pvals < 0.05, "P", "N") 
+```
+
+## cohort-2
+
+should give negative results for T09 -> true
+
+```{r}
+numb_hi2 = Kaufmann2021 %>% 
+  filter(group == "HI2") %>% 
+  group_by(donor, cluster_names) %>% 
+  summarise(n = n()) %>% 
+  pivot_wider(names_from = cluster_names, values_from = n) %>% 
+  replace(is.na(.), 0) %>% 
+  column_to_rownames("donor") %>% 
+  as.matrix()
+numb_ms2 = Kaufmann2021 %>% 
+  filter(group == "MS2") %>% 
+  group_by(donor, cluster_names) %>% 
+  summarise(n = n()) %>% 
+  pivot_wider(names_from = cluster_names, values_from = n) %>% 
+  replace(is.na(.), 0) %>% 
+  column_to_rownames("donor") %>% 
+  as.matrix()
+print(numb_hi2)
+print(numb_ms2)
+```
+
+```{r}
+simil_mat = create_simMat(dim(numb_hi2)[2], confuse_rate=0.2)
+count_mat = rbind(numb_hi2, numb_ms2)
+design_mat = c(rep("hi2", dim(numb_hi2)[1]), rep("ms2", dim(numb_ms2)[1])) %>% as.matrix(ncol = 1)
+res_GLM = dcats_GLM(count_mat = count_mat, design_mat = design_mat, similarity_mat = simil_mat)
+ifelse(res_GLM$pvals < 0.05, "P", "N") 
 ```
 
 ## Codes
