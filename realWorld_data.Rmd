@@ -522,8 +522,9 @@ res = dcats_betabin(numb_ms1Nat, numb_ms1, similarity_mat = simil_mat) %>%
 ```
 
 ```{r}
-count_mat = rbind(numb_ms1Nat, numb_ms1)
-design_mat = c(rep("ms1Nat", dim(numb_ms1Nat)[1]), rep("ms1", dim(numb_ms1)[1])) %>% as.matrix(ncol = 1)
+res_mat = rbind(numb_ms1Nat, numb_ms1)
+count_mat = res_mat %>% select(B01:T11)
+design_mat = res_mat %>% select(sex, age = age_sampling, treatment = natalizumab_treatment)
 res_GLM = dcats_GLM(count_mat = count_mat, design_mat = design_mat, similarity_mat = simil_mat)
 sig_GLM = ifelse(res_GLM$pvals < 0.05, "P", "N") 
 ```
@@ -561,9 +562,8 @@ res = dcats_betabin(numb_hi1, numb_ms1, similarity_mat = simil_mat) %>%
 ```
 
 ```{r}
-res_mat = rbind(numb_ms1Nat, numb_ms1)
-count_mat = res_mat %>% select(B01:T11)
-design_mat = res_mat %>% select(sex, age = age_sampling, treatment = natalizumab_treatment)
+count_mat = rbind(numb_hi1, numb_ms1Nat)
+design_mat = c(rep("hi1", dim(numb_hi1)[1]), rep("ms1", dim(numb_ms1Nat)[1])) %>% as.matrix(ncol = 1)
 res_GLM = dcats_GLM(count_mat = count_mat, design_mat = design_mat, similarity_mat = simil_mat)
 sig_GLM = ifelse(res_GLM$pvals < 0.05, "P", "N") 
 ```
