@@ -205,16 +205,14 @@ numb_ms1Nat = Kaufmann2021 %>%
   summarise(n = n()) %>% 
   pivot_wider(names_from = cluster_names, values_from = n) %>% 
   replace(is.na(.), 0) %>% 
-  column_to_rownames("donor") %>% 
-  as.matrix()
+  column_to_rownames("donor")
 numb_ms1 = Kaufmann2021 %>% 
   filter(group == "MS1") %>% 
   group_by(donor, cluster_names) %>% 
   summarise(n = n()) %>% 
   pivot_wider(names_from = cluster_names, values_from = n) %>% 
   replace(is.na(.), 0) %>% 
-  column_to_rownames("donor") %>% 
-  as.matrix()
+  column_to_rownames("donor")
 print(numb_ms1)
 print(numb_ms1Nat)
 simil_mat = create_simMat(dim(numb_ms1)[2], confuse_rate=0.2)
@@ -229,9 +227,9 @@ dcats_betabin(numb_ms1Nat, numb_ms1, similarity_mat = simil_mat) %>%
 
 ```{r}
 set.seed(123)
-count_mat = rbind(numb_ms1Nat, numb_ms1)
+count_mat = rbind(numb_ms1Nat, numb_ms1) %>% as.matrix()
 design_mat = c(rep("ms1Nat", dim(numb_ms1Nat)[1]), rep("ms1", dim(numb_ms1)[1])) %>% as.matrix(ncol = 1)
-res_GLM = dcats_GLM_rw(count_mat = count_mat, design_mat = design_mat, similarity_mat = simil_mat)
+res_GLM = dcats_GLM(count_mat = count_mat, design_mat = design_mat, similarity_mat = simil_mat)
 ifelse(res_GLM$pvals < 0.05, "P", "N") 
 ```
 

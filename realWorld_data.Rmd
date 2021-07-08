@@ -227,13 +227,13 @@ matrix2 = readMM(gzfile("./data/real_word/Exp6_Kang/GSM2560249_2.2.mtx.gz")) %>%
 ```
 
 ```{r}
-data_dir1 = "./data/real_word/Exp6_Kang/GSM2560248"
+data_dir1 = "./data/real_world/Exp6_Kang/GSM2560248"
 list.files(data_dir1) # Should show barcodes.tsv, genes.tsv, and matrix.mtx
 expression_matrix1 <- Read10X(data.dir = data_dir1)
 seuratObj1 = CreateSeuratObject(counts = expression_matrix1)
 seuratObj1 = AddMetaData(object = seuratObj1, metadata = rep("ctrl1", dim(seuratObj1)[2]), col.name = 'sample')
 
-data_dir2 = "./data/real_word/Exp6_Kang/GSM2560249"
+data_dir2 = "./data/real_world/Exp6_Kang/GSM2560249"
 list.files(data_dir2) # Should show barcodes.tsv, genes.tsv, and matrix.mtx
 expression_matrix2 <- Read10X(data.dir = data_dir2)
 seuratObj2 = CreateSeuratObject(counts = expression_matrix2)
@@ -600,6 +600,43 @@ design_mat = c(rep("hi2", dim(numb_hi2)[1]), rep("ms2", dim(numb_ms2)[1])) %>% a
 res_GLM = dcats_GLM(count_mat = count_mat, design_mat = design_mat, similarity_mat = simil_mat)
 ifelse(res_GLM$pvals < 0.05, "P", "N") 
 ```
+## Peng2018
+
+Pei1-run1n2 is P10 control 2, Pei2-run1n2 is P10 control 3 and WT-run1n2 is P10 control 1.
+
+```{r}
+Peng2018 <- read.delim("C:/#Code/R/Ho_DCATS/data/real_world/Peng2018_meta.txt") %>% 
+  janitor::clean_names() %>% 
+  separate(name_type, c("group", "barcode"), sep = "[_]") %>% 
+  mutate(group = ifelse(group == "Pei1-run1n2", "Ctrl-P10-2", group),
+         group = ifelse(group == "Pei2-run1n2", "Ctrl-P10-3", group),
+         group = ifelse(group == "WT-run1n2", "Ctrl-P10-1", group)) %>% 
+  separate(group, c("treatment", "condition", "donor"), sep = "[-]") %>% 
+  mutate(donor = str_c(condition, "-", donor)) %>% 
+  mutate_if(is.character, as.factor) %>% 
+  rename(cluster_names = cluster_group)
+head(Peng2018)
+summary(Peng2018)
+```
+
+```{r}
+getCount = function(metadata) {
+  metadata %>% 
+    group_by(condition, donor, cluster_names) %>% 
+    summarise(n = n()) %>% 
+    pivot_wider(names_from = cluster_names, values_from = n) %>% 
+    replace(is.na(.), 0) %>% 
+    column_to_rownames("donor")
+}
+```
+
+
+## P6 vs P10
+
+```{r}
+getCount(Peng2018)
+```
+
 
 ## Codes
 
