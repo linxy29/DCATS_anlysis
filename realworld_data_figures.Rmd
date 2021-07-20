@@ -1566,58 +1566,5 @@ all_res %>%
 ```
 
 
-## Schafflick_2020
-
-```{r}
-library(readxl)    
-read_excel_allsheets <- function(filename, tibble = FALSE) {
-    # I prefer straight data.frames
-    # but if you like tidyverse tibbles (the default with read_excel)
-    # then just pass tibble = TRUE
-    sheets <- readxl::excel_sheets(filename)
-    x <- lapply(sheets, function(X) readxl::read_excel(filename, sheet = X))
-    if(!tibble) x <- lapply(x, as.data.frame)
-    names(x) <- sheets
-    x
-}
-flow_rw1 <- read_excel_allsheets("./data/real_world/Schafflick_2020/flow_cellcounts.xlsx")
-```
-
-```{r}
-## check data format
-flow_rw1$csf_ctrl %>% print()
-flow_rw1$csf_ms
-```
-
-I can't find the information of each cell getting from flow cytometry process, thus I used the uniform confusion matrix here.
-
-For this dataset, as we don't know the total numbers of cells, we can get the result. 
-
-### csf_ctrl vs csf_ms
-
-```{r}
-simil_matU = get_similarity_matRW(dim(flow_rw1$csf_ctrl)[2], confuse_rate=0.1)
-colnames(flow_rw1$csf_ctrl)
-truth = c("P", "N", "N", "P", "N", "P", "N", "N", "N", "N", "P", "P")
-```
-
-```{r}
-numb_cond1 =round(as.matrix(flow_rw1$csf_ctrl) * 10^4)
-numb_cond2 =round(as.matrix(flow_rw1$csf_ms) * 10^4)
-```
-
-```{r}
-## DCATS
-simil_matU = get_similarity_matRW(dim(flow_rw1$csf_ctrl)[2], confuse_rate=0.1)
-betabin_wMU = dcats_betabin(numb_cond1, numb_cond2, similarity_mat = simil_matU, n_samples = 100)
-## Fisher
-fisher_pvals = getFisher(numb_cond1, numb_cond2)
-all_res = data.frame(cluster = colnames(flow_rw1$csf_ctrl), truth = truth) %>% 
-  mutate(betabin_wMU_pvals = betabin_wMU$pvals,
-         fisher_pvals = fisher_pvals) %>%
-  mutate(betabin_wMU_Res = ifelse(betabin_wMU_pvals < 0.05, "P","N"),
-         fisher_Res = ifelse(fisher_pvals < 0.05, "P","N"))
-```
-
 
 

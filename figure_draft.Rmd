@@ -143,6 +143,7 @@ sendEmail("Simulation is done!!")
 ```{r}
 evaluationDF = data.frame()
 len = length(simulationDF_list)
+#for (j in 1:3){
 for (j in 1:len){
   simulationDF = simulationDF_list[[j]] %>% na.omit()
   method = colnames(simulationDF)[3:dim(simulationDF)[2]]
@@ -151,7 +152,9 @@ for (j in 1:len){
   specificity = rep(NA, numb_mthd)
   mcc = rep(NA, numb_mthd)
   auc = rep(NA, numb_mthd)
+  prauc = rep(NA, numb_mthd)
   F1 = rep(NA, numb_mthd)
+  
   truth = simulationDF$truth
   for (i in 3:dim(simulationDF)[2]){
     pred = simulationDF[, i]
@@ -167,10 +170,13 @@ for (j in 1:len){
     sensitivity[i-2] = TP/truthP
     specificity[i-2] = TN/truthN
     mcc[i-2] = (TP*TN-FP*FN)/sqrt(predP*truthP*truthN*predN)
-    auc = getROC(truth, pred)$auc
+    auc[i-2] = getROC(truth, pred)$auc
+    prauc[i-2] = getPRC(truth, pred)$prauc
+    print(getPRC(truth, pred)$eval)
+    print(prauc)
     F1 = 2*TP/(2*TP+FP+FN)
     
-    res = data.frame(trial = as.character(j), method = method, sensitivity = sensitivity, specificity = specificity, mcc = mcc, auc = auc, F1 = F1)
+    res = data.frame(trial = as.character(j), method = method, sensitivity = sensitivity, specificity = specificity, mcc = mcc, auc = auc, prauc = prauc, F1 = F1)
     }
     evaluationDF = rbind(evaluationDF, res)
 }
@@ -200,6 +206,18 @@ evaluationDF %>%
   mutate(method = ifelse(method == "dcats", "DCATS", "Fisher"),
          condition = factor(condition, levels = c("wtoBC", "withBC"))) %>% 
   ggplot(aes(x = condition, y = mcc, color = method)) + geom_boxplot() +
+  theme(axis.title.x = element_blank(),
+        legend.position = "top") + 
+  scale_color_manual(values=c("#F8766D", "#00BF7D"))
+ggsave("C:/#Code/R/slides/image/RPG_discussion/dcats_result1.png", bg = "transparent")
+```
+
+```{r}
+evaluationDF %>% 
+  tidyr::separate(method, c("method", "condition"), sep = "_") %>% 
+  mutate(method = ifelse(method == "dcats", "DCATS", "Fisher"),
+         condition = factor(condition, levels = c("wtoBC", "withBC"))) %>% 
+  ggplot(aes(x = condition, y = prauc, color = method)) + geom_boxplot() +
   theme(axis.title.x = element_blank(),
         legend.position = "top") + 
   scale_color_manual(values=c("#F8766D", "#00BF7D"))

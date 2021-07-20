@@ -37,6 +37,33 @@ library(diffcyt)
 source("functions.r")
 ```
 
+```{r}
+theme_set(theme_classic()+
+    theme(panel.border = element_blank(),
+          legend.key = element_blank(),
+          axis.ticks = element_blank(),
+          panel.grid = element_blank(),
+          panel.grid.minor = element_blank(), 
+          panel.grid.major = element_blank(),
+          panel.background = element_blank(),
+          legend.background = element_blank(),
+          plot.background = element_rect(fill = "transparent",colour = NA))+
+      theme(axis.text=element_text(size=12),
+        axis.title=element_text(size=14)))
+```
+
+```{r}
+# get the design + count matrix. replicates should be indicated with column names `donor` and cluster should be indicated with names `cluster_names`
+getCount = function(metadata) {
+  metadata %>% 
+    group_by(condition, donor, cluster_names) %>% 
+    summarise(n = n()) %>% 
+    pivot_wider(names_from = cluster_names, values_from = n) %>% 
+    replace(is.na(.), 0) %>% 
+    column_to_rownames("donor")
+}
+```
+
 Fisher's exact test
 
 ```{r}
@@ -472,6 +499,59 @@ dcats_GLM <- function(count_mat, design_mat, similarity_mat=NULL, n_samples=50,
 dcats_GLM(count_mat, design_mat)
 ```
 
+## Schafflick_2020
+
+```{r}
+library(readxl)    
+read_excel_allsheets <- function(filename, tibble = FALSE) {
+    # I prefer straight data.frames
+    # but if you like tidyverse tibbles (the default with read_excel)
+    # then just pass tibble = TRUE
+    sheets <- readxl::excel_sheets(filename)
+    x <- lapply(sheets, function(X) readxl::read_excel(filename, sheet = X))
+    if(!tibble) x <- lapply(x, as.data.frame)
+    names(x) <- sheets
+    x
+}
+flow_rw1 <- read_excel_allsheets("./data/real_world/Schafflick_2020/flow_cellcounts.xlsx")
+```
+
+```{r}
+## check data format
+flow_rw1$csf_ctrl %>% print()
+flow_rw1$csf_ms
+```
+
+I can't find the information of each cell getting from flow cytometry process, thus I used the uniform confusion matrix here.
+
+For this dataset, as we don't know the total numbers of cells, we can get the result. 
+
+### csf_ctrl vs csf_ms
+
+```{r}
+simil_matU = get_similarity_matRW(dim(flow_rw1$csf_ctrl)[2], confuse_rate=0.1)
+colnames(flow_rw1$csf_ctrl)
+truth = c("P", "N", "N", "P", "N", "P", "N", "N", "N", "N", "P", "P")
+```
+
+```{r}
+numb_cond1 =round(as.matrix(flow_rw1$csf_ctrl) * 10^4)
+numb_cond2 =round(as.matrix(flow_rw1$csf_ms) * 10^4)
+```
+
+```{r}
+## DCATS
+simil_matU = get_similarity_matRW(dim(flow_rw1$csf_ctrl)[2], confuse_rate=0.1)
+betabin_wMU = dcats_betabin(numb_cond1, numb_cond2, similarity_mat = simil_matU, n_samples = 100)
+## Fisher
+fisher_pvals = getFisher(numb_cond1, numb_cond2)
+all_res = data.frame(cluster = colnames(flow_rw1$csf_ctrl), truth = truth) %>% 
+  mutate(betabin_wMU_pvals = betabin_wMU$pvals,
+         fisher_pvals = fisher_pvals) %>%
+  mutate(betabin_wMU_Res = ifelse(betabin_wMU_pvals < 0.05, "P","N"),
+         fisher_Res = ifelse(fisher_pvals < 0.05, "P","N"))
+```
+
 ## Kaufmann 2021
 
 ```{r}
@@ -493,40 +573,46 @@ Kaufmann2021 %>% group_by(group) %>%
 
 ## treated vs untreated
 
-should give positive result for T09&T06 -> correct
+should give positive result for T09&T06 -> wrong
 
 ```{r}
-numb_ms1Nat = Kaufmann2021 %>% 
-  filter(group == "MS1_nat") %>% 
+res_mat = Kaufmann2021 %>% filter(group == "MS1_nat" | group == "MS1") %>% 
   group_by(donor, cluster_names, sex, age_sampling, natalizumab_treatment) %>% 
   summarise(n = n()) %>% 
   pivot_wider(names_from = cluster_names, values_from = n) %>% 
   replace(is.na(.), 0) %>% 
+  mutate(donor = str_c(donor, "_", natalizumab_treatment)) %>% 
   column_to_rownames("donor")
-numb_ms1 = Kaufmann2021 %>% 
-  filter(group == "MS1") %>% 
-  group_by(donor, cluster_names, sex, age_sampling, natalizumab_treatment) %>% 
-  summarise(n = n()) %>% 
-  pivot_wider(names_from = cluster_names, values_from = n) %>% 
-  replace(is.na(.), 0) %>% 
-  column_to_rownames("donor")
-print(numb_ms1)
-print(numb_ms1Nat)
+res_mat %>% print()
 ```
 
 ```{r}
-simil_mat = create_simMat(dim(numb_ms1)[2], confuse_rate=0.2)
-res = dcats_betabin(numb_ms1Nat, numb_ms1, similarity_mat = simil_mat) %>% 
-  mutate(wether_sig = ifelse(pvals < 0.05, "P", "N")) %>% 
-  select(pvals, wether_sig)
-```
+count_mat = res_mat %>% select(B01:T11) %>% 
+  as.matrix()
+design_mat = res_mat %>% select(sex:natalizumab_treatment) %>% 
+  as.matrix()
+  
+print(count_mat)
+print(design_mat)
 
-```{r}
-res_mat = rbind(numb_ms1Nat, numb_ms1)
-count_mat = res_mat %>% select(B01:T11)
-design_mat = res_mat %>% select(sex, age = age_sampling, treatment = natalizumab_treatment)
+simil_mat = create_simMat(dim(count_mat)[2], confuse_rate=0.1)
 res_GLM = dcats_GLM(count_mat = count_mat, design_mat = design_mat, similarity_mat = simil_mat)
-sig_GLM = ifelse(res_GLM$pvals < 0.05, "P", "N") 
+sig_GLM = ifelse(res_GLM$LRT_pvals < 0.05, "P", "N") 
+print(sig_GLM)
+print(res_GLM$LRT_pvals)
+print(res_GLM$pvals)
+```
+
+```{r}
+res_mat %>% 
+  rownames_to_column("donor") %>% 
+  group_by(donor, natalizumab_treatment) %>% 
+  pivot_longer(names_to = "cell_type", values_to = "n", B01:T11) %>% 
+  mutate(prop = n/sum(n)) %>% 
+  
+  ggplot(aes(x = cell_type, y = prop)) +
+    geom_boxplot(aes(color = natalizumab_treatment)) +
+  theme(axis.text.x = element_text(angle = 45, hjust=1))
 ```
 
 ## cohort-1
@@ -534,38 +620,29 @@ sig_GLM = ifelse(res_GLM$pvals < 0.05, "P", "N")
 should give negative results for T09 -> true
 
 ```{r}
-numb_hi1 = Kaufmann2021 %>% 
-  filter(group == "HI1") %>% 
-  group_by(donor, cluster_names) %>% 
+res_mat = Kaufmann2021 %>% filter(group == "HI1" | group == "MS1") %>% 
+  group_by(donor, cluster_names, sex, age_sampling, group) %>% 
   summarise(n = n()) %>% 
   pivot_wider(names_from = cluster_names, values_from = n) %>% 
   replace(is.na(.), 0) %>% 
-  column_to_rownames("donor") %>% 
-  as.matrix()
-numb_ms1 = Kaufmann2021 %>% 
-  filter(group == "MS1") %>% 
-  group_by(donor, cluster_names) %>% 
-  summarise(n = n()) %>% 
-  pivot_wider(names_from = cluster_names, values_from = n) %>% 
-  replace(is.na(.), 0) %>% 
-  column_to_rownames("donor") %>% 
-  as.matrix()
-print(numb_hi1)
-print(numb_ms1)
+  #mutate(donor = str_c(donor, "_", natalizumab_treatment)) %>% 
+  column_to_rownames("donor")
+res_mat %>% print()
 ```
 
 ```{r}
-simil_mat = create_simMat(dim(numb_hi1)[2], confuse_rate=0.2)
-res = dcats_betabin(numb_hi1, numb_ms1, similarity_mat = simil_mat) %>% 
-  mutate(wether_sig = ifelse(pvals < 0.05, "P", "N")) %>% 
-  select(pvals, wether_sig)
-```
+count_mat = res_mat %>% select(B01:T11) %>% 
+  as.matrix()
+design_mat = res_mat %>% select(sex:group) %>% 
+  as.matrix()
+  
+print(count_mat)
+print(design_mat)
 
-```{r}
-count_mat = rbind(numb_hi1, numb_ms1Nat)
-design_mat = c(rep("hi1", dim(numb_hi1)[1]), rep("ms1", dim(numb_ms1Nat)[1])) %>% as.matrix(ncol = 1)
+simil_mat = create_simMat(dim(count_mat)[2], confuse_rate=0.1)
 res_GLM = dcats_GLM(count_mat = count_mat, design_mat = design_mat, similarity_mat = simil_mat)
 sig_GLM = ifelse(res_GLM$pvals < 0.05, "P", "N") 
+print(sig_GLM)
 ```
 
 ## cohort-2
@@ -573,39 +650,37 @@ sig_GLM = ifelse(res_GLM$pvals < 0.05, "P", "N")
 should give negative results for T09 -> true
 
 ```{r}
-numb_hi2 = Kaufmann2021 %>% 
-  filter(group == "HI2") %>% 
-  group_by(donor, cluster_names) %>% 
+res_mat = Kaufmann2021 %>% filter(group == "HI2" | group == "MS2") %>% 
+  group_by(donor, cluster_names, age_sampling, group) %>% 
   summarise(n = n()) %>% 
   pivot_wider(names_from = cluster_names, values_from = n) %>% 
   replace(is.na(.), 0) %>% 
-  column_to_rownames("donor") %>% 
-  as.matrix()
-numb_ms2 = Kaufmann2021 %>% 
-  filter(group == "MS2") %>% 
-  group_by(donor, cluster_names) %>% 
-  summarise(n = n()) %>% 
-  pivot_wider(names_from = cluster_names, values_from = n) %>% 
-  replace(is.na(.), 0) %>% 
-  column_to_rownames("donor") %>% 
-  as.matrix()
-print(numb_hi2)
-print(numb_ms2)
+  #mutate(donor = str_c(donor, "_", natalizumab_treatment)) %>% 
+  column_to_rownames("donor")
+res_mat %>% print()
 ```
 
 ```{r}
-simil_mat = create_simMat(dim(numb_hi2)[2], confuse_rate=0.2)
-count_mat = rbind(numb_hi2, numb_ms2)
-design_mat = c(rep("hi2", dim(numb_hi2)[1]), rep("ms2", dim(numb_ms2)[1])) %>% as.matrix(ncol = 1)
+count_mat = res_mat %>% select(B01:T11) %>% 
+  as.matrix()
+design_mat = res_mat %>% select(age_sampling, group) %>% 
+  as.matrix()
+  
+print(count_mat)
+print(design_mat)
+
+simil_mat = create_simMat(dim(count_mat)[2], confuse_rate=0.1)
 res_GLM = dcats_GLM(count_mat = count_mat, design_mat = design_mat, similarity_mat = simil_mat)
-ifelse(res_GLM$pvals < 0.05, "P", "N") 
+sig_GLM = ifelse(res_GLM$LRT_pvals < 0.05, "P", "N") 
+print(sig_GLM)
 ```
+
 ## Peng2018
 
 Pei1-run1n2 is P10 control 2, Pei2-run1n2 is P10 control 3 and WT-run1n2 is P10 control 1.
 
 ```{r}
-Peng2018 <- read.delim("C:/#Code/R/Ho_DCATS/data/real_world/Peng2018_meta.txt") %>% 
+Peng2018 <- read.delim("./data/real_world/Peng_2018/Peng2018_meta.txt") %>% 
   janitor::clean_names() %>% 
   separate(name_type, c("group", "barcode"), sep = "[_]") %>% 
   mutate(group = ifelse(group == "Pei1-run1n2", "Ctrl-P10-2", group),
@@ -619,23 +694,391 @@ head(Peng2018)
 summary(Peng2018)
 ```
 
-```{r}
-getCount = function(metadata) {
-  metadata %>% 
-    group_by(condition, donor, cluster_names) %>% 
-    summarise(n = n()) %>% 
-    pivot_wider(names_from = cluster_names, values_from = n) %>% 
-    replace(is.na(.), 0) %>% 
-    column_to_rownames("donor")
-}
-```
-
 
 ## P6 vs P10
 
 ```{r}
-getCount(Peng2018)
+resDF = getCount(Peng2018)
+print(resDF)
 ```
+
+The cell proportion here is not consistant with what describe in the paper. Use other files
+
+```{r}
+Peng2018_p6 <- read.delim("./data/real_world/Peng_2018/Peng2018_P6_coord.txt")[-1,] %>% 
+  janitor::clean_names() %>% 
+  separate(name, c("group", "barcode"), sep = "[_]") %>% 
+  separate(group, c("treatment", "condition", "donor"), sep = "[-]") %>% 
+  mutate(donor = str_c(condition, "-", donor)) %>% 
+  mutate_if(is.character, as.factor) %>% 
+  rename(cluster_names = category)
+```
+
+```{r}
+resDF_p6 = getCount(Peng2018_p6)
+print(resDF_p6)
+```
+
+```{r}
+Peng2018_p10 <- read.delim(gzfile("./data/real_world/Peng_2018/Peng2018_P10_coord.gz"))[-1,] %>% 
+  janitor::clean_names() %>% 
+  separate(name, c("group", "barcode"), sep = "[_]") %>% 
+  mutate(group = ifelse(group == "Pei1-run1n2", "Ctrl-P10-2", group),
+         group = ifelse(group == "Pei2-run1n2", "Ctrl-P10-3", group),
+         group = ifelse(group == "WT-run1n2", "Ctrl-P10-1", group)) %>% 
+  separate(group, c("treatment", "condition", "donor"), sep = "[-]") %>% 
+  mutate(donor = str_c(condition, "-", donor)) %>% 
+  mutate_if(is.character, as.factor) %>% 
+  rename(cluster_names = category)
+```
+
+```{r}
+resDF_p10 = getCount(Peng2018_p10) %>% 
+  mutate(dCM = dCM1 + dCM2 + dCM3,
+         mCM = mCM1 + mCM2) %>% 
+  select(-dCM1, -dCM2, -dCM3, -mCM1, -mCM2, -LEC) %>% 
+  rename(`PC/SMC` = `Per/SMC`)
+print(resDF_p10)
+```
+
+```{r}
+resDF = rbind(resDF_p6, resDF_p10)
+```
+
+```{r}
+resDF %>% 
+  rownames_to_column("donor") %>% 
+  group_by(donor, condition) %>% 
+  pivot_longer(names_to = "cell_type", values_to = "n", BC:pCM) %>% 
+  mutate(prop = n/sum(n)) %>% 
+  
+  ggplot(aes(x = cell_type, y = prop)) +
+    geom_boxplot(aes(color = condition))
+```
+
+
+```{r}
+count_mat = resDF %>% select(-condition) %>% as.matrix()
+design_mat = resDF$condition %>% as.matrix()
+colnames(design_mat) = "time"
+simil_mat = create_simMat(dim(count_mat)[2], confuse_rate=0.1)
+res_GLM = dcats_GLM(count_mat = count_mat, design_mat = design_mat, similarity_mat = simil_mat)
+ifelse(res_GLM$pvals < 0.05, "P", "N") 
+print(res_GLM$LR_vals)
+print(res_GLM$pvals)
+```
+
+## Cui_2019
+
+```{r}
+library(readxl)
+Cui_2019 <- read_excel("data/real_world/Cui_2019.xlsx") %>% 
+  janitor::clean_names() %>% 
+  mutate(time = str_extract(cell_name, '[5-9]W|1[0-9]W|2[0-5]W')) %>% 
+  mutate(cluster = str_replace(cluster, "\\(", "_"),
+         cluster = str_remove(cluster, "\\)"))
+```
+
+Have no replicate in this case, as we only have one replicate, should works.
+
+```{r}
+Cui2019_res = Cui_2019 %>% 
+  group_by(cluster, time) %>% 
+  summarise(n = n()) %>% 
+  pivot_wider(names_from = cluster, values_from = n) %>% 
+  janitor::clean_names() %>% 
+  mutate(time = as.numeric(str_remove(time, 'W'))) %>% 
+  mutate(stage = ifelse(time<8&time>4, "early", "late"),
+         stage = ifelse(time<18&time>8, "mid", stage))
+
+Cui2019_count = Cui2019_res %>% 
+  select(-time,-stage) %>% 
+  replace(is.na(.), 0) %>% 
+  mutate(other = c1_5w + c5_valvar_cell + c6_ep,
+         immune = c7_mast_cell + c8_macrophage + c9_b_t_cells) %>% 
+  select(-c1_5w, -c5_valvar_cell, -c6_ep, -c7_mast_cell, -c8_macrophage, -c9_b_t_cells) %>% 
+  as.matrix()
+
+Cui2019_design = Cui2019_res %>% 
+  #mutate(time = as.numeric(str_remove(time, 'W'))) %>% 
+  select(time, stage)
+print(Cui2019_count)
+print(Cui2019_design)
+```
+
+```{r}
+simil_mat = create_simMat(dim(Cui2019_count)[2], confuse_rate=0.1)
+res_GLM = dcats_GLM(count_mat = Cui2019_count, design_mat = Cui2019_design, similarity_mat = simil_mat)
+ifelse(res_GLM$LRT_pvals < 0.05, "P", "N") 
+ifelse(res_GLM$pvals < 0.05, "P", "N") 
+print(res_GLM$LR_vals)
+print(res_GLM$pvals)
+```
+
+Compare them seperately
+
+```{r}
+Cui2019_count = Cui2019_res %>% 
+  filter(stage %in% c("early", "mid")) %>% 
+  select(-time,-stage) %>% 
+  replace(is.na(.), 0) %>% 
+  mutate(other = c1_5w + c5_valvar_cell + c6_ep,
+         immune = c7_mast_cell + c8_macrophage + c9_b_t_cells) %>% 
+  select(-c1_5w, -c5_valvar_cell, -c6_ep, -c7_mast_cell, -c8_macrophage, -c9_b_t_cells) %>% 
+  as.matrix()
+Cui2019_design = Cui2019_res %>% 
+  filter(stage %in% c("early", "mid")) %>% 
+  #mutate(time = as.numeric(str_remove(time, 'W'))) %>% 
+  select(time, stage)
+print(Cui2019_count)
+print(Cui2019_design)
+simil_mat = create_simMat(dim(Cui2019_count)[2], confuse_rate=0.1)
+res_GLM = dcats_GLM(count_mat = Cui2019_count, design_mat = Cui2019_design, similarity_mat = simil_mat)
+ifelse(res_GLM$LRT_pvals < 0.05, "P", "N") 
+ifelse(res_GLM$pvals < 0.05, "P", "N") 
+print(res_GLM$LR_vals)
+print(res_GLM$pvals)
+```
+
+```{r}
+Cui2019_count = Cui2019_res %>% 
+  filter(stage %in% c("late", "mid")) %>% 
+  select(-time,-stage) %>% 
+  replace(is.na(.), 0) %>% 
+  mutate(other = c1_5w + c5_valvar_cell + c6_ep,
+         immune = c7_mast_cell + c8_macrophage + c9_b_t_cells) %>% 
+  select(-c1_5w, -c5_valvar_cell, -c6_ep, -c7_mast_cell, -c8_macrophage, -c9_b_t_cells) %>% 
+  as.matrix()
+Cui2019_design = Cui2019_res %>% 
+  filter(stage %in% c("late", "mid")) %>% 
+  #mutate(time = as.numeric(str_remove(time, 'W'))) %>% 
+  select(time, stage)
+print(Cui2019_count)
+print(Cui2019_design)
+simil_mat = create_simMat(dim(Cui2019_count)[2], confuse_rate=0.1)
+res_GLM = dcats_GLM(count_mat = Cui2019_count, design_mat = Cui2019_design, similarity_mat = simil_mat)
+ifelse(res_GLM$LRT_pvals < 0.05, "P", "N") 
+ifelse(res_GLM$pvals < 0.05, "P", "N") 
+print(res_GLM$LR_vals)
+print(res_GLM$pvals)
+```
+
+## Ren 2021
+
+COVID-19 immune features revealed by a large-scale single-cell transcriptome atlas
+
+First look at PBMC data.
+
+```{r}
+library(readxl)
+Ren2021_cell = read.csv(gzfile("./data/real_world/Ren_2021/cell_annotation.csv.gz")) %>% 
+  janitor::clean_names()
+Ren2021_donors = read_excel("data/real_world/Ren_2021/donors_info.xlsx") %>% 
+  janitor::clean_names()
+```
+
+```{r}
+pbmc_sampleL = Ren2021_donors %>% 
+  filter(sample_type == "frozen PBMC" | sample_type == "fresh PBMC") %>% 
+  .$sample_id %>% 
+  unique()
+
+sample_patient = Ren2021_donors %>% select(sample_id, patient_id)
+```
+
+### major type
+
+```{r}
+count_mat = Ren2021_cell %>% 
+  filter(sample_id %in% pbmc_sampleL) %>% 
+  group_by(sample_id, major_type) %>% 
+  summarise(n = n()) %>% 
+  pivot_wider(names_from = major_type, values_from = n) %>% 
+  arrange(sample_id) %>% 
+  column_to_rownames("sample_id") %>% 
+  replace(is.na(.), 0) %>% 
+  as.matrix()
+```
+
+```{r}
+design_mat = Ren2021_donors %>% 
+  filter(sample_id %in% pbmc_sampleL) %>% 
+  mutate(state = ifelse(sample_time == "control", "control", str_c(co_vid_19_severity, "_", sample_time))) %>% 
+  select(sample_id, city, age, sex, sample_type, state) %>% 
+  #unique() %>% 
+  arrange(sample_id) %>% 
+  column_to_rownames("sample_id")
+```
+
+```{r}
+simil_mat = create_simMat(dim(count_mat)[2], confuse_rate=0.1)
+res_GLM = dcats_GLM(count_mat = count_mat, design_mat = design_mat, similarity_mat = simil_mat)
+#ifelse(res_GLM$LRT_pvals < 0.05, "P", "N") 
+ifelse(res_GLM$pvals < 0.05, "P", "N") 
+#print(res_GLM$LR_vals)
+print(res_GLM$pvals)
+```
+
+Separate into different group comparison
+
+control vs mild/moderate_progression
+
+```{r}
+design_mat_sub = design_mat %>% 
+  filter(state == "control" | state == "mild/moderate_progression")
+count_mat_sub = count_mat[rownames(design_mat_sub),]
+
+simil_mat = create_simMat(dim(count_mat_sub)[2], confuse_rate=0.1)
+res_GLM = dcats_GLM(count_mat = count_mat_sub, design_mat = design_mat_sub, similarity_mat = simil_mat)
+#ifelse(res_GLM$LRT_pvals < 0.05, "P", "N") 
+ifelse(res_GLM$pvals < 0.05, "P", "N") 
+#print(res_GLM$LR_vals)
+print(res_GLM$pvals)
+```
+
+Separate into different group comparison
+
+control vs severe/critical_progression
+
+```{r}
+design_mat_sub = design_mat %>% 
+  filter(state == "control" | state == "severe/critical_progression")
+count_mat_sub = count_mat[rownames(design_mat_sub),]
+
+simil_mat = create_simMat(dim(count_mat_sub)[2], confuse_rate=0.1)
+res_GLM = dcats_GLM(count_mat = count_mat_sub, design_mat = design_mat_sub, similarity_mat = simil_mat)
+#ifelse(res_GLM$LRT_pvals < 0.05, "P", "N") 
+ifelse(res_GLM$pvals < 0.05, "P", "N") 
+#print(res_GLM$LR_vals)
+print(res_GLM$pvals)
+```
+
+```{r}
+count_mat_sub %>% as.data.frame() %>% 
+  cbind(design_mat_sub) %>% 
+  rownames_to_column("sample_id") %>% 
+  pivot_longer(names_to = "cell_type", values_to = "n", B:Neu) %>% 
+  group_by(sample_id) %>% 
+  mutate(prop = n/sum(n)) %>% 
+  ggplot(aes(x = cell_type, y = prop)) +
+    geom_boxplot(aes(color = state))
+```
+
+mild/moderate_convalescence vs mild/moderate_progression
+
+```{r}
+design_mat_sub = design_mat %>% 
+  filter(state == "mild/moderate_convalescence" | state == "mild/moderate_progression")
+count_mat_sub = count_mat[rownames(design_mat_sub),]
+
+simil_mat = create_simMat(dim(count_mat_sub)[2], confuse_rate=0.1)
+res_GLM = dcats_GLM(count_mat = count_mat_sub, design_mat = design_mat_sub, similarity_mat = simil_mat)
+#ifelse(res_GLM$LRT_pvals < 0.05, "P", "N") 
+ifelse(res_GLM$pvals < 0.05, "P", "N") 
+#print(res_GLM$LR_vals)
+print(res_GLM$pvals)
+```
+
+```{r}
+count_mat_sub %>% as.data.frame() %>% 
+  cbind(design_mat_sub) %>% 
+  rownames_to_column("sample_id") %>% 
+  pivot_longer(names_to = "cell_type", values_to = "n", B:Neu) %>% 
+  group_by(sample_id) %>% 
+  mutate(prop = n/sum(n)) %>% 
+  ggplot(aes(x = cell_type, y = prop)) +
+    geom_boxplot(aes(color = state))
+```
+
+severe/critical_convalescence vs severe/critical_progression
+
+```{r}
+design_mat_sub = design_mat %>% 
+  filter(state == "severe/critical_convalescence" | state == "severe/critical_progression")
+count_mat_sub = count_mat[rownames(design_mat_sub),]
+
+simil_mat = create_simMat(dim(count_mat_sub)[2], confuse_rate=0.1)
+res_GLM = dcats_GLM(count_mat = count_mat_sub, design_mat = design_mat_sub, similarity_mat = simil_mat)
+#ifelse(res_GLM$LRT_pvals < 0.05, "P", "N") 
+ifelse(res_GLM$pvals < 0.05, "P", "N") 
+#print(res_GLM$LR_vals)
+print(res_GLM$pvals)
+```
+
+```{r}
+count_mat_sub %>% as.data.frame() %>% 
+  cbind(design_mat_sub) %>% 
+  rownames_to_column("sample_id") %>% 
+  pivot_longer(names_to = "cell_type", values_to = "n", B:Neu) %>% 
+  group_by(sample_id) %>% 
+  mutate(prop = n/sum(n)) %>% 
+  ggplot(aes(x = cell_type, y = prop)) +
+    geom_boxplot(aes(color = state))
+```
+
+mild/moderate_progression vs severe/critical_progression
+
+```{r}
+design_mat_sub = design_mat %>% 
+  filter(state == "mild/moderate_progression" | state == "severe/critical_progression")
+count_mat_sub = count_mat[rownames(design_mat_sub),]
+
+simil_mat = create_simMat(dim(count_mat_sub)[2], confuse_rate=0.1)
+res_GLM = dcats_GLM(count_mat = count_mat_sub, design_mat = design_mat_sub, similarity_mat = simil_mat)
+#ifelse(res_GLM$LRT_pvals < 0.05, "P", "N") 
+ifelse(res_GLM$pvals < 0.05, "P", "N") 
+#print(res_GLM$LR_vals)
+print(res_GLM$pvals)
+```
+
+```{r}
+count_mat_sub %>% as.data.frame() %>% 
+  cbind(design_mat_sub) %>% 
+  rownames_to_column("sample_id") %>% 
+  pivot_longer(names_to = "cell_type", values_to = "n", B:Neu) %>% 
+  group_by(sample_id) %>% 
+  mutate(prop = n/sum(n)) %>% 
+  ggplot(aes(x = cell_type, y = prop)) +
+    geom_boxplot(aes(color = state))
+```
+
+## sub type
+
+```{r}
+Neu_count = Ren2021_cell %>% 
+  merge(sample_patient) %>% 
+  filter(sample_id %in% pbmc_sampleL) %>% 
+  group_by(patient_id, celltype) %>% 
+  summarise(n = n()) %>% 
+  pivot_wider(names_from = celltype, values_from = n) %>% 
+  column_to_rownames("patient_id") %>% 
+  select(starts_with("Neu")) %>% 
+  replace(is.na(.), 0) %>% 
+  rowSums()
+Macro_count = Ren2021_cell %>% 
+  merge(sample_patient) %>% 
+  filter(sample_id %in% pbmc_sampleL) %>% 
+  group_by(patient_id, celltype) %>% 
+  summarise(n = n()) %>% 
+  pivot_wider(names_from = celltype, values_from = n) %>% 
+  column_to_rownames("patient_id") %>% 
+  select(starts_with("Macro")) %>% 
+  replace(is.na(.), 0) %>% 
+  rowSums()
+```
+```{r}
+count_mat = Ren2021_cell %>% 
+  merge(sample_patient) %>% 
+  filter(sample_id %in% pbmc_sampleL) %>% 
+  group_by(patient_id, celltype) %>% 
+  summarise(n = n()) %>% 
+  pivot_wider(names_from = celltype, values_from = n) %>% 
+  column_to_rownames("patient_id") %>% 
+  select(-starts_with("Neu"), -starts_with("Macro")) %>% 
+  mutate(Neu = Neu_count,
+         Macro = Macro_count)
+```
+
 
 
 ## Codes

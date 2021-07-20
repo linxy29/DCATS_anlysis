@@ -718,52 +718,40 @@ getROC = function(truth, pred){
   return(list(plot = plot, auc = auc, df = df, eval = eval))
 }
 
-# function 14: borrow a function from cardelino
-binaryROC <- function(scores, labels, cutoff=NULL, cut_direction=">=",
-                      add_cut1=TRUE, cutoff_point=0.9) {
-  if (is.null(cutoff)) {
-    cutoff <- sort(unique(scores))
+getPRC = function(truth, pred){
+  ## precision and recall
+  library(ggplot2)
+  thresholds = c(0, pred)
+  precision = rep(NA, length(thresholds))
+  recall = rep(NA, length(thresholds))
+  TP = rep(NA, length(thresholds))
+  TN = rep(NA, length(thresholds))
+  FP = rep(NA, length(thresholds))
+  FN = rep(NA, length(thresholds))
+  for (j in 1:length(thresholds)) {
+    pred_res = ifelse(pred < thresholds[j], "P", "N")
+    TP[j] <- sum(pred_res=="P"&truth=="P")
+    TN[j] <- sum(pred_res=="N"&truth=="N")
+    FP[j] <- sum(pred_res=="P"&truth=="N")
+    FN[j] <- sum(pred_res=="N"&truth=="P")
+    precision[j] = TP[j]/(TP[j]+FP[j])
+    recall[j] = TP[j]/(TP[j]+FN[j])
   }
-  cutoff <- sort(unique(c(cutoff, cutoff_point, 0, 1)))
-  
-  TPR <- rep(0, length(cutoff))
-  FPR <- rep(0, length(cutoff))
-  Precision <- rep(0, length(cutoff))
-  for (i in seq_len(length(cutoff))) {
-    if (cut_direction == "<=") {
-      idx <- scores <= cutoff[i]
-    } else if (cut_direction == "<") {
-      idx <- scores < cutoff[i]
-    } else if (cut_direction == ">") {
-      idx <- scores > cutoff[i]
-    } else {
-      idx <- scores >= cutoff[i]
-    }
-    
-    FPR[i] <- sum(labels[idx] == 0) / sum(labels == 0) ## FPR
-    TPR[i] <- sum(labels[idx] == 1) / sum(labels == 1) ## TPR
-    Precision[i] <- mean(labels[idx] == 1)
-  }    
-  Precision[(TPR == 0) & is.na(Precision)] <- 1.0
-  
-  if (add_cut1) {
-    cutoff <- c(cutoff, 1.0)
-    FPR <- c(FPR, 0.0)
-    TPR <- c(TPR, 0.0)
-    Precision <- c(Precision, 1.0)
+  eval = data.frame(thresholds = thresholds, TP = TP, TN = TN, FP = FP, FN = FN)
+  df = data.frame(precision = precision, recall = recall) %>% 
+    arrange(desc(precision))
+  df[is.na(df)] <- 0
+  df = df[rowSums(df)!=0,]
+  ## plot
+  plot = df %>% 
+    ggplot(aes(x = recall, y = precision)) +
+    geom_line(orientation = "x")
+  ## prauc
+  prauc = 0
+  for (n in 2:nrow(df)){
+    subArea = (df$precision[n-1]-df$precision[n])*(df$recall[n-1]+df$recall[n])/2
+    prauc = prauc + subArea
   }
-  
-  AUC <- AUPRC <- 0.0
-  for (i in seq_len(length(cutoff) - 1)) {
-    AUC <- ((FPR[i] - FPR[i + 1]) * 
-              (TPR[i] + TPR[i + 1]) * 0.5 + AUC)
-    AUPRC <- ((TPR[i] - TPR[i + 1]) * 
-                (Precision[i] + Precision[i + 1]) * 0.5 + AUPRC)
-  }
-  AUC <- AUC / (FPR[1] - FPR[length(FPR)])
-  AUPRC <- AUPRC / (TPR[1] - TPR[length(TPR)])
-  
-  df <- data.frame("cutoff" = cutoff, "TPR" = TPR, 
-                   "FPR" = FPR, Precision = Precision)
-  list("df" = df, "AUC" = AUC, "AUPRC" = AUPRC)
+  prauc = prauc + df$precision[n] * 1 # add precidion till 0
+  return(list(plot = plot, prauc = prauc, df = df, eval = eval))
 }
