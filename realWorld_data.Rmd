@@ -581,8 +581,8 @@ res_mat = Kaufmann2021 %>% filter(group == "MS1_nat" | group == "MS1") %>%
   summarise(n = n()) %>% 
   pivot_wider(names_from = cluster_names, values_from = n) %>% 
   replace(is.na(.), 0) %>% 
-  mutate(donor = str_c(donor, "_", natalizumab_treatment)) %>% 
-  column_to_rownames("donor")
+  mutate(sample = str_c(donor, "_", natalizumab_treatment)) %>% 
+  column_to_rownames("sample")
 res_mat %>% print()
 ```
 
@@ -597,6 +597,29 @@ print(design_mat)
 
 simil_mat = create_simMat(dim(count_mat)[2], confuse_rate=0.1)
 res_GLM = dcats_GLM(count_mat = count_mat, design_mat = design_mat, similarity_mat = simil_mat)
+sig_GLM = ifelse(res_GLM$LRT_pvals < 0.05, "P", "N") 
+print(sig_GLM)
+print(res_GLM$LRT_pvals)
+print(res_GLM$pvals)
+```
+
+```{r}
+library(fastDummies)
+count_mat = res_mat %>% select(B01:T11) %>% 
+  as.matrix()
+design_mat = res_mat %>% select(donor:natalizumab_treatment) %>% 
+  dummy_cols(select_columns = "donor") %>% 
+  select(donor, sex, age_sampling, natalizumab_treatment, str_c("donor_", res_mat$donor)) %>% 
+  mutate(donor = str_c(donor, "_", natalizumab_treatment)) %>% 
+  column_to_rownames("donor") %>% 
+  janitor::clean_names() %>% 
+  select(-donor_hh_ox_31, -donor_hh_ox_23)
+  
+print(count_mat)
+print(design_mat)
+
+simil_mat = create_simMat(dim(count_mat)[2], confuse_rate=0.1)
+res_GLM = dcats_GLM(count_mat = count_mat, design_mat = design_mat, similarity_mat = simil_mat, intercept = FALSE, base_model = "FULL")
 sig_GLM = ifelse(res_GLM$LRT_pvals < 0.05, "P", "N") 
 print(sig_GLM)
 print(res_GLM$LRT_pvals)
