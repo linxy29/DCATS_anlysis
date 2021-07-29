@@ -224,6 +224,8 @@ evaluationDF %>%
 ggsave("C:/#Code/R/slides/image/RPG_discussion/dcats_result1.png", bg = "transparent")
 ```
 
+Use five cluster, won't choice this scenario
+
 ```{r, eval=FALSE}
 cluster_num = 5  # numbers of clusters
 concentration = 70 # indicate how simulated proportion far away from true, the larger the closer

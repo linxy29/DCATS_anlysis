@@ -20,228 +20,48 @@ options(future.globals.maxSize = 20000 * 1024^2) # 20G memory
 ```
 
 ```{r}
-theme_set(theme_minimal())
+theme_set(theme_classic()+
+    theme(panel.border = element_blank(),
+          legend.key = element_blank(),
+          axis.ticks = element_blank(),
+          panel.grid = element_blank(),
+          panel.grid.minor = element_blank(), 
+          panel.grid.major = element_blank(),
+          panel.background = element_blank(),
+          legend.background = element_blank(),
+          plot.background = element_rect(fill = "transparent",colour = NA))+
+      theme(axis.text=element_text(size=12),
+        axis.title=element_text(size=14)))
 ```
 
-Fig 1 (theoretical simulation might be enough): the usefulness of using similarity matrix to correct the bias;
-
-Draw a boxplot to show AUC results of DCATS, chi-square, scDC(, fisher) without BC, with BC and with BC using resampling.
-
-Avaliable figure 1 seeting:
-cluster_num = 5  # numbers of clusters
-concentration = 70 # indicate how simulated proportion far away from true, the larger the closer
-rep1 = 2
-rep2 = 3
-simulation_times = 50
-simulation_size = 50
-sample_size1 = 1000
-sample_size2 = 2000
-probC1 = c(0.2, 0.2, 0.05, 0.3, 0.25)
-probC2 = c(0.2, 0.2, 0.05, 0.2, 0.35)
-truthRes = c("N", "N", "N", "P", "P")
-simil_mat = get_similarity_mat(cluster_num, confuse_rate=0)
-simil_mat[5,5] = 0.6
-simil_mat[5,4] = 0.4
-simil_mat[4,5] = 0.4
-simil_mat[4,4] = 0.6
-
+```{r}
 cluster_num = 3  # numbers of clusters
 concentration = 70 # indicate how simulated proportion far away from true, the larger the closer
+#rep1 = 3
 rep1 = 2
 rep2 = 3
-simulation_times = 50
+#rep2 = 4
+simulation_times = 20
 simulation_size = 50
 sample_size1 = 1000
 sample_size2 = 2000
+
 probC1 = c(1/3, 1/3, 1/3)  # True proportions
 probC2 = c(1/3, 1/2, 1/6)
 truthRes = c("N", "P", "P")
-
-```{r}
-cluster_num = 5  # numbers of clusters
-concentration = 70 # indicate how simulated proportion far away from true, the larger the closer
-rep1 = 2
-rep2 = 3
-simulation_times = 50
-simulation_size = 50
-sample_size1 = 1000
-sample_size2 = 2000
 ```
 
-```{r}
-cluster_num = 3  # numbers of clusters
-concentration = 70 # indicate how simulated proportion far away from true, the larger the closer
-rep1 = 3
-rep2 = 3
-simulation_times = 50
-simulation_size = 50
-sample_size1 = 1000
-sample_size2 = 2000
-```
+Try used the complete version of dcats without fixed phi
 
 ```{r}
-probC1 = c(0.2, 0.2, 0.05, 0.3, 0.25)
-probC2 = c(0.2, 0.2, 0.05, 0.2, 0.35)
-truthRes = c("N", "N", "N", "P", "P")
-```
-
-```{r}
-## more negative
-if (cluster_num == 3){
-  probC1 = c(1/3, 1/3, 1/3)  # True proportions
-  probC2 = c(1/3, 1/2, 1/6)
-  truthRes = c("N", "P", "P")
-} else if (cluster_num == 4){
-  probC1 = c(0.25, 0.25, 0.25, 0.25)
-  probC2 = c(0.25, 0.25, 0.15, 0.4)
-  truthRes = c("N", "N", "P", "P")
-} else if (cluster_num == 7){
-  probC1 = c(rep(0.1, 4), rep(0.2, 3))
-  probC2 = c(0.1, 0.1, 0.1, 0.15, 0.2, 0.3, 0.05)
-  truthRes = c("N", "N", "N", "P", "N", "P", "P")
-} else if (cluster_num == 9) {
-  probC1 = c(rep(0.1, 8), 0.2)
-  probC2 = c(rep(0.1, 7), 0.17, 0.13)
-  truthRes = c(rep("N", 7), "P", "P")
-} else if (cluster_num == 12) {
-  probC1 = c(rep(0.1, 4), rep(0.2, 2), rep(0.05, 2), rep(0.025, 4))
-  probC2 = c(0.1, 0.1, 0.1, 0.1, 0.2, 0.15, 0.05, 0.075, 0.05, 0.025, 0.025, 0.025)
-  truthRes = c("N", "N", "N", "N", "N", "P", "N", "P", "P", "N", "N", "N")
-}
-```
-
-Figure 1 b, c
-
-```{r, warning=FALSE}
 set.seed(123)
-simulationDF = data.frame()
-for (i in 1:simulation_size){
-  ## create confusion matrix that is not uniformly distributed
-  simil_mat = get_similarity_mat(cluster_num, confuse_rate=0)
-  #simil_mat = matrix(c(1, 0, 0, 0, 0.7, 0.3, 0, 0.3, 0.7), ncol = 3)
-  simil_mat[5,5] = 0.6
-  simil_mat[5,3] = 0.4
-  simil_mat[3,5] = 0.4
-  simil_mat[3,3] = 0.6
-  ## Data generation part
-  totals1 = ceiling(runif(rep1, sample_size1, sample_size2))
-  totals2 = ceiling(runif(rep2, sample_size1, sample_size2))
-  diri_s1 = probC1 * concentration
-  diri_s2 = probC2 * concentration
-  sim_dat <- DCATS::simulator_base(totals1, totals2, diri_s1, diri_s2, simil_mat)
-  numb_cond1 = as.matrix(sim_dat$numb_cond1)
-  numb_cond2 = as.matrix(sim_dat$numb_cond2)
-  
-  ## Test part 1
-  ### DCATS
-  dcats_res1 = betabinLRT_rw(numb_cond1, numb_cond2, bias_corr = FALSE)
-  ### fisher
-  fisher_pvals1 = getFisher(numb_cond1, numb_cond2)
-  
-  ## Bias Correction
-  numb_cond1BC = numb_cond1
-  numb_cond2BC = numb_cond2
-  for (i in seq_len(nrow(numb_cond1))) {
-    numb_cond1BC[i, ] <- sum(numb_cond1[i, ]) * multinom_EM(numb_cond1[i, ], simil_mat, verbose = FALSE)$mu
-    numb_cond1BC[i, ] = ceiling(numb_cond1BC[i, ])}
-  for (i in seq_len(nrow(numb_cond2))) {
-    numb_cond2BC[i, ] <- sum(numb_cond2[i, ]) * multinom_EM(numb_cond2[i, ], simil_mat, verbose = FALSE)$mu
-    numb_cond2BC[i, ] = ceiling(numb_cond2BC[i, ])}
-  
-  ## Test part 2
-  ### DCATS
-  dcats_res2 = betabinLRT_rw(numb_cond1BC, numb_cond2BC, bias_corr = FALSE)
-  ### fisher
-  fisher_pvals2 = getFisher(numb_cond1BC, numb_cond2BC)
-  
-  all_res = data.frame(cluster = c("A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L")[1:cluster_num], truth = truthRes) %>%
-    mutate(dcats_noBC = dcats_res1$pvals,
-           fisher_noBC = fisher_pvals1,
-           dcats_withBC = dcats_res2$pvals,
-           fisher_withBC = fisher_pvals2)
-  
-  simulationDF = rbind(simulationDF, all_res)}
-```
 
-To test whether these auc are above 0.5 -> Yes
-
-```{r, eval=FALSE}
-getROC(simulationDF$truth, simulationDF$dcats_noBC)$plot
-getROC(simulationDF$truth, simulationDF$fisher_noBC)$plot
-getROC(simulationDF$truth, simulationDF$dcats_withBC)$plot
-getROC(simulationDF$truth, simulationDF$fisher_withBC)$plot
-```
-
-## plot method 1
-
-```{r}
-dcats_noBC_ROCobj = getROC(simulationDF$truth, simulationDF$dcats_noBC)
-fisher_noBC_ROCobj = getROC(simulationDF$truth, simulationDF$fisher_noBC)
-dcats_withBC_ROCobj = getROC(simulationDF$truth, simulationDF$dcats_withBC)
-fisher_withBC_ROCobj = getROC(simulationDF$truth, simulationDF$fisher_withBC)
-```
-
-```{r}
-ggplot() +
-  geom_line(data = dcats_noBC_ROCobj$df, aes(x = x, y = sensitivity, color = "2a9d8f"), orientation = "y") +
-  geom_line(data = fisher_noBC_ROCobj$df, aes(x = x, y = sensitivity, color = "e9c46a"), orientation = "y") +
-  geom_abline(slope=1, color="gray", linetype="dashed")
-```
-
-## plot method 2
-
-```{r}
-roc_rose <- plot(roc(simulationDF$truth, simulationDF[,3]), legacy.axes = TRUE, print.auc = TRUE, print.auc.y = .7, print.auc.x = .5, col = 1)
-graphics::text(paste("DCATS"), col=1)
-roc_rose <- plot(roc(simulationDF$truth, simulationDF[,4]), legacy.axes = TRUE, print.auc = TRUE, print.auc.y = .65, print.auc.x = .5, col = 2, add = TRUE)
-graphics::text(paste("Fisher"), col=2)
-```
-
-## plot method 3(Use this one)
-
-```{r}
-dcats_noBC_ROCobj = getROC(simulationDF$truth, simulationDF$dcats_noBC)
-fisher_noBC_ROCobj = getROC(simulationDF$truth, simulationDF$fisher_noBC)
-dcats_withBC_ROCobj = getROC(simulationDF$truth, simulationDF$dcats_withBC)
-fisher_withBC_ROCobj = getROC(simulationDF$truth, simulationDF$fisher_withBC)
-
-size = nrow(dcats_noBC_ROCobj$df)
-res = rbind(dcats_noBC_ROCobj$df, fisher_noBC_ROCobj$df, dcats_withBC_ROCobj$df, fisher_withBC_ROCobj$df) %>% 
-  mutate(method = c(rep("dcats_noBC", size), rep("fisher_noBC", size), rep("dcats_withBC", size), rep("fisher_withBC", size)),
-         index = rep(1:size, 4)) %>% 
-  tidyr::separate(method, c("method", "condition"), sep = "_")
-
-plotF1 =  res %>% 
-  ggplot(aes(x = x, y = sensitivity, color = method)) + 
-  geom_line(orientation = "y") + 
-  facet_grid(.~condition) +
-  geom_abline(slope=1, color="gray", linetype="dashed") +
-  ylab("Sensitivity") +
-  xlab("1-Specificity")
-ggsave(str_c("./data/figure1_cluster", as.character(cluster_num), ".png"), plot = plotF1)
-print(plotF1)
-```
-
-```{r, warning=FALSE}
-set.seed(123)
 simulationDF_list = vector(mode = "list", length = simulation_times)
-for (j in 1:simulation_times) {
+for (sim in 1:simulation_times) {
   simulationDF = data.frame()
-  for (i in 1:simulation_size){
+  for (simsim in 1:simulation_size){
     ## create confusion matrix that is not uniformly distributed
-    #simil_mat = get_similarity_mat(cluster_num, confuse_rate=0)
-    simil_mat = matrix(c(1, 0, 0, 0, 0.6, 0.4, 0, 0.4, 0.6), ncol = 3)
-    if (FALSE){
-      mis_idx = runif(1, -0.2, 0.2)
-      change_rate = simil_mat[1,1]*abs(mis_idx)
-      if (mis_idx < 0){
-        simil_mat[1,1] = simil_mat[1,1] - change_rate
-        simil_mat[1,3] = simil_mat[1,3] + change_rate
-        } else {
-          simil_mat[3,1] = simil_mat[1,1] - change_rate
-          simil_mat[3,3] = simil_mat[1,3] + change_rate 
-        }
-      }
+    simil_mat = matrix(c(1, 0, 0, 0, 0.7, 0.3, 0, 0.3, 0.7), ncol = 3)
     
     ## Data generation part
     totals1 = ceiling(runif(rep1, sample_size1, sample_size2))
@@ -254,114 +74,63 @@ for (j in 1:simulation_times) {
     
     ## Test part 1
     ### DCATS
-    dcats_res1 = betabinLRT_rw(numb_cond1, numb_cond2, bias_corr = FALSE)
+    count_mat = rbind(numb_cond1, numb_cond2)
+    design_df = data.frame(condition = c(rep("c1", dim(numb_cond1)[1]), rep("c2", dim(numb_cond2)[1])))
+    dcats_res1 = dcats_GLM(count_mat, design_df)
     ### fisher
     fisher_pvals1 = getFisher(numb_cond1, numb_cond2)
     
+    ## Test part 2 - only use EM
     ## Bias Correction
     numb_cond1BC = numb_cond1
     numb_cond2BC = numb_cond2
     for (i in seq_len(nrow(numb_cond1))) {
-      numb_cond1BC[i, ] <- sum(numb_cond1[i, ]) *
-        multinom_EM(numb_cond1[i, ], simil_mat, verbose = FALSE)$mu
-      numb_cond1BC[i, ] = ceiling(numb_cond1BC[i, ])
-      }
+      numb_cond1BC[i, ] <- sum(numb_cond1[i, ]) * multinom_EM(numb_cond1[i, ], simil_mat, verbose = FALSE)$mu
+      numb_cond1BC[i, ] = ceiling(numb_cond1BC[i, ])}
     for (i in seq_len(nrow(numb_cond2))) {
-      numb_cond2BC[i, ] <- sum(numb_cond2[i, ]) *
-        multinom_EM(numb_cond2[i, ], simil_mat, verbose = FALSE)$mu
-      numb_cond2BC[i, ] = ceiling(numb_cond2BC[i, ])
-    }
-  
-    ## Test part 2
+      numb_cond2BC[i, ] <- sum(numb_cond2[i, ]) * multinom_EM(numb_cond2[i, ], simil_mat, verbose = FALSE)$mu
+      numb_cond2BC[i, ] = ceiling(numb_cond2BC[i, ])}
+    
     ### DCATS
-    dcats_res2 = betabinLRT_rw(numb_cond1BC, numb_cond2BC, bias_corr = FALSE)
+    count_mat = rbind(numb_cond1BC, numb_cond2BC)
+    dcats_res1 = dcats_GLM(count_mat, design_df)
     ### fisher
     fisher_pvals2 = getFisher(numb_cond1BC, numb_cond2BC)
-  
-    all_res = data.frame(cluster = c("A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L")[1:cluster_num], truth = truthRes) %>% 
-      mutate(dcats_noBC = dcats_res1$pvals,
-            fisher_noBC = fisher_pvals1,
-            dcats_withBC = dcats_res2$pvals,
-            fisher_withBC = fisher_pvals2)
-
-    simulationDF = rbind(simulationDF, all_res)
-    }
-  simulationDF_list[[j]] = simulationDF
+    
+    ## Test part 3
+    ### DCATS
+    dcats_res2 = dcats_GLM(count_mat, design_df, similarity_mat = simil_mat, fix_phi = concentration)
+    ### fisher
+    fisher_pvals2 = getFisher(numb_cond1BC, numb_cond2BC)
+    
+    all_res = data.frame(cluster = c("A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L")[1:cluster_num], truth = truthRes) %>%
+      mutate(dcats_wtoBC = dcats_res1$LRT_pvals,
+             fisher_wtoBC = fisher_pvals1,
+             dcats_withBC = dcats_res2$LRT_pvals,
+             fisher_withBC = fisher_pvals2)
+    
+    simulationDF = rbind(simulationDF, all_res)}
+  simulationDF_list[[sim]] = simulationDF
 }
-
-#file_name = str_c("./data/simulationRES/replicates", as.character(rep1), "&", as.character(rep2), "_K", as.character(cluster_num), "_con", as.character(concentration), "_countSim.RData")
-#save(simulationDF_list, file = file_name)
-
-## send email after finishing
-sendEmail("Simulation is done!!")
 ```
-
-```{r, eval=FALSE}
-## plots for lab meeting
-colnames(numb_cond1) = c("A", "B", "C")
-cond1DF = numb_cond1 %>% as.data.frame() %>% 
-  rownames_to_column("rep") %>% 
-  mutate(rep = str_c("rep", rep),
-         cond = "cond1",
-         sum = A + B + C,
-         A = A/sum,
-         B = B/sum,
-         C = C/sum) %>% 
-  pivot_longer(A:C, names_to = "cluster", values_to = "prop")
-
-colnames(numb_cond2) = c("A", "B", "C")
-cond2DF = numb_cond2 %>% as.data.frame() %>% 
-  rownames_to_column("rep") %>% 
-  mutate(rep = str_c("rep", rep),
-         cond = "cond2",
-         sum = A + B + C,
-         A = A/sum,
-         B = B/sum,
-         C = C/sum) %>% 
-  pivot_longer(A:C, names_to = "cluster", values_to = "prop")
-
-condDF = rbind(cond1DF, cond2DF)
-```
-
-```{r, eval=FALSE}
-LM_plot1 = condDF %>% 
-  ggplot(aes(x = rep, y = prop, fill = cluster))+
-  geom_bar(stat="identity") + 
-  coord_flip() + 
-  facet_grid(. ~ cond) +
-  xlab("Replicates") +
-  ylab("Proportions")
-ggsave("C:/#Code/R/slides/image/RPG_discussion/dcats_background.png", plot = LM_plot1, bg = "transparent", width = 7, height = 3.5)
-```
-
-```{r, eval=FALSE}
-load(file_name)
-simulationDF_list[[1]] %>% 
-  pivot_longer(dcats_noBC:fisher_withBC,
-    names_to = "statistics", 
-    values_to = "pvals") %>% 
-  ggplot(aes(x = statistics, y = pvals)) +
-  geom_boxplot()
-```
-
-Calculate PPV NPV TNR F1 Power FOR FNR FPR FDR AUC
 
 ```{r}
 evaluationDF = data.frame()
 len = length(simulationDF_list)
+#for (j in 1:3){
 for (j in 1:len){
   simulationDF = simulationDF_list[[j]] %>% na.omit()
-  methods = colnames(simulationDF)[3:dim(simulationDF)[2]]
-  numb_mthd = length(methods)
+  method = colnames(simulationDF)[3:dim(simulationDF)[2]]
+  numb_mthd = length(method)
+  sensitivity = rep(NA, numb_mthd)
+  specificity = rep(NA, numb_mthd)
   mcc = rep(NA, numb_mthd)
   auc = rep(NA, numb_mthd)
-  sensitivity = rep(NA, numb_mthd)
-  FNR = rep(NA, numb_mthd)
-  FPR = rep(NA, numb_mthd)
-  specificity = rep(NA, numb_mthd)
+  prauc = rep(NA, numb_mthd)
+  F1 = rep(NA, numb_mthd)
+  
   truth = simulationDF$truth
   for (i in 3:dim(simulationDF)[2]){
-    auc[i-2] = getROC(simulationDF$truth, simulationDF[,i])$auc
     pred = simulationDF[, i]
     pred_res = ifelse(pred < 0.05, "P", "N")
     TP <- sum(pred_res=="P"&truth=="P")
@@ -372,131 +141,75 @@ for (j in 1:len){
     truthP = FN + TP
     predP = TP + FP
     predN = FN + TN
-    mcc[i-2] = (TP*TN-FP*FN)/sqrt(predP*truthP*truthN*predN)
     sensitivity[i-2] = TP/truthP
     specificity[i-2] = TN/truthN
-    FNR[i-2] = FN/truthP
-    FPR[i-2] = FP/truthN
+    mcc[i-2] = (TP*TN-FP*FN)/sqrt(predP*truthP*truthN*predN)
+    auc[i-2] = getROC(truth, pred)$auc
+    prauc[i-2] = getPRC(truth, pred)$prauc
+    F1 = 2*TP/(2*TP+FP+FN)
     
-    res = data.frame(trial = as.character(j), methods = methods, mcc = mcc, auc = auc, sensitivity = sensitivity, specificity = specificity, FNR = FNR, FPR = FPR)
+    res = data.frame(trial = as.character(j), method = method, sensitivity = sensitivity, specificity = specificity, mcc = mcc, auc = auc, prauc = prauc, F1 = F1)
     }
     evaluationDF = rbind(evaluationDF, res)
 }
+```
 
+Plots
+
+```{r}
 evaluationDF %>% 
-  tidyr::separate(methods, c("method", "condition"), sep = "_") %>% 
+  tidyr::separate(method, c("method", "condition"), sep = "_") %>% 
   pivot_longer(
-    mcc:FPR,
+    sensitivity:specificity,
     names_to = "statistics", 
     values_to = "value") %>% 
-  mutate(statistics = as.factor(statistics),
-         statistics = fct_relevel(statistics, "mcc", "auc", "recall", "specificity", "precision", "NPV", "accuracy", "F1")) %>% 
+  mutate(condition = ifelse(condition == "withBC", "with Bias Correction", "without Bias Correction"),
+         condition = factor(condition, levels = c("without Bias Correction", "with Bias Correction")),
+         method = ifelse(method == "dcats", "DCATS", "Fisher")) %>% 
   ggplot(aes(x = statistics, y = value, color = method)) + geom_boxplot() + facet_grid(.~condition) +
-  theme_gray() +
-  theme(axis.text.x = element_text(angle = 45))
+    theme(axis.title.x = element_blank()) + 
+  scale_color_manual(values=c("#F8766D", "#00BF7D"))
+  #ggplot(aes(x = statistics, y = value, color = method)) + geom_boxplot()
+#ggsave("./plot/figureA2.png", bg = "transparent")
 ```
 
 ```{r}
-aucDF = evaluationDF %>% 
-  dplyr::select(trial, methods, auc) %>% 
-  pivot_wider(names_from = methods, values_from = auc)
-
-summary(aucDF$dcats_noBC)
-summary(aucDF$fisher_noBC)
-summary(aucDF$dcats_withBC)
-summary(aucDF$fisher_withBC)
+evaluationDF %>% 
+  tidyr::separate(method, c("method", "condition"), sep = "_") %>% 
+  dplyr::select(-sensitivity, -specificity) %>% 
+  mutate(method = ifelse(method == "dcats", "DCATS", "Fisher"),
+         condition = factor(condition, levels = c("wtoBC", "withBC"))) %>% 
+  ggplot(aes(x = condition, y = mcc, color = method)) + geom_boxplot() +
+  theme(axis.title.x = element_blank(),
+        legend.position = "top") + 
+  scale_color_manual(values=c("#F8766D", "#00BF7D"))
+#ggsave("C:/#Code/R/slides/image/RPG_discussion/dcats_result1.png", bg = "transparent")
 ```
 
 ```{r}
-mccDF = evaluationDF %>% 
-  dplyr::select(trial, methods, mcc) %>% 
-  pivot_wider(names_from = methods, values_from = mcc)
-
-summary(mccDF$dcats_noBC)
-summary(mccDF$fisher_noBC)
-summary(mccDF$dcats_withBC)
-summary(mccDF$fisher_withBC)
+evaluationDF %>% 
+  tidyr::separate(method, c("method", "condition"), sep = "_") %>% 
+  mutate(method = ifelse(method == "dcats", "DCATS", "Fisher"),
+         condition = factor(condition, levels = c("wtoBC", "withBC"))) %>% 
+  ggplot(aes(x = condition, y = prauc, color = method)) + geom_boxplot() +
+  theme(axis.title.x = element_blank(),
+        legend.position = "top") + 
+  scale_color_manual(values=c("#F8766D", "#00BF7D"))
+#ggsave("C:/#Code/R/slides/image/RPG_discussion/dcats_result1.png", bg = "transparent")
 ```
 
-## figure 1 version 1
 
-```{r}
-source("functionsV2.r")
-```
 
-```{r}
-cluster_num = 3  # numbers of clusters
-concentration = 50 # indicate how simulated proportion far away from true, the larger the closer
-rep1 = 6
-rep2 = 4
-simulation_times = 50
-simulation_size = 50
-sample_size1 = 1000
-sample_size2 = 2000
-simil_mat = matrix(c(1, 0, 0, 0, 0.8, 0.3, 0, 0.2, 0.7), ncol = 3)
-```
 
-```{r}
-## more negative
-if (cluster_num == 3){
-  probC1 = c(1/3, 1/3, 1/3)  # True proportions
-  probC2 = c(1/3, 1/2, 1/6)
-  truthRes = c("N", "P", "P")
-} else if (cluster_num == 7){
-  probC1 = c(rep(0.1, 4), rep(0.2, 3))
-  probC2 = c(0.1, 0.1, 0.1, 0.15, 0.2, 0.3, 0.05)
-  truthRes = c("N", "N", "N", "P", "N", "P", "P")
-} else if (cluster_num == 12) {
-  probC1 = c(rep(0.1, 4), rep(0.2, 2), rep(0.05, 2), rep(0.025, 4))
-  probC2 = c(0.1, 0.1, 0.1, 0.1, 0.2, 0.15, 0.05, 0.075, 0.05, 0.025, 0.025, 0.025)
-  truthRes = c("N", "N", "N", "N", "N", "P", "N", "P", "P", "N", "N", "N")
-}
-```
 
-```{r}
-set.seed(123)
-simulationDF = data.frame()
-for (i in 1:simulation_size){
-  ## Data generation part
-  totals1 = ceiling(runif(rep1, sample_size1, sample_size2))
-  totals2 = ceiling(runif(rep2, sample_size1, sample_size2))
-  diri_s1 = probC1 * concentration
-  diri_s2 = probC2 * concentration
-  sim_dat <- DCATS::simulator_base(totals1, totals2, diri_s1, diri_s2, simil_mat)
-  numb_cond1 = as.matrix(sim_dat$numb_cond1)
-  numb_cond2 = as.matrix(sim_dat$numb_cond2)
-    
-  ## Test part 1
-  ### DCATS
-  dcats_res1 = betabinLRT_rw(numb_cond1, numb_cond2, bias_corr = FALSE)
-  ### fisher
-  fisher_pvals1 = getFisher(numb_cond1, numb_cond2)
-    
-  ## Bias Correction
-  numb_cond1BC = numb_cond1
-  numb_cond2BC = numb_cond2
-  for (i in seq_len(nrow(numb_cond1))) {
-    numb_cond1BC[i, ] <- sum(numb_cond1[i, ]) *
-      multinom_EM(numb_cond1[i, ], simil_mat, verbose = FALSE)$mu
-    numb_cond1BC[i, ] = ceiling(numb_cond1BC[i, ])
-    }
-  for (i in seq_len(nrow(numb_cond2))) {
-    numb_cond2BC[i, ] <- sum(numb_cond2[i, ]) *
-      multinom_EM(numb_cond2[i, ], simil_mat, verbose = FALSE)$mu
-    numb_cond2BC[i, ] = ceiling(numb_cond2BC[i, ])
-    }
-  
-  ## Test part 2
-  ### DCATS
-  dcats_res2 = betabinLRT_rw(numb_cond1BC, numb_cond2BC, bias_corr = FALSE)
-  ### fisher
-  fisher_pvals2 = getFisher(numb_cond1BC, numb_cond2BC)
-  
-  all_res = data.frame(cluster = c("A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L")[1:cluster_num], truth = truthRes) %>% 
-    mutate(dcats_noBC = dcats_res1$pvals,
-           fisher_noBC = fisher_pvals1,
-           dcats_withBC = dcats_res2$pvals,
-           fisher_withBC = fisher_pvals2)
-  simulationDF = rbind(simulationDF, all_res)
-  }
-```
+
+
+
+
+
+
+
+
+
+
+
