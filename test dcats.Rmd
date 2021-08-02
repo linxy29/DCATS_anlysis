@@ -8,7 +8,7 @@ output: html_document
 The function used: 
 
 ```{r}
-dcats_GLM <- function(count_mat, design_mat, similarity_mat=NULL, n_samples=50, pseudo_count=NULL, intercept = TRUE,  base_model='NULL', fix_phi=NULL) {
+dcats_GLM <- function(count_mat, design_mat, similarity_mat=NULL, n_samples=50, pseudo_count=NULL,  base_model='NULL', fix_phi=NULL) {
   # Output matrices
   coeffs     <- matrix(NA, ncol(count_mat), ncol(design_mat))
   coeffs_err <- matrix(NA, ncol(count_mat), ncol(design_mat))
@@ -88,17 +88,11 @@ dcats_GLM <- function(count_mat, design_mat, similarity_mat=NULL, n_samples=50, 
           formula_fm0 <- as.formula('cbind(n1, total-n1) ~ 1')
         
           formula_fm1 <- as.formula(paste0('cbind(n1, total-n1)', '~ 1+', colnames(design_mat)[k], sep=''))
-          #formula_fm1 <- as.formula(paste0('cbind(n1, total-n1)', ' ~ ', colnames(design_mat)[k], sep='')) # the same as the previous one
         } else if (base_model=='FULL') {
           fm0_right <- paste(colnames(design_mat)[-k], collapse = " + ")
           fm1_right <- paste(colnames(design_mat), collapse = " + ")
-          if (isTRUE(intercept)){
-            formula_fm0 <- as.formula(paste0('cbind(n1, total-n1)', ' ~ 1 + ', fm0_right, sep=''))
-            formula_fm1 <- as.formula(paste0('cbind(n1, total-n1)', ' ~ 1 + ', fm1_right, sep=''))
-          } else {
-            formula_fm0 <- as.formula(paste0('cbind(n1, total-n1)', ' ~ ', fm0_right, sep=''))
-            formula_fm1 <- as.formula(paste0('cbind(n1, total-n1)', ' ~ ', fm1_right, sep=''))
-          }
+          formula_fm0 <- as.formula(paste0('cbind(n1, total-n1)', ' ~ 1 + ', fm0_right, sep=''))
+          formula_fm1 <- as.formula(paste0('cbind(n1, total-n1)', ' ~ 1 + ', fm1_right, sep=''))
         }
         fm0 <- aod::betabin(formula_fm0, ~ 1, data = df_tmp, warnings = FALSE)
         fm1 <- aod::betabin(formula_fm1, ~ 1, data = df_tmp, warnings = FALSE)
@@ -110,7 +104,7 @@ dcats_GLM <- function(count_mat, design_mat, similarity_mat=NULL, n_samples=50, 
         ## ignore the fitting if the hessian matrix is singular
         if (length(fm1@varparam) < 4 || is.na(fm1@varparam[2, 2])) {next}
         
-        sub_LR_val[ir, m] <- 2*(fm1@logL - fm0@logL)
+        sub_LR_val[ir, m] <- fm0@dev - fm1@dev
         parID <- grep(colnames(design_mat)[k], names(fm1@param))
         sub_coeffs_val[ir, m] <- fm1@param[parID]
         if(is.null(fix_phi))
@@ -178,7 +172,7 @@ getPhi = function(count_mat, design_mat){
   fm = aod::betabin(cbind(n1, total-n1) ~ ., ~ 1, data = df_use, warnings = FALSE) # make intercept as 0
   return(fm@random.param)
 }
-getPhi(sim_count, sim_design)
+phi = getPhi(sim_count, sim_design)
 ```
 
 
@@ -206,6 +200,7 @@ library(tidyverse)
 A very simple scenario
 
 ```{r}
+set.seed(123)
 K <- 3
 totals1 = c(100, 800, 1300, 600)
 totals2 = c(250, 700, 1100)
@@ -215,18 +210,21 @@ simil_mat = simil_mat = matrix(c(1, 0, 0, 0, 0.7, 0.3, 0, 0.3, 0.7), ncol = 3)
 sim_dat <- DCATS::simulator_base(totals1, totals2, diri_s1, diri_s2, simil_mat)
 sim_count = rbind(sim_dat$numb_cond1, sim_dat$numb_cond2)
 sim_design = data.frame(condition = c("g1", "g1", "g1", "g1", "g2", "g2", "g2"), gender = sample(c("Female", "Male"), 7, replace = TRUE))
-count_mat = sim_count
-design_mat = sim_design
-similarity_mat = simil_mat
-fix_phi = concentration
+#count_mat = sim_count
+#design_mat = sim_design
+#similarity_mat = simil_mat
+#fix_phi = 1/sum(70+1)
 
 set.seed(123)
 ## Using 1 factor vs NULL factor testing
 dcats_GLM(count_mat = sim_count, design_mat = sim_design, similarity_mat = simil_mat)
 ## Using full factors vs n-1 factors testing with intercept term
+set.seed(123)
 dcats_GLM(count_mat = sim_count, design_mat = sim_design, similarity_mat = simil_mat, base_model='FULL')
-## Using full factors vs n-1 factors testing without intercept term
-dcats_GLM(count_mat = sim_count, design_mat = sim_design, similarity_mat = simil_mat, base_model='FULL', intercept = FALSE)
+set.seed(123)
+DCATS::dcats_GLM(count_mat = sim_count, design_mat = sim_design, similarity_mat = simil_mat, base_model='FULL')
+## Using 1 factor vs NULL factor testing
+dcats_GLM(count_mat = sim_count, design_mat = sim_design, similarity_mat = simil_mat, fix_phi = 1/sum(70+1))
 ```
 
 ```{r}
