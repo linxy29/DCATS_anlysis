@@ -894,10 +894,13 @@ First look at PBMC data.
 
 ```{r}
 library(readxl)
-Ren2021_cell = read.csv(gzfile("./data/real_world/Ren_2021/cell_annotation.csv.gz")) %>% 
+Ren2021_cell = read.csv(gzfile("D:/Data/DCATS/real_world/Ren_2021/cell_annotation.csv.gz")) %>% 
   janitor::clean_names()
-Ren2021_donors = read_excel("data/real_world/Ren_2021/donors_info.xlsx") %>% 
+Ren2021_donors = read_excel("D:/Data/DCATS/real_world/Ren_2021/donors_info.xlsx") %>% 
   janitor::clean_names()
+Ren2021_pca = read.csv("D:/Data/DCATS/real_world/Ren_2021/pca_subsample.csv") %>% 
+  select(-X, -sampleID) %>% 
+  rename(cell_name = barcode)
 ```
 
 ```{r}
@@ -1067,6 +1070,39 @@ count_mat_sub %>% as.data.frame() %>%
 
 ## sub type
 
+First, check the number of sub-celltype. Some sub-cell type contains less cell count. Those cell types including DC_c1-CLEC9A, NK_c02-NCAM1, NK_c03-MKI67, T_CD4_c13-MKI67-CCL5_l, T_CD4_c14-MKI67-CCL5_h, T_CD8_c12-MKI67-TYROBP, T_CD8_c13-HAVCR2, Macro_c1-C1QC, B_c05-MZB1-XBP1, B_c06-MKI67, T_CD4_c10-IFNG, T_CD8_c11-MKI67-FOS, all Neu, Macro
+
+```{r}
+Ren2021_cell %>% 
+  filter(sample_id %in% pbmc_sampleL) %>% 
+  group_by(sample_id, celltype) %>% 
+  summarise(n = n()) %>% 
+  pivot_wider(names_from = celltype, values_from = n)
+```
+
+```{r}
+library(tidymodels)
+svm_input = Ren2021_cell %>% 
+  filter(cell_name %in% Ren2021_pca$cell_name) %>% 
+  plyr::join(Ren2021_pca) %>% 
+  mutate(clusterRes = ifelse(major_type %in% c("Neu", "Macro"), major_type, celltype),
+         clusterRes = ifelse(celltype %in% c("DC_c1-CLEC9A", "NK_c02-NCAM1", "NK_c03-MKI67", "T_CD4_c13-MKI67-CCL5_l", "T_CD4_c14-MKI67-CCL5_h", "T_CD8_c12-MKI67-TYROBP", "T_CD8_c13-HAVCR2", "B_c05-MZB1-XBP1", "B_c06-MKI67", "T_CD4_c10-IFNG", "T_CD8_c11-MKI67-FOS"), "others", clusterRes)) %>% 
+  select(-cell_name, -sample_id, -major_type, -celltype)
+svm_mat = svm_simMat(svm_input)
+```
+
+```{r}
+
+```
+
+
+```{r}
+Ren2021_cell %>% 
+  mutate(clusterRes = ifelse(major_type %in% c("Neu", "Macro"), major_type, celltype)) %>% 
+  select(-cell_namem, -sample_id, -major_type, -celltype)
+```
+
+
 ```{r}
 Neu_count = Ren2021_cell %>% 
   merge(sample_patient) %>% 
@@ -1089,6 +1125,7 @@ Macro_count = Ren2021_cell %>%
   replace(is.na(.), 0) %>% 
   rowSums()
 ```
+
 ```{r}
 count_mat = Ren2021_cell %>% 
   merge(sample_patient) %>% 

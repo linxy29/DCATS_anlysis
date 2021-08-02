@@ -110,7 +110,7 @@ dcats_GLM <- function(count_mat, design_mat, similarity_mat=NULL, n_samples=50, 
         ## ignore the fitting if the hessian matrix is singular
         if (length(fm1@varparam) < 4 || is.na(fm1@varparam[2, 2])) {next}
         
-        sub_LR_val[ir, m] <- fm0@dev - fm1@dev
+        sub_LR_val[ir, m] <- 2*(fm1@logL - fm0@logL)
         parID <- grep(colnames(design_mat)[k], names(fm1@param))
         sub_coeffs_val[ir, m] <- fm1@param[parID]
         sub_coeffs_err[ir, m] <-fm1@varparam[parID, parID]
@@ -148,17 +148,13 @@ library(aod)
 data(dja)
 betabin(cbind(y, n - y) ~ group, ~ 1, dja)
 # heterogeneous phi
-betabin(cbind(y, n - y) ~ group, ~ group, dja,
-control = list(maxit = 1000))
+betabin(cbind(y, n - y) ~ group, ~ group, dja, control = list(maxit = 1000))
 # phi fixed to zero in group TREAT
-betabin(cbind(y, n - y) ~ group, ~ group, dja,
-fixpar = list(4, 0))
+betabin(cbind(y, n - y) ~ group, ~ group, dja, fixpar = list(4, 0))
 # glim without overdispersion
-summary(glm(cbind(y, n - y) ~ group,
-family = binomial, data = dja))
+summary(glm(cbind(y, n - y) ~ group, family = binomial, data = dja))
 # phi fixed to zero in both groups
-betabin(cbind(y, n - y) ~ group, ~ group, dja,
-fixpar = list(c(3, 4), c(0, 0)))
+betabin(cbind(y, n - y) ~ group, ~ group, dja, fixpar = list(c(3, 4), c(0, 0)))
 ```
 
 ```{r}
@@ -173,25 +169,41 @@ A very simple scenario
 K <- 3
 totals1 = c(100, 800, 1300, 600)
 totals2 = c(250, 700, 1100)
-diri_s1 = rep(1, K) * 20
-diri_s2 = rep(1, K) * 20
-simil_mat = create_simMat(K, confuse_rate=0.2)
+diri_s1 = c(1/3, 1/3, 1/3) * 70
+diri_s2 = c(1/3, 1/2, 1/6) * 70
+simil_mat = simil_mat = matrix(c(1, 0, 0, 0, 0.7, 0.3, 0, 0.3, 0.7), ncol = 3)
 sim_dat <- DCATS::simulator_base(totals1, totals2, diri_s1, diri_s2, simil_mat)
 sim_count = rbind(sim_dat$numb_cond1, sim_dat$numb_cond2)
 sim_design = data.frame(condition = c("g1", "g1", "g1", "g1", "g2", "g2", "g2"), gender = sample(c("Female", "Male"), 7, replace = TRUE))
 count_mat = sim_count
 design_mat = sim_design
 similarity_mat = simil_mat
+fix_phi = concentration
 
 set.seed(123)
 ## Using 1 factor vs NULL factor testing
-dcats_GLM(sim_count, sim_design, similarity_mat = simil_mat)
+dcats_GLM(count_mat = sim_count, design_mat = sim_design, similarity_mat = simil_mat)
 ## Using full factors vs n-1 factors testing with intercept term
-dcats_GLM(sim_count, sim_design, similarity_mat = simil_mat, base_model='FULL')
+dcats_GLM(count_mat = sim_count, design_mat = sim_design, similarity_mat = simil_mat, base_model='FULL')
 ## Using full factors vs n-1 factors testing without intercept term
-dcats_GLM(sim_count, sim_design, similarity_mat = simil_mat, base_model='FULL', intercept = FALSE)
+dcats_GLM(count_mat = sim_count, design_mat = sim_design, similarity_mat = simil_mat, base_model='FULL', intercept = FALSE)
 ```
 
+```{r}
+data(orob2)
+fm1 <- betabin(cbind(y, n - y) ~ seed, ~ 1, data = orob2)
+fm1
+fm1 <- betabin(cbind(y, n - y) ~ seed, ~ 1, data = orob2, fixpar = list(fm1@nbpar, 2))
+fm1
+fm2 <- betabin(cbind(y, n - y) ~ seed + root, ~ 1, data = orob2)
+fm2
+fm2 <- betabin(cbind(y, n - y) ~ seed + root, ~ 1, data = orob2, fixpar = list(fm2@nbpar, 2))
+fm2
+#fm3 <- betabin(cbind(y, n - y) ~ seed * root, ~ 1, data = orob2)
+```
+
+
+## Kaufmann2021
 
 ```{r}
 pathSPC = "D:/Data"
