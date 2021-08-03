@@ -467,3 +467,32 @@ evaluationDF %>%
   scale_color_manual(values=c("#F8766D", "#00BF7D"))
 ggsave("C:/#Code/R/slides/image/RPG_discussion/dcats_result1.png", bg = "transparent")
 ```
+
+```{r}
+svm_simMat = function(dataframe){
+    cv <- vfold_cv(dataframe, v = 5)
+    recipe <- recipe(clusterRes ~ ., data = dataframe)
+      model <-
+        svm_rbf() %>% 
+        set_mode("classification") %>%
+        set_engine("kernlab")
+    workflow <- workflow() %>%
+      add_recipe(recipe) %>%
+      add_model(model)
+    predDF = data.frame()
+    for (i in 1:5) {
+      onefold_split = cv[[1]][[i]]
+      fit <- workflow %>%
+        last_fit(onefold_split)
+      pred = fit %>% 
+        collect_predictions() %>% 
+        mutate(pred = .pred_class) %>% 
+        dplyr::select(pred, clusterRes)
+      predDF = rbind(predDF, pred)
+    }
+    conf.mat <- table(predDF$clusterRes, predDF$pred)
+    simil_mat <- t(t(conf.mat)/apply(conf.mat,2,sum))
+  return(simil_mat)
+}
+```
+
