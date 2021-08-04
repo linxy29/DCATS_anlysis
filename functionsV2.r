@@ -138,14 +138,13 @@ betabinLRT_rw <- function(counts1, counts2, pseudo_count=NULL, binom_only=FALSE,
   totals <- c(rowSums(counts1_latent), rowSums(counts2_latent))
   labels <- c(rep(1, nrow(counts1_latent)), rep(0, nrow(counts2_latent)))
   
-  if (binom_only) {
-    for (i in seq_len(K)) {
-      n1 <- c(counts1_latent[, i], counts2_latent[, i])
-      df_tmp <- data.frame(n1 = n1, n2 = totals - n1, label=labels)
-      model0 <- glm(cbind(n1, n2) ~ 1, family = binomial(),
-                    data = df_tmp)
-      model1 <- glm(cbind(n1, n2) ~ label + 1, family = binomial(),
-                    data = df_tmp)
+  
+  for (i in seq_len(K)) {
+    n1 <- c(counts1_latent[, i], counts2_latent[, i])
+    df_tmp <- data.frame(n1 = n1, n2 = totals - n1, label=labels)
+    if (binom_only) {
+      model0 <- glm(cbind(n1, n2) ~ 1, family = binomial(), data = df_tmp)
+      model1 <- glm(cbind(n1, n2) ~ label + 1, family = binomial(), data = df_tmp)
       
       intercept_val[i] <- summary(model1)$coefficients[1, 1]
       intercept_err[i] <- summary(model1)$coefficients[1, 2]
@@ -156,12 +155,7 @@ betabinLRT_rw <- function(counts1, counts2, pseudo_count=NULL, binom_only=FALSE,
       LR_vals[i] <- model0$deviance - model1$deviance
       LRT_pvals[i] <-  pchisq(LR_vals[i], df=1, lower.tail = FALSE,
                               log.p = FALSE)
-    }
-  } else{
-    for (i in seq_len(K)) {
-      n1 <- c(counts1_latent[, i], counts2_latent[, i])
-      df_tmp <- data.frame(n1 = n1, n2 = totals - n1, label=labels)
-      
+    } else{
       fm0 <- aod::betabin(cbind(n1, n2) ~ 1, ~ 1, data = df_tmp)
       fm1 <- aod::betabin(cbind(n1, n2) ~ label, ~ 1, data = df_tmp)
       
@@ -471,7 +465,7 @@ getDiffcyt = function(numb_cond1, numb_cond2, dfRes){
 sendEmail = function(subject = "The job is done"){
   library(emayili)
   email <- envelope() %>%
-    from("dummy_acc29@outlook.com") %>%
+    from("4sendEmail29@gmail.com") %>%
     to("xl2836@outlook.com") %>%
     subject(subject) %>%
     text("Yeah!!!!!")
