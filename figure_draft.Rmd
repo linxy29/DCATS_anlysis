@@ -438,7 +438,8 @@ res_all %>%
 
 ```{r}
 ## cluster number = 8
-filenames = list.files("./data/simulationRES/clusters", full.names = TRUE)
+filenames = list.files("D:/Data/DCATS/simulation", full.names = TRUE)
+filenames = filenames[grep("D:/Data/DCATS/simulation/replicates3&3", filenames)]
 ```
 
 ```{r}
@@ -483,7 +484,7 @@ p3 = res_all %>%
   mutate(clustersN = ifelse(is.na(clustersN), "K8", clustersN),
          clustersN = str_remove(clustersN, "K"),
          clustersN = factor(clustersN, levels = c("8", "10", "12"))) %>% 
-  filter(method == "betabin_wMK" | method == "speckle" | method == "diffcyt" | method == "fisher" | method == "scDC") %>%
+  filter(method == "betabin_estPhiU" | method == "speckle" | method == "diffcyt" | method == "fisher" | method == "scDC") %>%
   mutate(method = ifelse(method == "betabin_wMK", "DCATS", method),
          method = ifelse(method == "fisher", "Fisher", method)) %>% 
   ggplot(aes(x = clustersN, y = mcc, color = method, group = method)) + 
@@ -492,6 +493,7 @@ p3 = res_all %>%
   xlab("# of Cell Types") + 
   theme(legend.position = "top",
         axis.title.y = element_blank())
+p3
 ```
 
 ```{r}
@@ -512,6 +514,7 @@ p4 = res_all %>%
   geom_line()+
   xlab("# of Cell Types") +
   facet_grid(.~statistics)
+p4
 ```
 
 ```{r}
