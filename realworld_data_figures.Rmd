@@ -102,6 +102,7 @@ numb_cond2 = exp7_data %>%
 exp7_C3 = exp7_data %>% 
   filter(condition == "Control" | condition == "Hpoly.Day3") %>% mutate(clusterRes = as.factor(clusterRes))
 ```
+
 Get matrices
 
 ```{r}

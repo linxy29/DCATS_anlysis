@@ -9,6 +9,14 @@ library(Seurat)
 library(tidyverse)
 ```
 
+### estimate parameters
+
+```{r}
+geneExpM = read.delim("./data/real_world/Exp7_Adam_2017/GSE92332_SalmHelm_UMIcounts.txt", header=TRUE)
+
+```
+
+
 ## 3 clusters
 
 ### discrete cell pool
@@ -39,7 +47,7 @@ saveRDS(params, "./data/mnnCT7params.rds")
 set.seed(123)
 #params = readRDS("./data/ovarian_params.rds")
 params = readRDS("./data/mnnCT7params.rds")
-param.groups <- setParam(params, batchCells = batch_size*prob, nGenes = 1000)
+param.groups <- setParams(params, batchCells = batch_size*prob, nGenes = 1000)
 sim <- splatSimulateGroups(param.groups, group.prob = prob, de.prob = de_prob, de.facLoc = 0.01, verbose = FALSE)
 sim_mat <- counts(sim)
 origLabels = sim@colData@listData$Group
