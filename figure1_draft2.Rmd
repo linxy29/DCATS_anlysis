@@ -302,7 +302,7 @@ library(tidymodels)  ## for DCATS
 ```
 
 ```{r}
-cluster_num = 12  # numbers of clusters
+cluster_num = 10  # numbers of clusters
 concentration = 100 # indicate how simulated proportion far away from true, the larger the closer
 setresolu = 0.8
 rep1 = 3
@@ -425,10 +425,62 @@ for (sim in 1:simulation_times){
       betabin_null = dcats_GLM(sim_count, sim_design)
       timeL[1] = Sys.time() - t1start
       ###  DCATS---betabinLRT with Bias correction from similarity matrix
-      betabin_wBC_K = betabinLRT_rw(as.matrix(numb_cond1), as.matrix(numb_cond2), bias_corr = TRUE, similarity_mat = simil_matK)
-      betabin_wBC_U = betabinLRT_rw(as.matrix(numb_cond1), as.matrix(numb_cond2), bias_corr = TRUE, similarity_mat = simil_matU)
-      betabin_wBC_T = betabinLRT_rw(as.matrix(numb_cond1), as.matrix(numb_cond2), bias_corr = TRUE, similarity_mat = simil_matT)
-      betabin_wBC_SVM = betabinLRT_rw(as.matrix(numb_cond1), as.matrix(numb_cond2), bias_corr = TRUE, similarity_mat = simil_matSVM)
+      phi = getPhi(sim_count, sim_design)
+      numb_cond1 = numb_cond1 %>% as.matrix()
+      numb_cond2 = numb_cond2 %>% as.matrix()
+      ## KNN
+      numb_cond1BC = numb_cond1
+      numb_cond2BC = numb_cond2
+      for (i in seq_len(nrow(numb_cond1))) {
+        numb_cond1BC[i, ] <- sum(numb_cond1[i, ]) * multinom_EM(numb_cond1[i, ], simil_matK, verbose = FALSE)$mu
+        numb_cond1BC[i, ] = ceiling(numb_cond1BC[i, ])}
+      for (i in seq_len(nrow(numb_cond2))) {
+        numb_cond2BC[i, ] <- sum(numb_cond2[i, ]) * multinom_EM(numb_cond2[i, ], simil_matK, verbose = FALSE)$mu
+        numb_cond2BC[i, ] = ceiling(numb_cond2BC[i, ])}
+      countBC_mat = rbind(numb_cond1BC, numb_cond2BC)
+      wtoPhi_K2 = dcats_GLM(countBC_mat, sim_design)
+      truePhi_K2 = dcats_GLM(countBC_mat, sim_design, fix_phi = 1/(1+concentration))
+      estPhi_K2 = dcats_GLM(countBC_mat, sim_design, fix_phi = phi)
+      ## Uniform
+      numb_cond1BC = numb_cond1
+      numb_cond2BC = numb_cond2
+      for (i in seq_len(nrow(numb_cond1))) {
+        numb_cond1BC[i, ] <- sum(numb_cond1[i, ]) * multinom_EM(numb_cond1[i, ], simil_matU, verbose = FALSE)$mu
+        numb_cond1BC[i, ] = ceiling(numb_cond1BC[i, ])}
+      for (i in seq_len(nrow(numb_cond2))) {
+        numb_cond2BC[i, ] <- sum(numb_cond2[i, ]) * multinom_EM(numb_cond2[i, ], simil_matU, verbose = FALSE)$mu
+        numb_cond2BC[i, ] = ceiling(numb_cond2BC[i, ])}
+      countBC_mat = rbind(numb_cond1BC, numb_cond2BC) %>% as.matrix()
+      wtoPhi_U2 = dcats_GLM(countBC_mat, sim_design)
+      truePhi_U2 = dcats_GLM(countBC_mat, sim_design, fix_phi = 1/(1+concentration))
+      estPhi_U2 = dcats_GLM(countBC_mat, sim_design, fix_phi = phi)
+      ## True
+      numb_cond1BC = numb_cond1
+      numb_cond2BC = numb_cond2
+      for (i in seq_len(nrow(numb_cond1))) {
+        numb_cond1BC[i, ] <- sum(numb_cond1[i, ]) * multinom_EM(numb_cond1[i, ], simil_matT, verbose = FALSE)$mu
+        numb_cond1BC[i, ] = ceiling(numb_cond1BC[i, ])}
+      for (i in seq_len(nrow(numb_cond2))) {
+        numb_cond2BC[i, ] <- sum(numb_cond2[i, ]) * multinom_EM(numb_cond2[i, ], simil_matT, verbose = FALSE)$mu
+        numb_cond2BC[i, ] = ceiling(numb_cond2BC[i, ])}
+      countBC_mat = rbind(numb_cond1BC, numb_cond2BC) %>% as.matrix()
+      wtoPhi_T2 = dcats_GLM(countBC_mat, sim_design)
+      truePhi_T2 = dcats_GLM(countBC_mat, sim_design, fix_phi = 1/(1+concentration))
+      estPhi_T2 = dcats_GLM(countBC_mat, sim_design, fix_phi = phi)
+      ## svm
+      numb_cond1BC = numb_cond1
+      numb_cond2BC = numb_cond2
+      for (i in seq_len(nrow(numb_cond1))) {
+        numb_cond1BC[i, ] <- sum(numb_cond1[i, ]) * multinom_EM(numb_cond1[i, ], simil_matSVM, verbose = FALSE)$mu
+        numb_cond1BC[i, ] = ceiling(numb_cond1BC[i, ])}
+      for (i in seq_len(nrow(numb_cond2))) {
+        numb_cond2BC[i, ] <- sum(numb_cond2[i, ]) * multinom_EM(numb_cond2[i, ], simil_matSVM, verbose = FALSE)$mu
+        numb_cond2BC[i, ] = ceiling(numb_cond2BC[i, ])}
+      countBC_mat = rbind(numb_cond1BC, numb_cond2BC) %>% as.matrix()
+      wtoPhi_SVM2 = dcats_GLM(countBC_mat, sim_design)
+      truePhi_SVM2 = dcats_GLM(countBC_mat, sim_design, fix_phi = 1/(1+concentration))
+      estPhi_SVM2 = dcats_GLM(countBC_mat, sim_design, fix_phi = phi)
+      
       ## DCATS---betabin with similarity matrix (backward-forward)
       t2start = Sys.time()
       betabin_wMK = dcats_GLM(sim_count, sim_design, similarity_mat = simil_matK)
@@ -437,7 +489,6 @@ for (sim in 1:simulation_times){
       betabin_wMT = dcats_GLM(sim_count, sim_design, similarity_mat = simil_matT)
       betabin_wMSVM = dcats_GLM(sim_count, sim_design, similarity_mat = simil_matSVM)
       ## DCATS---estimated fix phi
-      phi = getPhi(sim_count, sim_design)
       betabin_estPhiK = dcats_GLM(sim_count, sim_design, similarity_mat = simil_matK, fix_phi = phi)
       betabin_estPhiU = dcats_GLM(sim_count, sim_design, similarity_mat = simil_matU, fix_phi = phi)
       betabin_estPhiT = dcats_GLM(sim_count, sim_design, similarity_mat = simil_matT, fix_phi = phi)
@@ -475,10 +526,18 @@ for (sim in 1:simulation_times){
         arrange(cluster)
       all_res = cluster_map %>% 
         mutate(betabin_null_pvals = as.vector(betabin_null$LRT_pvals),
-               betabin_wBCK_pvals = betabin_wBC_K$pvals,
-               betabin_wBCU_pvals = betabin_wBC_U$pvals,
-               betabin_wBCT_pvals = betabin_wBC_T$pvals,
-               betabin_wBCSVM_pvals = betabin_wBC_SVM$pvals,
+               wtoPhi_SVM2_pvals = as.vector(wtoPhi_SVM2$LRT_pvals),
+               truePhi_SVM2_pvals = as.vector(truePhi_SVM2$LRT_pvals),
+               estPhi_SVM2_pvals = as.vector(estPhi_SVM2$LRT_pvals),
+               wtoPhi_T2_pvals = as.vector(wtoPhi_T2$LRT_pvals),
+               truePhi_T2_pvals = as.vector(truePhi_T2$LRT_pvals),
+               estPhi_T2_pvals = as.vector(estPhi_T2$LRT_pvals),
+               wtoPhi_U2_pvals = as.vector(wtoPhi_U2$LRT_pvals),
+               truePhi_U2_pvals = as.vector(truePhi_U2$LRT_pvals),
+               estPhi_U2_pvals = as.vector(estPhi_U2$LRT_pvals),
+               wtoPhi_K2_pvals = as.vector(wtoPhi_K2$LRT_pvals),
+               truePhi_K2_pvals = as.vector(truePhi_K2$LRT_pvals),
+               estPhi_K2_pvals = as.vector(estPhi_K2$LRT_pvals),
                betabin_wMK_pvals = as.vector(betabin_wMK$LRT_pvals),
                betabin_wMU_pvals = as.vector(betabin_wMU$LRT_pvals),
                betabin_wMT_pvals = as.vector(betabin_wMT$LRT_pvals),
@@ -506,7 +565,8 @@ for (sim in 1:simulation_times){
 ```
 
 ```{r}
-file_name = str_c("D:/Data/DCATS/simulation/replicates", as.character(rep1), "&", as.character(rep2), "_K", as.character(cluster_num), "_con", as.character(concentration), "_", cell_pool, more_negative, sample_size1, "&", sample_size2, ".RData")
+#file_name = str_c("D:/Data/DCATS/simulation/replicates", as.character(rep1), "&", as.character(rep2), "_K", as.character(cluster_num), "_con", as.character(concentration), "_", cell_pool, more_negative, sample_size1, "&", sample_size2, ".RData")
+file_name = str_c("D:/Data/DCATS/simulation/replicates", as.character(rep1), "&", as.character(rep2), "_K", as.character(cluster_num), "_con", as.character(concentration), "_", cell_pool, more_negative, sample_size1, "&", sample_size2, "_test.RData")
 colnames(time) = c("DCATS_wtoM", "DCATS_wM", "fisher", "speckle", "diffcyt", "scDC", "rfM", "svmM")
 save(simulationDF, time, true_countL, seurat_countL, knn_matrixL, true_matrixL, file = file_name)
 head(simulationDF, 15)

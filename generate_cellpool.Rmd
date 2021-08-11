@@ -9,14 +9,18 @@ library(Seurat)
 library(tidyverse)
 ```
 
+## Splatter
 
-## 3 clusters
-
-### discrete cell pool
-
-### closer-cluster cell pool
+```{r, eval=FALSE}
+mnnCT7_seurat <- readRDS("/storage/holab/Nelson/mnnCT7.rds")
+count_mnnCT7 = mnnCT7_seurat@assays$RNA@counts
+params <- splatEstimate(as.matrix(count_mnnCT7))
+params
+saveRDS(params, "/storage/holab/linxy/DCATS/mnnCT7params.rds")
+```
 
 ```{r,eval=FALSE}
+set.seed(123)
 ## simulate cells pool setting
 cluster_num = 10
 prob = rep(1/cluster_num, cluster_num)
@@ -28,18 +32,18 @@ setresolu = 0.5
 ```
 
 ```{r}
-mnnCT7_seurat <- readRDS("/storage/holab/Nelson/mnnCT7.rds")
-count_mnnCT7 = mnnCT7_seurat@assays$RNA@counts
-params <- splatEstimate(as.matrix(count_mnnCT7))
-params
-saveRDS(params, "/storage/holab/linxy/DCATS/mnnCT7params.rds")
+par = "mnnCT7"  # can be select from "origin", "mnnCT7"
+if (par == "origin"){
+  params <- newSplatParams()
+} else if (par == "mnnCT7"){
+  #params = readRDS("./data/ovarian_params.rds")
+  params = readRDS("D:/Data/DCATS/simulation/mnnCT7params.rds")
+}
 ```
 
 ```{r,eval=FALSE}
 ## simulate cells pool process
 set.seed(123)
-#params = readRDS("./data/ovarian_params.rds")
-params = readRDS("/storage/holab/linxy/DCATS/mnnCT7params.rds")
 param.groups <- setParams(params, batchCells = batch_size*prob, nGenes = 1000)
 sim <- splatSimulateGroups(param.groups, group.prob = prob, de.prob = de_prob, de.facLoc = 0.01, verbose = FALSE)
 sim_mat <- counts(sim)
@@ -65,7 +69,9 @@ seuratObj <- RunPCA(seuratObj, features = VariableFeatures(object = seuratObj))
 seuratObj <- FindNeighbors(seuratObj, dims = 1:30, verbose = FALSE)
 seuratObj <- FindClusters(seuratObj, resolution = setresolu, verbose = FALSE)
 seuratObj <- RunUMAP(seuratObj, dims = 1:30, verbose = FALSE)
+seuratObj[['orig.ident']] <- origLabels
 DimPlot(seuratObj, reduction = "umap")
+DimPlot(seuratObj, reduction = "umap", group.by = "orig.ident")
 ```
 
 ## real world data
