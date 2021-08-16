@@ -304,7 +304,7 @@ library(tidymodels)  ## for DCATS
 ```{r}
 cluster_num = 10  # numbers of clusters
 concentration = 100 # indicate how simulated proportion far away from true, the larger the closer
-setresolu = 0.8
+setresolu = 0.6
 rep1 = 3
 rep2 = 3
 simulation_times = 30
@@ -341,6 +341,7 @@ options(future.globals.maxSize = 15000 * 1024^2)
 ```{r}
 if (cell_pool == "splatter"){
   load(str_c("D:/Data/DCATS/cells_pool", as.character(cluster_num), "_splatter.RData"))
+  #load(str_c("D:/Data/DCATS/cells_pool", as.character(cluster_num), "_splatter_test.RData"))
 } else if (cell_pool == "SPAR") {
     load(str_c("D:/Data/DCATS/cells_pool", as.character(cluster_num), "_SPARSim.RData"))
   
@@ -349,7 +350,7 @@ if (cell_pool == "splatter"){
 }
 ```
 
-```{r, message=FALSE, warning=FALSE, echo=FALSE}
+```{r, message=FALSE, warning=FALSE, echo=FALSE, results='hide'}
 ## output data
 simulationDF = data.frame()  # data frame to store test result
 time = matrix(NA, nrow = simulation_times, ncol = 8) # matrix contains time for each test need in each simulation and time need to calculate svm/rf matrix
@@ -565,8 +566,8 @@ for (sim in 1:simulation_times){
 ```
 
 ```{r}
-#file_name = str_c("D:/Data/DCATS/simulation/replicates", as.character(rep1), "&", as.character(rep2), "_K", as.character(cluster_num), "_con", as.character(concentration), "_", cell_pool, more_negative, sample_size1, "&", sample_size2, ".RData")
-file_name = str_c("D:/Data/DCATS/simulation/replicates", as.character(rep1), "&", as.character(rep2), "_K", as.character(cluster_num), "_con", as.character(concentration), "_", cell_pool, more_negative, sample_size1, "&", sample_size2, "_test.RData")
+#file_name = str_c("D:/Data/DCATS/simulation/replicates", as.character(rep1), "&", as.character(rep2), "_K", as.character(cluster_num), "_con", as.character(concentration), "_", cell_pool, more_negative, sample_size1, "&", sample_size2, "_test.RData")
+file_name = str_c("D:/Data/DCATS/simulation/replicates", as.character(rep1), "&", as.character(rep2), "_K", as.character(cluster_num), "_con", as.character(concentration), "_", cell_pool, more_negative, sample_size1, "&", sample_size2, ".RData")
 colnames(time) = c("DCATS_wtoM", "DCATS_wM", "fisher", "speckle", "diffcyt", "scDC", "rfM", "svmM")
 save(simulationDF, time, true_countL, seurat_countL, knn_matrixL, true_matrixL, file = file_name)
 head(simulationDF, 15)
@@ -582,6 +583,7 @@ auc = rep(NA, numb_mthd)
 prauc = rep(NA, numb_mthd)
 sensitivity = rep(NA, numb_mthd)
 specificity = rep(NA, numb_mthd)
+precision = rep(NA, numb_mthd)
 truth = simulationDF$truth
 for (i in 3:dim(simulationDF)[2]){
   auc[i-2] = getROC(simulationDF$truth, simulationDF[,i])$auc
@@ -599,13 +601,329 @@ for (i in 3:dim(simulationDF)[2]){
   prauc[i-2] = getPRC(simulationDF$truth, simulationDF[,i])$prauc
   sensitivity[i-2] = TP/truthP
   specificity[i-2] = TN/truthN
+  precision[i-2] = TP/predP
 }
-res = data.frame(methods = methods, mcc = mcc, auc = auc, prauc = prauc, sensitivity = sensitivity, specificity = specificity) %>% 
-  arrange(desc(prauc)) %>% 
+res = data.frame(methods = methods, mcc = mcc, auc = auc, prauc = prauc, sensitivity = sensitivity, specificity = specificity, precision = precision) %>% 
+  arrange(desc(auc)) %>% 
   #filter(methods == "betabin_wMK" | methods == "diffcyt" | methods == "speckle" | methods == "fisher" | methods == "scDC")
 print(res)
 ```
 
+## Simulation with covariate
+
+```{r}
+## numbers of replicates for each condition: 15
+condition = c(rep("cond1", 15), rep("cond2", 15))
+gender = sample(c("female", "male"), 30, replace = TRUE)
+age = sample(15:45, 30, replace = TRUE)
+design_mat = data.frame(condition, gender, age)
+## proportion contribution
+prop_cond1 = rep(8,8)
+prop_cond2 = c(6, 6, 10, 10, 8, 8, 8, 8)
+prop_gender = rep(c(-1, 1, 1, -1), 2)
+prop_age = c(-0.05, rep(0, 2), 0.05, 0.05, rep(0, 2), -0.05)
+cond_mat = matrix(c(rep(prop_cond1, 15), rep(prop_cond2, 15)), nrow = 8) %>% t()
+gender_mat = matrix(as.numeric(as.factor(gender))-1, ncol = 1) %*% prop_gender
+age_mat = matrix(age-15, ncol = 1) %*% prop_age
+add_mat = cond_mat + gender_mat + age_mat
+prop_mat = add_mat/rowSums(add_mat)
+```
+
+```{r, eval=FALSE}
+lm = design_mat %>% 
+  mutate(y = prop_mat[,1]) %>% 
+  lm(y~., data = .)
+summary(lm)
+```
+
+```{r}
+cluster_num = 8  # numbers of clusters
+concentration = 100 # indicate how simulated proportion far away from true, the larger the closer
+setresolu = 0.6
+simulation_times = 30
+sample_size1 = 1500
+sample_size2 = 2500
+cell_pool = "splatter"  # cell pool used, can be selected from ("SPAR", "splatter", "realWorld")
+more_negative = ""
+truthRes = c(rep("P", 4), rep("N", 4))
+```
+
+```{r, message=FALSE, warning=FALSE}
+source("functionsV2.r")
+source("glm.R")     # for scDC
+options(future.globals.maxSize = 15000 * 1024^2)
+```
+
+```{r}
+if (cell_pool == "splatter"){
+  load(str_c("D:/Data/DCATS/cells_pool", as.character(cluster_num), "_splatter.RData"))
+  #load(str_c("D:/Data/DCATS/cells_pool", as.character(cluster_num), "_splatter_test.RData"))
+} else if (cell_pool == "SPAR") {
+    load(str_c("D:/Data/DCATS/cells_pool", as.character(cluster_num), "_SPARSim.RData"))
+  
+} else if (cell_pool == "realWorld") {
+    load(str_c("D:/Data/DCATS/cells_pool", as.character(cluster_num), "_realWorld.RData"))
+}
+```
+
+```{r}
+simulator_propM = function(totalV, prop_mat, setresolu, sim_mat){
+  K = ncol(prop_mat)
+  prop_sim = matrix(NA, nrow = nrow(prop_mat), ncol = ncol(prop_mat))
+  numb_sim = matrix(NA, nrow = nrow(prop_mat), ncol = ncol(prop_mat))
+  
+  # cell selection
+  slt_sim_mat = matrix(NA, ncol = 0, nrow = dim(sim_mat)[1])
+  slt_origLabels = vector()
+  slt_batches = character()
+  for (rep in 1:nrow(prop_mat)) {
+    prop_sim[rep, ] <- MCMCpack::rdirichlet(1, prop_mat[rep] * concentration)
+    numb_sim[rep, ] <- rmultinom(1, totalV[rep], prop_sim[rep, ])
+    cell_slt = cell_slt_dup(numb_sim[rep, ], sim_mat, origLabels)
+    slt_sim_mat = cbind(slt_sim_mat, cell_slt$sub_sim_mat)
+    slt_origLabels = c(slt_origLabels, cell_slt$sub_origLabels)
+    slt_batches = c(slt_batches, rep(str_c("rep", as.character(rep)), length(cell_slt$sub_origLabels)))
+  }
+  
+  print(numb_sim)
+  
+  ## seurat process
+  ### pre-process
+  seuratObj <- CreateSeuratObject(counts = slt_sim_mat, project="Splatter")
+  seuratObj <- AddMetaData(object = seuratObj, metadata = slt_batches, col.name = 'batch')
+  seuratObj <- NormalizeData(seuratObj, verbose = FALSE)
+  #integratedSamples <- RunFastMNN(object.list = SplitObject(seuratObj, split.by = "batch"), verbose = FALSE)
+  integratedSamples <- FindVariableFeatures(seuratObj, verbose = FALSE)
+  integratedSamples <- ScaleData(integratedSamples, verbose = FALSE)
+  integratedSamples <- RunPCA(integratedSamples, npcs = 30, verbose = FALSE, features = VariableFeatures(object = integratedSamples))
+  #integratedSamples <- RunUMAP(integratedSamples, reduction = "mnn", dims = 1:30, verbose = FALSE)
+  #integratedSamples <- FindNeighbors(integratedSamples, reduction = "mnn", dims = 1:30, verbose = FALSE)
+  integratedSamples <- RunUMAP(integratedSamples, dims = 1:30, verbose = FALSE)
+  integratedSamples <- FindNeighbors(integratedSamples, dims = 1:30, verbose = FALSE)
+  integratedSamples <- FindClusters(integratedSamples, resolution = setresolu, verbose = FALSE)
+  
+  ## decide resolution
+  Kprep = integratedSamples@active.ident %>% as.factor() %>% summary() %>% length()
+  str_c("Kprep: ", as.character(Kprep)) %>% print()
+  str_c("setresolu: ", as.character(setresolu)) %>% print()
+  while (Kprep != K & setresolu > 0.03) {
+    if (Kprep > K){
+      setresolu = setresolu - 0.03
+      integratedSamples <- FindClusters(integratedSamples, resolution = setresolu, verbose = FALSE)
+      Kprep = integratedSamples@active.ident %>% as.factor() %>% summary() %>% length()
+      str_c("Kprep: ", as.character(Kprep)) %>% print()
+      str_c("setresolu: ", as.character(setresolu)) %>% print()
+    } else {
+      setresolu = setresolu + 0.01
+      integratedSamples <- FindClusters(integratedSamples, resolution = setresolu, verbose = FALSE)
+      Kprep = integratedSamples@active.ident %>% as.factor() %>% summary() %>% length()
+      str_c("Kprep: ", as.character(Kprep)) %>% print()
+      str_c("setresolu: ", as.character(setresolu)) %>% print()
+    }
+  }
+  ### change labels to A, B, C
+  integratedSamples@active.ident = integratedSamples@active.ident %>% 
+    plyr::mapvalues(from = c(0:15), to = c("A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P"))
+  
+  # get count data
+  dfRes = data.frame(clusterRes = integratedSamples@active.ident, batch = integratedSamples$batch) %>% 
+    tibble::rownames_to_column("cellID")
+  if(Kprep == K){
+    Res = list(integratedSamples = integratedSamples, dfRes = dfRes, trueLabels = slt_origLabels, numb_sim = numb_sim, prop_sim = prop_sim)
+    return(Res)
+  } else {
+    return(NA)
+  }
+
+}
+```
+
+```{r}
+## output data
+simulationDF = data.frame()  # data frame to store test result
+time = matrix(NA, nrow = simulation_times, ncol = 8) # matrix contains time for each test need in each simulation and time need to calculate svm/rf matrix
+true_countL = vector(mode = "list", length = simulation_times) # list contains the count table of each true cluster
+seurat_countL = vector(mode = "list", length = simulation_times) # list contains the count table of each cluster defined by seurat
+knn_matrixL = vector(mode = "list", length = simulation_times) # list contains the knn matrix getting from each simulation
+true_matrixL = vector(mode = "list", length = simulation_times) # list contains the true similarity matrix getting from each simulation
+rf_matrixL = vector(mode = "list", length = simulation_times) # list contains the knn matrix getting from each simulation
+svm_matrixL = vector(mode = "list", length = simulation_times) # list contains the true similarity matrix getting from each simulation
+
+set.seed(123)
+for (sim in 1:simulation_times){
+  print(sim)
+  timeL = rep(NA, 8) # DCATS w/wto similarity matrix, fisher, speckle, diffcyt, scDC
+  ## simulation
+  simulation = simulator_propM(totalV = sample(sample_size1:sample_size2, nrow(prop_mat)), prop_mat, setresolu, sim_mat)
+  if (is.na(simulation)[1] == FALSE){
+    true_countL[[sim]] = simulation$numb_sim
+    
+    ## data convert
+    numb_cond = simulation$dfRes %>% 
+      group_by(clusterRes, batch) %>% 
+      summarise(n = n()) %>% 
+      pivot_wider(names_from = "clusterRes", values_from = "n") %>% 
+      mutate(batch = str_remove(batch, "rep") %>% as.numeric()) %>% 
+      arrange(batch) %>% 
+      column_to_rownames(var = "batch")
+    numb_cond[is.na(numb_cond)] <- 0
+    conf.mat <- table(simulation$trueLabels, Idents(simulation$integratedSamples))
+    true.conf <- conf.mat/rowSums(conf.mat)
+    library(clue)
+    order2 = as.vector(solve_LSAP(true.conf, maximum = TRUE))
+    L_sum = colSums(numb_cond)
+    decider = sum(L_sum > nrow(prop_mat))
+    if (decider == cluster_num) {   # if one cluster has least than 10 cells in one condition, then won't continue
+      seurat_countL[[sim]] = numb_cond[,order2]
+      
+      ## Get matrices
+      ### KNN matrix
+      graphs = simulation$integratedSamples@graphs$RNA_snn
+      labels = Idents(simulation$integratedSamples)
+      knn_mat = knn_simMat(graphs, labels)
+      order1 = colnames(numb_cond)
+      simil_matK = knn_mat[order1, order1]
+      knn_matrixL[[sim]] = simil_matK
+      ### True matrix
+      simil_matT = true.conf[,order2]
+      true_matrixL[[sim]] = simil_matT
+      ### Uniform matrix
+      simil_matU = create_simMat(cluster_num, confuse_rate=0.1)
+      ### svm&rf
+      mlDF = simulation$integratedSamples@reductions$pca@cell.embeddings %>% 
+        as.data.frame() %>% 
+        tibble::rownames_to_column("cellID") %>% 
+        merge(simulation$dfRes, by = "cellID") %>% 
+        dplyr::select(-cellID)
+      set.seed(123)
+      simil_matSVM = svm_simMat(mlDF)
+      svm_matrixL[[sim]] = simil_matSVM
+      
+      ## Test
+      ### DCATS---betabinLRT
+      sim_count = numb_cond %>% as.matrix()
+      sim_design = design_mat
+      t1start = Sys.time()
+      betabin_null = dcats_GLM(sim_count, sim_design, base_model = "FULL")
+      timeL[1] = Sys.time() - t1start
+      ###  DCATS---betabinLRT with Bias correction from similarity matrix
+      phi = getPhi(sim_count, sim_design)
+      ## KNN
+      sim_countBC = sim_count
+      for (i in seq_len(nrow(sim_count))) {
+        sim_countBC[i, ] <- sum(sim_count[i, ]) * multinom_EM(sim_count[i, ], simil_matK, verbose = FALSE)$mu
+        sim_countBC[i, ] = ceiling(sim_countBC[i, ])}
+      wtoPhi_K2 = dcats_GLM(sim_countBC, sim_design, base_model = "FULL")
+      truePhi_K2 = dcats_GLM(sim_countBC, sim_design, fix_phi = 1/(1+concentration), base_model = "FULL")
+      estPhi_K2 = dcats_GLM(sim_countBC, sim_design, fix_phi = phi, base_model = "FULL")
+      ## Uniform
+      sim_countBC = sim_count
+      for (i in seq_len(nrow(sim_count))) {
+        sim_countBC[i, ] <- sum(sim_count[i, ]) * multinom_EM(sim_count[i, ], simil_matU, verbose = FALSE)$mu
+        sim_countBC[i, ] = ceiling(sim_countBC[i, ])}
+      wtoPhi_U2 = dcats_GLM(sim_countBC, sim_design, base_model = "FULL")
+      truePhi_U2 = dcats_GLM(sim_countBC, sim_design, fix_phi = 1/(1+concentration), base_model = "FULL")
+      estPhi_U2 = dcats_GLM(sim_countBC, sim_design, fix_phi = phi, base_model = "FULL")
+      ## True
+      sim_countBC = sim_count
+      for (i in seq_len(nrow(sim_count))) {
+        sim_countBC[i, ] <- sum(sim_count[i, ]) * multinom_EM(sim_count[i, ], simil_matT, verbose = FALSE)$mu
+        sim_countBC[i, ] = ceiling(sim_countBC[i, ])}
+      wtoPhi_T2 = dcats_GLM(sim_countBC, sim_design, base_model = "FULL")
+      truePhi_T2 = dcats_GLM(sim_countBC, sim_design, fix_phi = 1/(1+concentration), base_model = "FULL")
+      estPhi_T2 = dcats_GLM(sim_countBC, sim_design, fix_phi = phi, base_model = "FULL")
+      ## svm
+      sim_countBC = sim_count
+      for (i in seq_len(nrow(sim_count))) {
+        sim_countBC[i, ] <- sum(sim_count[i, ]) * multinom_EM(sim_count[i, ], simil_matSVM, verbose = FALSE)$mu
+        sim_countBC[i, ] = ceiling(sim_countBC[i, ])}
+      wtoPhi_SVM2 = dcats_GLM(sim_countBC, sim_design, base_model = "FULL")
+      truePhi_SVM2 = dcats_GLM(sim_countBC, sim_design, fix_phi = 1/(1+concentration), base_model = "FULL")
+      estPhi_SVM2 = dcats_GLM(sim_countBC, sim_design, fix_phi = phi, base_model = "FULL")
+      
+      ## DCATS---betabin with similarity matrix (backward-forward)
+      t2start = Sys.time()
+      betabin_wMK = dcats_GLM(sim_count, sim_design, similarity_mat = simil_matK, base_model = "FULL")
+      timeL[2] = Sys.time() - t2start
+      betabin_wMU = dcats_GLM(sim_count, sim_design, similarity_mat = simil_matU, base_model = "FULL")
+      betabin_wMT = dcats_GLM(sim_count, sim_design, similarity_mat = simil_matT, base_model = "FULL")
+      betabin_wMSVM = dcats_GLM(sim_count, sim_design, similarity_mat = simil_matSVM, base_model = "FULL")
+      ## DCATS---estimated fix phi
+      betabin_estPhiK = dcats_GLM(sim_count, sim_design, similarity_mat = simil_matK, fix_phi = phi, base_model = "FULL")
+      betabin_estPhiU = dcats_GLM(sim_count, sim_design, similarity_mat = simil_matU, fix_phi = phi, base_model = "FULL")
+      betabin_estPhiT = dcats_GLM(sim_count, sim_design, similarity_mat = simil_matT, fix_phi = phi, base_model = "FULL")
+      betabin_estPhiSVM = dcats_GLM(sim_count, sim_design, similarity_mat = simil_matSVM, fix_phi = phi, base_model = "FULL")
+      ## DCATS---true fix phi
+      betabin_truePhiK = dcats_GLM(sim_count, sim_design, similarity_mat = simil_matK, fix_phi = 1/(concentration+1), base_model = "FULL")
+      betabin_truePhiU = dcats_GLM(sim_count, sim_design, similarity_mat = simil_matU, fix_phi = 1/(concentration+1), base_model = "FULL")
+      betabin_truePhiT = dcats_GLM(sim_count, sim_design, similarity_mat = simil_matT, fix_phi = 1/(concentration+1), base_model = "FULL")
+      betabin_truePhiSVM = dcats_GLM(sim_count, sim_design, similarity_mat = simil_matSVM, fix_phi = 1/(concentration+1), base_model = "FULL")
+      ## Fisher's exact test
+      numb_cond1 = numb_cond[1:15,]
+      numb_cond2 = numb_cond[16:30,]
+      t3start = Sys.time()
+      fisher_pvals = getFisher(as.matrix(numb_cond1), as.matrix(numb_cond2))
+      timeL[3] = Sys.time() - t3start
+      ## speckle
+      t4start = Sys.time()
+      speckleDF = simulation$dfRes %>% 
+        mutate(group = ifelse(batch %in% str_c("rep", as.character(1:15)), "cond1", "cond2"))
+      speckleRes = propeller(clusters = simulation$dfRes$clusterRes, sample = simulation$dfRes$batch, group = speckleDF$group) %>% 
+        dplyr::rename(cluster = BaselineProp.clusters,
+                      speckle_pvals = FDR) %>%
+        dplyr::select(cluster, speckle_pvals)
+      timeL[4] = Sys.time() - t4start
+      ## diffcyt
+      t5start = Sys.time()
+      diffcytP = getDiffcyt(numb_cond1, numb_cond2, simulation$dfRes)
+      timeL[5] = Sys.time() - t5start
+      ## scDC
+      t6start = Sys.time()
+      res_scDC <- scDC_noClustering(cellTypes = simulation$dfRes$clusterRes, simulation$dfRes$batch, calCI = TRUE, calCI_method = c("percentile", "BCa", "multinom"),nboot = 100, verbose = FALSE)
+      res_GLM <- fitGLM(res_scDC, c(rep("cond1",rep1*cluster_num),rep("cond2",rep2*cluster_num)), pairwise = FALSE, fixed_only = TRUE, verbose = FALSE)
+      timeL[6] = Sys.time() - t6start
+      scDCRes_temp = summary(res_GLM$pool_res_fixed)
+      scDCRes = scDCRes_temp[c(cluster_num+1,(dim(scDCRes_temp)[1]-cluster_num+2):dim(scDCRes_temp)[1]),]
+      
+      ## results
+      cluster_map = data.frame(cluster = colnames(numb_cond1[,order2]), truth = truthRes) %>% 
+        arrange(cluster)
+      all_res = cluster_map %>% 
+        mutate(betabin_null_pvals = as.vector(betabin_null$LRT_pvals[,1]),
+               wtoPhi_SVM2_pvals = as.vector(wtoPhi_SVM2$LRT_pvals[,1]),
+               truePhi_SVM2_pvals = as.vector(truePhi_SVM2$LRT_pvals[,1]),
+               estPhi_SVM2_pvals = as.vector(estPhi_SVM2$LRT_pvals[,1]),
+               wtoPhi_T2_pvals = as.vector(wtoPhi_T2$LRT_pvals[,1]),
+               truePhi_T2_pvals = as.vector(truePhi_T2$LRT_pvals[,1]),
+               estPhi_T2_pvals = as.vector(estPhi_T2$LRT_pvals[,1]),
+               wtoPhi_U2_pvals = as.vector(wtoPhi_U2$LRT_pvals[,1]),
+               truePhi_U2_pvals = as.vector(truePhi_U2$LRT_pvals[,1]),
+               estPhi_U2_pvals = as.vector(estPhi_U2$LRT_pvals[,1]),
+               wtoPhi_K2_pvals = as.vector(wtoPhi_K2$LRT_pvals[,1]),
+               truePhi_K2_pvals = as.vector(truePhi_K2$LRT_pvals[,1]),
+               estPhi_K2_pvals = as.vector(estPhi_K2$LRT_pvals[,1]),
+               betabin_wMK_pvals = as.vector(betabin_wMK$LRT_pvals[,1]),
+               betabin_wMU_pvals = as.vector(betabin_wMU$LRT_pvals[,1]),
+               betabin_wMT_pvals = as.vector(betabin_wMT$LRT_pvals[,1]),
+               betabin_wMSVM_pvals = as.vector(betabin_wMSVM$LRT_pvals[,1]),
+               betabin_estPhiK_pvals = as.vector(betabin_estPhiK$LRT_pvals[,1]),
+               betabin_estPhiU_pvals = as.vector(betabin_estPhiU$LRT_pvals[,1]),
+               betabin_estPhiT_pvals = as.vector(betabin_estPhiT$LRT_pvals[,1]),
+               betabin_estPhiSVM_pvals = as.vector(betabin_estPhiSVM$LRT_pvals[,1]),
+               betabin_truePhiK_pvals = as.vector(betabin_truePhiK$LRT_pvals[,1]),
+               betabin_truePhiU_pvals = as.vector(betabin_truePhiU$LRT_pvals[,1]),
+               betabin_truePhiT_pvals = as.vector(betabin_truePhiT$LRT_pvals[,1]),
+               betabin_truePhiSVM_pvals = as.vector(betabin_truePhiSVM$LRT_pvals[,1]),
+               fisher_pvals = fisher_pvals,
+               scDC_pvals = scDCRes$p.value) %>%
+        merge(speckleRes, by = "cluster") %>% 
+        merge(diffcytP, by = "cluster")
+      simulationDF = rbind(simulationDF, all_res)
+      time[sim,] = timeL
+    }
+  }
+}
+```
 
 
 
