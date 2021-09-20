@@ -215,7 +215,14 @@ for (file in filenames) {
 }
 
 res_all %>% 
-  arrange(replicates, desc(auc))
+  filter(method %in% c("estPhi_null", "estPhi_emK", "fisher", "speckle", "diffcyt", "betabin_null", "wtoPhi_emK", "scDC")) %>% 
+  arrange(replicates, desc(auc)) %>% 
+  dplyr::select(method, mcc, auc, sensitivity, specificity, F1, replicates) %>% 
+  mutate(mcc = round(mcc, 3),
+         auc = round(auc, 3),
+         sensitivity = round(sensitivity, 3),
+         specificity = round(specificity, 3),
+         F1 = round(F1, 3))
 ```
 
 ```{r, warning=FALSE}
@@ -348,7 +355,17 @@ for (file in filenames) {
 }
 
 res_all %>% 
-  arrange(clustersN, desc(auc))
+  mutate(clustersN = ifelse(is.na(clustersN), "K8", clustersN),
+         clustersN = str_remove(clustersN, "K"),
+         clustersN = factor(clustersN, levels = c("8", "10", "12"))) %>% 
+  filter(method %in% c("estPhi_null", "estPhi_emK", "fisher", "speckle", "diffcyt", "betabin_null", "wtoPhi_emK", "scDC")) %>% 
+  arrange(clustersN, desc(auc)) %>% 
+  dplyr::select(method, mcc, auc, sensitivity, specificity, F1, clustersN) %>% 
+  mutate(mcc = round(mcc, 3),
+         auc = round(auc, 3),
+         sensitivity = round(sensitivity, 3),
+         specificity = round(specificity, 3),
+         F1 = round(F1, 3))
 ```
 
 ```{r, warning=FALSE}
@@ -390,8 +407,7 @@ p4 = res_all %>%
          clustersN = str_remove(clustersN, "K"),
          clustersN = factor(clustersN, levels = c("8", "10", "12"))) %>% 
   filter(method %in% c("speckle", "diffcyt", "fisher", "scDC", "betabin_null", "estPhi_null", "wtoPhi_emK", "estPhi_emK")) %>%
-  mutate(method = ifelse(method == "betabin_wMK", "DCATS", method),
-         method = ifelse(method == "fisher", "Fisher", method)) %>% 
+  mutate(method = ifelse(method == "fisher", "Fisher", method)) %>% 
   mutate(method = factor(method, level = c("scDC", "wtoPhi_emK", "betabin_null", "speckle", "diffcyt", "Fisher", "estPhi_emK", "estPhi_null"))) %>% 
   dplyr::select(method, sensitivity, specificity, mcc, clustersN) %>% 
   pivot_longer(
