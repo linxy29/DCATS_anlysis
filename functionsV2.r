@@ -473,169 +473,6 @@ sendEmail = function(subject = "The job is done"){
   smtp(email, verbose = FALSE)
 }
 
-# function 11: rewrite dcats_betabin to find out matrix causes the @fm1 error
-dcats_betabinRW <- function(counts1, counts2, similarity_mat=NULL, n_samples=50,
-                          pseudo_count=NULL, binom_only=TRUE) {
-  ## Check counts1 and counts2 shape
-  if (length(counts1) == 1 || is.null(dim(counts1)) ||
-      length(dim(counts1)) < 2) {
-    counts1 = matrix(counts1, nrow=1)
-  }
-  if (length(counts2) == 1 || is.null(dim(counts2)) ||
-      length(dim(counts2)) < 2) {
-    counts2 = matrix(counts2, nrow=1)
-  }
-  
-  prop1 <- counts1 / rowSums(counts1)
-  prop2 <- counts2 / rowSums(counts2)
-  
-  ## using estimated the latent cell counts
-  counts1_latent = counts1
-  counts2_latent = counts2
-  for (i in seq_len(nrow(counts1))) {
-    counts1_latent[i, ] <- sum(counts1[i, ]) *
-      multinom_EM(counts1[i, ], similarity_mat, verbose = FALSE)$mu
-  }
-  for (i in seq_len(nrow(counts2))) {
-    counts2_latent[i, ] <- sum(counts2[i, ]) *
-      multinom_EM(counts2[i, ], similarity_mat, verbose = FALSE)$mu
-  }
-  
-  ## number of cell types
-  K <- ncol(counts1)
-  if (is.null(similarity_mat)) {
-    n_samples <- 1
-  }
-  
-  ##------------------------ for debugging only ----------------
-  #set.seed(123)
-  ##------------------------------------------------------------
-  
-  if (!is.null(n_samples) && !is.null(similarity_mat)) {
-    counts1_use <- matrix(0, nrow(counts1) * n_samples, K)
-    counts2_use <- matrix(0, nrow(counts2) * n_samples, K)
-    for (i in seq_len(nrow(counts1))) {
-      idx <- seq((i - 1) * n_samples + 1, i * n_samples)
-      for (j in seq_len(K)) {
-        counts1_use[idx, ] <- (
-          counts1_use[idx, ] + t(rmultinom(n_samples,
-                                           counts1_latent[i, j],
-                                           similarity_mat[j, ])))
-      }
-    }
-    for (i in seq_len(nrow(counts2))) {
-      idx <- seq((i - 1) * n_samples + 1, i * n_samples)
-      for (j in seq_len(K)) {
-        counts2_use[idx, ] <- (
-          counts2_use[idx, ] + t(rmultinom(n_samples,
-                                           counts2_latent[i, j],
-                                           similarity_mat[j, ])))
-      }
-    }
-  } else{
-    counts1_use <- counts1
-    counts2_use <- counts2
-  }
-  
-  # adding pseudo counts
-  if (is.null(pseudo_count)) {
-    if (any(colMeans(counts1) == 0) || any(colMeans(counts2) == 0) ) {
-      print(paste("Empty cell type exists in at least one conidtion;",
-                  "adding replicate & condition specific pseudo count:"))
-      counts1_use <- counts1_use + 1
-      counts2_use <- counts2_use + 1
-    }
-  } else {
-    counts2_use = counts2_use + pseudo_count
-    counts2_use = counts2_use + pseudo_count
-  }
-  
-  ## Binomial regression for each sampling
-  LR_val <- matrix(NA, n_samples, K)
-  coeffs_val <- matrix(NA, n_samples, K)
-  coeffs_err <- matrix(NA, n_samples, K)
-  intercept_val <- matrix(NA, n_samples, K)
-  intercept_err <- matrix(NA, n_samples, K)
-  total_all <- c(rowSums(counts1_use), rowSums(counts2_use))
-  label_all <- c(rep(1, nrow(counts1_use)), rep(0, nrow(counts2_use)))
-  for (ir in seq_len(n_samples)) {
-    idx <- seq(1, length(total_all), n_samples) + ir - 1
-    for (i in seq_len(K)) {
-      n1 <- c(counts1_use[, i], counts2_use[, i])[idx]
-      df <- data.frame(n1 = n1, n2 = total_all[idx] - n1,
-                       label = label_all[idx])
-      if (binom_only) {
-        model1 <- glm(cbind(n1, n2) ~ label + 1,
-                      family = binomial(), data = df)
-        coeffs_val[ir, i] <- summary(model1)$coefficients[2, 1]
-        coeffs_err[ir, i] <- summary(model1)$coefficients[2, 2]
-        intercept_val[ir, i] <- summary(model1)$coefficients[1, 1]
-        intercept_err[ir, i] <- summary(model1)$coefficients[1, 2]
-        
-        model0 <- glm(cbind(n1, n2) ~ 1,
-                      family = binomial(), data = df)
-        LR_val[ir, i] <- model0$deviance - model1$deviance
-      } else{
-        
-        fm1 <- aod::betabin(cbind(n1, n2) ~ label, ~ 1, data = df)
-        if (any(is.na(fm1@varparam))) {
-          print(fm1)
-          print(df)
-        } else {
-          coeffs_err[ir, i] <-fm1@varparam[2, 2]
-        }
-        
-        coeffs_val[ir, i] <- fm1@param[2]
-        intercept_val[ir, i] <- fm1@param[1] # summary(fm1)@Coef[1, 1]
-        intercept_err[ir, i] <- fm1@varparam[1, 1]
-        
-        fm0 <- aod::betabin(cbind(n1, n2) ~ 1, ~ 1, data = df)
-        LR_val[ir, i] <- fm0@dev - fm1@dev
-      }
-      
-    }
-  }
-  
-  ## Averaging the coeficients errors
-  if (is.null(n_samples) || is.null(similarity_mat) || n_samples == 1) {
-    coeff_val_mean <- colMeans(coeffs_val)
-    coeff_err_pool <- colMeans(coeffs_err**2)
-    intercept_val_mean <- colMeans(intercept_val)
-    intercept_err_pool <- colMeans(intercept_err**2)
-  } else{
-    coeff_val_mean <- colMeans(coeffs_val)
-    coeff_err_pool <- colMeans(coeffs_err**2) +
-      matrixStats::colSds(coeffs_val) +
-      matrixStats::colSds(coeffs_val) / n_samples
-    
-    intercept_val_mean <- colMeans(intercept_val)
-    intercept_err_pool <- colMeans(intercept_err**2) +
-      matrixStats::colSds(intercept_val) +
-      matrixStats::colSds(intercept_val) / n_samples
-  }
-  
-  
-  # p values with Ward test: https://en.wikipedia.org/wiki/Wald_test
-  pvals <- pnorm(-abs(coeff_val_mean) / sqrt(coeff_err_pool))  * 2
-  
-  LR_median = robustbase::colMedians(LR_val)
-  LRT_pvals <-  pchisq(LR_median, df=1, lower.tail = FALSE, log.p = FALSE)
-  
-  data.frame(
-    "prop1_mean" = colMeans(prop1),
-    "prop1_std"  = matrixStats::colSds(prop1),
-    "prop2_mean" = colMeans(prop2),
-    "prop2_std"  = matrixStats::colSds(prop2),
-    "coeff_mean" = coeff_val_mean,
-    "coeff_std"  = sqrt(coeff_err_pool),
-    "intecept_mean" = intercept_val_mean,
-    "intecept_std"  = sqrt(intercept_err_pool),
-    "pvals" = pvals,
-    "LRT_pvals" = LRT_pvals,
-    row.names = colnames(counts1)
-  )
-}
-
 # function 12: get similarity matrix from rf and svm
 get_similarity_matRW = function(K, confuse_rate, method = "uniform", df){
   library(tidymodels)
@@ -712,6 +549,7 @@ getROC = function(truth, pred){
   return(list(plot = plot, auc = auc, df = df, eval = eval))
 }
 
+# function 13: plot PRC plot
 getPRC = function(truth, pred){
   ## precision and recall
   library(ggplot2)
@@ -749,3 +587,297 @@ getPRC = function(truth, pred){
   prauc = prauc + df$precision[n] * 1 # add precidion till 0
   return(list(plot = plot, prauc = prauc, df = df, eval = eval))
 }
+
+# function 14: get Phi for each cluster
+eachPhi <- function(count_mat, design_mat, similarity_mat=NULL, n_samples=NULL, pseudo_count=NULL,  base_model='NULL', fix_phi=NULL) {
+  # Output matrices
+  coeffs     <- matrix(NA, ncol(count_mat), ncol(design_mat))
+  coeffs_err <- matrix(NA, ncol(count_mat), ncol(design_mat))
+  LR_vals    <- matrix(NA, ncol(count_mat), ncol(design_mat))
+  LRT_pvals  <- matrix(NA, ncol(count_mat), ncol(design_mat))
+  pvals  <- matrix(NA, ncol(count_mat), ncol(design_mat))
+  LRT_fdr    <- matrix(NA, ncol(count_mat), ncol(design_mat))
+  fm0_phi <- matrix(NA, ncol(count_mat), ncol(design_mat))
+  fm1_phi <- matrix(NA, ncol(count_mat), ncol(design_mat))
+  
+  # Check colnames
+  if (is.null(colnames(count_mat)))
+    colnames(count_mat) <- paste0('cell_type_', seq(ncol(count_mat)))
+  if (is.null(colnames(design_mat)))
+    colnames(design_mat) <- paste0('factor_', seq(ncol(design_mat)))
+  
+  # Add rownames and colnames
+  rownames(fm0_phi) <- rownames(fm1_phi) <- rownames(LR_vals) <- rownames(LRT_pvals) <- rownames(pvals) <- rownames(LRT_fdr) <- rownames(coeffs) <- rownames(coeffs_err) <- colnames(count_mat)
+  colnames(fm0_phi) <- colnames(fm1_phi) <- colnames(LR_vals) <- colnames(LRT_pvals) <- colnames(pvals) <- colnames(LRT_fdr) <-
+    colnames(coeffs) <- colnames(coeffs_err) <- colnames(design_mat)
+  
+  
+  ## using estimated the latent cell counts
+  count_latent = count_mat
+  if(!is.null(similarity_mat)) {
+    for (i in seq_len(nrow(count_mat))) {
+      count_latent[i, ] <- sum(count_mat[i, ]) *
+        multinom_EM(count_mat[i, ], similarity_mat, verbose = FALSE)$mu
+    }
+  }
+  
+  K <- ncol(count_mat) ## number of cell types
+  if (is.null(similarity_mat)) {
+    n_samples <- 1
+  }
+  
+  if (!is.null(n_samples) && !is.null(similarity_mat)) {
+    count_use <- matrix(0, nrow(count_mat) * n_samples, K)
+    for (i in seq_len(nrow(count_mat))) {
+      idx <- seq((i - 1) * n_samples + 1, i * n_samples)
+      for (j in seq_len(K)) {
+        count_use[idx, ] <- (
+          count_use[idx, ] + t(rmultinom(n_samples, count_latent[i, j], similarity_mat[j, ])))
+      }
+    }
+  } else{
+    count_use <- count_mat
+    n_samples <- 1
+  }
+  
+  # adding pseudo counts
+  if (is.null(pseudo_count)) {
+    if (any(colMeans(count_mat) == 0)) {
+      print(paste("Empty cell type exists in at least one conidtion;",
+                  "adding replicate & condition specific pseudo count:"))
+      count_use <- count_use + 1
+    }
+  } else {
+    count_use = count_use + pseudo_count
+  }
+  
+  count_use = round(count_use)
+  
+  # Test each factor
+  for (k in seq_len(ncol(design_mat))) {    ## for each factor
+    sub_LR_val <- matrix(NA, n_samples, K)
+    sub_coeffs_val <- matrix(NA, n_samples, K)
+    sub_coeffs_err <- matrix(NA, n_samples, K)
+    sub_fm0phi <- matrix(NA, n_samples, K)
+    sub_fm1phi <- matrix(NA, n_samples, K)
+    for (ir in seq_len(n_samples)) {          ## for each sampling
+      for (m in seq_len(ncol(count_use))) {       ## for each cluster
+        idx <- seq(1, nrow(count_use), n_samples) + ir - 1
+        
+        df_use <- data.frame(n1 = count_use[, m], total=rowSums(count_use))[idx,]
+        df_use <- cbind(df_use, design_mat)
+        df_tmp <- df_use[!is.na(design_mat[, k]), ]
+        
+        ## model fitting using betabin
+        if (base_model=='NULL' | ncol(design_mat) == 1) {
+          formula_fm0 <- as.formula('cbind(n1, total-n1) ~ 1')
+          formula_fm1 <- as.formula(paste0('cbind(n1, total-n1)', '~ 1+', colnames(design_mat)[k], sep=''))
+        } else if (base_model=='FULL') {
+          fm0_right <- paste(colnames(design_mat)[-k], collapse = " + ")
+          fm1_right <- paste(colnames(design_mat), collapse = " + ")
+          formula_fm0 <- as.formula(paste0('cbind(n1, total-n1)', ' ~ 1 + ', fm0_right, sep=''))
+          formula_fm1 <- as.formula(paste0('cbind(n1, total-n1)', ' ~ 1 + ', fm1_right, sep=''))
+        }
+        fm0 <- aod::betabin(formula_fm0, ~ 1, data = df_tmp, warnings = FALSE)
+        fm1 <- aod::betabin(formula_fm1, ~ 1, data = df_tmp, warnings = FALSE)
+        if (!is.null(fix_phi)){
+          fm0 <- aod::betabin(formula_fm0, ~ 1, data = df_tmp, warnings = FALSE, fixpar = list(fm0@nbpar, fix_phi))
+          fm1 <- aod::betabin(formula_fm1, ~ 1, data = df_tmp, warnings = FALSE, fixpar = list(fm1@nbpar, fix_phi))
+        }
+        
+        ## ignore the fitting if the hessian matrix is singular
+        if (length(fm1@varparam) < 4 || is.na(fm1@varparam[2, 2])) {next}
+        
+        
+        sub_LR_val[ir, m] <- fm0@dev - fm1@dev
+        sub_fm0phi[ir, m] <- tail(fm0@param, n=1)
+        sub_fm1phi[ir, m] <- tail(fm1@param, n=1)
+        parID <- grep(colnames(design_mat)[k], names(fm1@param))
+        if(length(parID) > 1) stop("Please check the design matrix, make sure all factors are continous or categorical with only two levels.")
+        sub_coeffs_val[ir, m] <- fm1@param[parID]
+        if(is.null(fix_phi))
+          sub_coeffs_err[ir, m] <-fm1@varparam[parID, parID]
+      }
+    }
+    
+    coeff_val_mean <- colMeans(sub_coeffs_val, na.rm = TRUE)
+    if (is.null(fix_phi)){
+      ## averaging the estimation to get the final result
+      if (is.null(n_samples) || is.null(similarity_mat) || n_samples == 1){
+        sub_coeff_err_pool <- colMeans(sub_coeffs_err**2, na.rm = TRUE)
+      } else {
+        sub_coeff_err_pool <- colMeans(sub_coeffs_err**2, na.rm = TRUE) +
+          matrixStats::colSds(sub_coeffs_val) +
+          matrixStats::colSds(sub_coeffs_val) / n_samples
+      }
+      # p values with Ward test: https://en.wikipedia.org/wiki/Wald_test
+      pvals[,k] <- pnorm(-abs(coeff_val_mean) / sqrt(sub_coeff_err_pool))  * 2
+      coeffs_err[, k] <- sqrt(sub_coeff_err_pool)
+      fm0_phi[,k] <- colMeans(sub_fm0phi, na.rm = TRUE)
+      fm1_phi[,k] <- colMeans(sub_fm1phi, na.rm = TRUE)
+    }
+    
+    
+    LR_median = robustbase::colMedians(sub_LR_val, na.rm = TRUE)
+    LR_vals[, k] <- LR_median
+    LRT_pvals[, k] <- pchisq(LR_median, df=1, lower.tail = FALSE, log.p = FALSE)
+    coeffs[, k] <- coeff_val_mean
+  }
+  
+  # Return list
+  LRT_fdr[,] <- p.adjust(LRT_pvals, method = 'fdr')
+  res <- list('ceoffs'=coeffs, 'coeffs_err'=coeffs_err, 'pvals' = pvals, 'LR_vals'=LR_vals, 'LRT_pvals'=LRT_pvals, 'fdr'=LRT_fdr, 'fm0_phi' = fm0_phi, 'fm1_phi' = fm1_phi)
+  res
+}
+
+# function 15: get adjust Phi and average Phi
+getPhi2 = function(count_mat, design_mat, similarity_mat=NULL, n_samples=NULL, pseudo_count=NULL,  base_model='NULL', fix_phi=NULL){
+  res = eachPhi(count_mat, design_mat, similarity_mat, n_samples, pseudo_count,  base_model, fix_phi)
+  avrgPhiV = res$fm0_phi %>% rowMeans()
+  avrgPhi = mean(avrgPhiV)
+  data = data.frame(phi = avrgPhiV, count = colSums(count_mat))
+  fm = lm(phi~count, data)
+  adjPhiV = (avrgPhiV + avrgPhi)/2
+  return(list(adjPhiV = adjPhiV, avrgPhi = avrgPhi))
+}
+
+# function 16: new version of dcats that allow different input phi for different clusters
+dcats_GLM_mltPhi <- function(count_mat, design_mat, similarity_mat=NULL, n_samples=50, pseudo_count=NULL,  base_model='NULL', phi=NULL) {
+  if(!is.null(phi) & length(phi)!=ncol(count_mat)) stop("Please check the phi vector, make sure you provide over dispersion for all cell types.")
+  
+  # Output matrices
+  coeffs     <- matrix(NA, ncol(count_mat), ncol(design_mat))
+  coeffs_err <- matrix(NA, ncol(count_mat), ncol(design_mat))
+  LR_vals    <- matrix(NA, ncol(count_mat), ncol(design_mat))
+  LRT_pvals  <- matrix(NA, ncol(count_mat), ncol(design_mat))
+  pvals  <- matrix(NA, ncol(count_mat), ncol(design_mat))
+  LRT_fdr    <- matrix(NA, ncol(count_mat), ncol(design_mat))
+  
+  # Check colnames
+  if (is.null(colnames(count_mat)))
+    colnames(count_mat) <- paste0('cell_type_', seq(ncol(count_mat)))
+  if (is.null(colnames(design_mat)))
+    colnames(design_mat) <- paste0('factor_', seq(ncol(design_mat)))
+  
+  # Add rownames and colnames
+  rownames(LR_vals) <- rownames(LRT_pvals) <- rownames(pvals) <- rownames(LRT_fdr) <-
+    rownames(coeffs) <- rownames(coeffs_err) <- colnames(count_mat)
+  colnames(LR_vals) <- colnames(LRT_pvals) <- colnames(pvals) <- colnames(LRT_fdr) <-
+    colnames(coeffs) <- colnames(coeffs_err) <- colnames(design_mat)
+  
+  
+  ## using estimated the latent cell counts
+  count_latent = count_mat
+  if(!is.null(similarity_mat)) {
+    for (i in seq_len(nrow(count_mat))) {
+      count_latent[i, ] <- sum(count_mat[i, ]) *
+        multinom_EM(count_mat[i, ], similarity_mat, verbose = FALSE)$mu
+    }
+  }
+  
+  K <- ncol(count_mat) ## number of cell types
+  if (is.null(similarity_mat)) {
+    n_samples <- 1
+  }
+  
+  if (!is.null(n_samples) && !is.null(similarity_mat)) {
+    count_use <- matrix(0, nrow(count_mat) * n_samples, K)
+    for (i in seq_len(nrow(count_mat))) {
+      idx <- seq((i - 1) * n_samples + 1, i * n_samples)
+      for (j in seq_len(K)) {
+        count_use[idx, ] <- (
+          count_use[idx, ] + t(rmultinom(n_samples, count_latent[i, j], similarity_mat[j, ])))
+      }
+    }
+  } else{
+    count_use <- count_latent
+    n_samples <- 1
+  }
+  
+  # adding pseudo counts
+  if (is.null(pseudo_count)) {
+    if (any(colMeans(count_mat) == 0)) {
+      print(paste("Empty cell type exists in at least one conidtion;",
+                  "adding replicate & condition specific pseudo count:"))
+      count_use <- count_use + 1
+    }
+  } else {
+    count_use = count_use + pseudo_count
+  }
+  
+  count_use = round(count_use)
+  
+  #print(count_use)
+  # Test each factor
+  for (k in seq_len(ncol(design_mat))) {    ## for each factor
+    sub_LR_val <- matrix(NA, n_samples, K)
+    sub_coeffs_val <- matrix(NA, n_samples, K)
+    sub_coeffs_err <- matrix(NA, n_samples, K)
+    for (ir in seq_len(n_samples)) {          ## for each sampling
+      for (m in seq_len(ncol(count_use))) {       ## for each cluster
+        idx <- seq(1, nrow(count_use), n_samples) + ir - 1
+        
+        df_use <- data.frame(n1 = count_use[, m], total=rowSums(count_use))[idx,]
+        df_use <- cbind(df_use, design_mat)
+        df_tmp <- df_use[!is.na(design_mat[, k]), ]
+        
+        ## model fitting using betabin
+        if (base_model=='NULL' | ncol(design_mat) == 1) {
+          formula_fm0 <- as.formula('cbind(n1, total-n1) ~ 1')
+          
+          formula_fm1 <- as.formula(paste0('cbind(n1, total-n1)', '~ 1+', colnames(design_mat)[k], sep=''))
+        } else if (base_model=='FULL') {
+          fm0_right <- paste(colnames(design_mat)[-k], collapse = " + ")
+          fm1_right <- paste(colnames(design_mat), collapse = " + ")
+          formula_fm0 <- as.formula(paste0('cbind(n1, total-n1)', ' ~ 1 + ', fm0_right, sep=''))
+          formula_fm1 <- as.formula(paste0('cbind(n1, total-n1)', ' ~ 1 + ', fm1_right, sep=''))
+        }
+        fm0 <- aod::betabin(formula_fm0, ~ 1, data = df_tmp, warnings = FALSE)
+        fm1 <- aod::betabin(formula_fm1, ~ 1, data = df_tmp, warnings = FALSE)
+        if (!is.null(phi)){
+          fm0 <- aod::betabin(formula_fm0, ~ 1, data = df_tmp, warnings = FALSE, fixpar = list(fm0@nbpar, phi[m]))
+          fm1 <- aod::betabin(formula_fm1, ~ 1, data = df_tmp, warnings = FALSE, fixpar = list(fm1@nbpar, phi[m]))
+        }
+        
+        ## ignore the fitting if the hessian matrix is singular
+        if (length(fm1@varparam) < 4 || is.na(fm1@varparam[2, 2])) {next}
+        
+        sub_LR_val[ir, m] <- fm0@dev - fm1@dev
+        parID <- grep(colnames(design_mat)[k], names(fm1@param))
+        if(length(parID) > 1) stop("Please check the design matrix, make sure all factors are continous or categorical with only two levels.")
+        sub_coeffs_val[ir, m] <- fm1@param[parID]
+        if(is.null(phi))
+          sub_coeffs_err[ir, m] <-fm1@varparam[parID, parID]
+      }
+    }
+    
+    coeff_val_mean <- colMeans(sub_coeffs_val, na.rm = TRUE)
+    if (is.null(phi)){
+      ## averaging the estimation to get the final result
+      if (is.null(n_samples) || is.null(similarity_mat) || n_samples == 1){
+        sub_coeff_err_pool <- colMeans(sub_coeffs_err**2, na.rm = TRUE)
+      } else {
+        sub_coeff_err_pool <- colMeans(sub_coeffs_err**2, na.rm = TRUE) +
+          matrixStats::colSds(sub_coeffs_val) +
+          matrixStats::colSds(sub_coeffs_val) / n_samples
+      }
+      # p values with Ward test: https://en.wikipedia.org/wiki/Wald_test
+      pvals[,k] <- pnorm(-abs(coeff_val_mean) / sqrt(sub_coeff_err_pool))  * 2
+      coeffs_err[, k] <- sqrt(sub_coeff_err_pool)
+    }
+    
+    
+    LR_median = robustbase::colMedians(sub_LR_val, na.rm = TRUE)
+    LR_vals[, k] <- LR_median
+    LRT_pvals[, k] <- pchisq(LR_median, df=1, lower.tail = FALSE, log.p = FALSE)
+    coeffs[, k] <- coeff_val_mean
+  }
+  
+  # Return list
+  LRT_fdr[,] <- p.adjust(LRT_pvals, method = 'fdr')
+  res <- list('ceoffs'=coeffs, 'coeffs_err'=coeffs_err, 'pvals' = pvals, 'LR_vals'=LR_vals, 'LRT_pvals'=LRT_pvals, 'fdr'=LRT_fdr)
+  res
+}
+
+# function 17: inverse of %in%
+'%!in%' <- function(x,y)!('%in%'(x,y))

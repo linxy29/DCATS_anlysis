@@ -29,6 +29,7 @@ de_prob = rep(NA, cluster_num)
 #de_prob[1:round(cluster_num/3)] = runif(round(cluster_num/3), 0.1, 0.2)
 #de_prob[(round(cluster_num/3)+1):cluster_num] = runif((cluster_num - round(cluster_num/3)), 0.5, 1)
 de_prob[1:round(cluster_num/2)] = runif(round(cluster_num/2), 0.1, 0.2)
+#de_prob[1:round(cluster_num/2)] = sample(c(0.13, 0.15), round(cluster_num/2), replace = TRUE)
 de_prob[(round(cluster_num/2)+1):cluster_num] = runif((cluster_num - round(cluster_num/2)), 0.5, 1)
 setresolu = 0.5
 ```
@@ -47,6 +48,7 @@ if (par == "origin"){
 ## simulate cells pool process
 set.seed(123)
 param.groups <- setParams(params, batchCells = batch_size*prob, nGenes = 1000)
+#param.groups <- setParams(params, batchCells = batch_size, nGenes = 1000)
 sim <- splatSimulateGroups(param.groups, group.prob = prob, de.prob = de_prob, de.facLoc = 0.01, verbose = FALSE)
 sim_mat <- counts(sim)
 origLabels = sim@colData@listData$Group
@@ -60,6 +62,69 @@ save(sim_mat, origLabels, file = str_c("D:/Data/DCATS/cells_pool", as.character(
 
 ```{r}
 load(str_c("D:/Data/DCATS/cells_pool", as.character(cluster_num), "_splatter.RData"))
+#load(str_c("./data/cells_pool", as.character(cluster_num), ".RData"))
+```
+
+```{r}
+seuratObj <- CreateSeuratObject(counts = counts(sim), project="Splatter")
+seuratObj <- NormalizeData(seuratObj, verbose = FALSE)
+seuratObj <- FindVariableFeatures(seuratObj, selection.method = "vst", nfeatures = 2000, verbose = FALSE)
+seuratObj <- ScaleData(seuratObj)
+seuratObj <- RunPCA(seuratObj, features = VariableFeatures(object = seuratObj))
+seuratObj <- FindNeighbors(seuratObj, dims = 1:30, verbose = FALSE)
+seuratObj <- FindClusters(seuratObj, resolution = setresolu, verbose = FALSE)
+seuratObj <- RunUMAP(seuratObj, dims = 1:30, verbose = FALSE)
+seuratObj[['orig.ident']] <- origLabels
+seuratObj[['orig.ident']] <- sim@colData@listData$Group
+DimPlot(seuratObj, reduction = "umap")
+DimPlot(seuratObj, reduction = "umap", group.by = "orig.ident")
+```
+
+## Splatter-discrete
+
+```{r,eval=FALSE}
+set.seed(123)
+## simulate cells pool setting
+cluster_num = 8
+prob = rep(1/cluster_num, cluster_num)
+batch_size = cluster_num * 1500
+de_prob = rep(NA, cluster_num)
+#de_prob[1:round(cluster_num/3)] = runif(round(cluster_num/3), 0.1, 0.2)
+#de_prob[(round(cluster_num/3)+1):cluster_num] = runif((cluster_num - round(cluster_num/3)), 0.5, 1)
+#de_prob[1:round(cluster_num/2)] = runif(round(cluster_num/2), 0.1, 0.2)
+de_prob[1:round(cluster_num/2)] = runif(round(cluster_num/2), 0.2, 0.4)
+de_prob[(round(cluster_num/2)+1):cluster_num] = runif((cluster_num - round(cluster_num/2)), 0.5, 1)
+setresolu = 0.5
+```
+
+```{r}
+par = "mnnCT7"  # can be select from "origin", "mnnCT7"
+if (par == "origin"){
+  params <- newSplatParams()
+} else if (par == "mnnCT7"){
+  #params = readRDS("./data/ovarian_params.rds")
+  params = readRDS("D:/Data/DCATS/simulation/mnnCT7params.rds")
+}
+```
+
+```{r,eval=FALSE}
+## simulate cells pool process
+set.seed(123)
+#param.groups <- setParams(params, batchCells = batch_size*prob, nGenes = 1000)
+param.groups <- setParams(params, batchCells = batch_size, nGenes = 1000)
+sim <- splatSimulateGroups(param.groups, group.prob = prob, de.prob = de_prob, de.facLoc = 0.01, verbose = FALSE)
+sim_mat <- counts(sim)
+origLabels = sim@colData@listData$Group
+```
+
+```{r}
+# Save multiple objects
+save(sim_mat, origLabels, file = str_c("D:/Data/DCATS/cells_pool", as.character(cluster_num), "_splatter_discrete.RData"))
+#save(sim_mat, origLabels, file = str_c("D:/Data/DCATS/cells_pool", as.character(cluster_num), "_splatter_test.RData"))
+```
+
+```{r}
+load(str_c("D:/Data/DCATS/cells_pool", as.character(cluster_num), "_splatter_discrete.RData"))
 #load(str_c("./data/cells_pool", as.character(cluster_num), ".RData"))
 ```
 
