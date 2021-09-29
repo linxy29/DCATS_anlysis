@@ -109,17 +109,35 @@ p1A1 = evaluationDF %>%
   tidyr::separate(method, c("method", "condition"), sep = "_") %>% 
   dplyr::select(-sensitivity, -specificity) %>% 
   filter(condition != "test") %>% 
+  filter(method %in% c("estPhi", "fisher")) %>% 
+  mutate(method = ifelse(method == "fisher", "Fisher", method),
+         method = ifelse(method == "estPhi", "DCATS", method)) %>% 
+  ggplot(aes(x = condition, y = auc, color = method)) + geom_boxplot() +
+  scale_color_manual(values=c("#F8766D", "#00B0F6")) +
+  theme(axis.title.x = element_blank()) + 
+  ylab("AUC") +
+  scale_x_discrete(labels=c("null" = "no Bias Correction", "withBC" = "with Bias Correction")) 
+p1A1
+ggsave("./plot/Fig1_A2.png", bg = "transparent")
+```
+
+Plots -Supplementary1
+
+```{r}
+evaluationDF %>% 
+  tidyr::separate(method, c("method", "condition"), sep = "_") %>% 
+  dplyr::select(-sensitivity, -specificity) %>% 
+  filter(condition != "test") %>% 
   mutate(method = ifelse(method == "fisher", "Fisher", method),
          method = factor(method, levels = c("wtoPhi", "adjPhi", "avrgPhi", "estPhi", "Fisher"))) %>% 
   ggplot(aes(x = condition, y = auc, color = method)) + geom_boxplot() +
   theme(axis.title.x = element_blank()) + 
   ylab("AUC") +
   scale_x_discrete(labels=c("null" = "no Bias Correction", "withBC" = "with Bias Correction"))
-p1A1
-ggsave("./plot/Fig1_A2.png", bg = "transparent")
+ggsave("./plot/supFig1A1.png", bg = "transparent")
 ```
 
-Plots -Supplementary1
+Plots -Supplementary2
 
 ```{r}
 evaluationDF %>% 
@@ -133,7 +151,7 @@ evaluationDF %>%
   mutate(condition = ifelse(condition == "null", "noBC", condition)) %>%
   ggplot(aes(x = condition, y = value, color = method)) + geom_boxplot() + facet_grid(.~statistics) +
     theme(axis.title.x = element_blank())
-ggsave("./plot/supFig1A1.png", bg = "transparent")
+ggsave("./plot/supFig1A2.png", bg = "transparent")
 ```
 
 ```{r}
@@ -162,7 +180,7 @@ supA4 = phiDF %>%
   xlab("estPhi (no BC)") +
   ylab("estPhi (with BC)")
 (supA1 + supA2)/(supA3 + supA4)
-ggsave("./plot/supFig1A2.png", bg = "transparent", width = 8, height = 5)
+ggsave("./plot/supFig1A3.png", bg = "transparent", width = 8, height = 5)
 ```
 
 ## Figure B
@@ -229,8 +247,8 @@ res_all %>%
 main_p1 = res_all %>% 
   filter(method %in% c("speckle", "diffcyt", "fisher", "scDC", "estPhi_emK")) %>%
   mutate(method = ifelse(method == "fisher", "Fisher", method)) %>% 
-  mutate(method = factor(method, level = c("scDC", "speckle", "diffcyt", "Fisher", "estPhi_emK")),
-         method = ifelse(method == "estPhi_emK", "DCATS", method)) %>% 
+  mutate(method = ifelse(method == "estPhi_emK", "DCTAS", method)) %>% 
+  mutate(method = factor(method, level = c("DCTAS", "speckle", "diffcyt", "Fisher", "scDC"))) %>% 
   ggplot(aes(x = replicates, y = auc, color = method, group = method)) + 
   geom_point(shape = 0) +
   geom_line()+
@@ -376,7 +394,7 @@ main_p3 = res_all %>%
   filter(method %in% c("speckle", "diffcyt", "fisher", "scDC", "estPhi_emK")) %>%
   mutate(method = ifelse(method == "fisher", "Fisher", method)) %>% 
   mutate(method = ifelse(method == "estPhi_emK", "DCTAS", method)) %>% 
-  mutate(method = factor(method, level = c("scDC", "speckle", "diffcyt", "Fisher", "DCTAS"))) %>% 
+  mutate(method = factor(method, level = c("DCTAS", "speckle", "diffcyt", "Fisher", "scDC"))) %>% 
   ggplot(aes(x = clustersN, y = auc, color = method, group = method)) + 
   geom_point(shape = 0) +
   geom_line()+
@@ -531,6 +549,9 @@ res_all
 
 ```{r}
 p1B2 = res_all %>% 
+  dplyr::select(method, auc, factor) %>% 
+  pivot_wider(names_from = factor, values_from = auc) %>% 
+  pivot_longer(condition:gender, names_to = "factor", values_to = "auc") %>% 
   filter(method %in% c("speckle", "diffcyt", "fisher", "scDC", "estPhi_emK")) %>%
   mutate(method = ifelse(method == "fisher", "Fisher", method),
          method = ifelse(method == "estPhi_emK", "DCATS", method)) %>% 
@@ -538,7 +559,7 @@ p1B2 = res_all %>%
          factor = factor(factor, level = c("condition", "age", "gender"))) %>% 
   ggplot(aes(factor, method)) +
     geom_tile(aes(fill = auc)) + 
-    geom_text(aes(label = round(auc, 3))) +
+    geom_text(aes(label = ifelse(is.na(auc), "N.A.", as.character(round(auc, 3))))) +
     scale_fill_gradient(low = "white", high = "red", limits = c(0.5,0.9))+
   xlab("Covariates")
 ggsave("./plot/Fig1_C.png", bg = "transparent")
