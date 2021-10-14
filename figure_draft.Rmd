@@ -233,6 +233,11 @@ for (file in filenames) {
 }
 
 res_all %>% 
+  filter(!str_detect(method, "avrgPhi")) %>% 
+  filter(!str_detect(method, "adjPhi")) %>% 
+  arrange(replicates, desc(auc))
+
+res_all %>% 
   filter(method %in% c("estPhi_null", "estPhi_emK", "fisher", "speckle", "diffcyt", "betabin_null", "wtoPhi_emK", "scDC")) %>% 
   arrange(replicates, desc(auc)) %>% 
   dplyr::select(method, mcc, auc, sensitivity, specificity, F1, replicates) %>% 
@@ -666,10 +671,11 @@ ggsave("./plot/Fig1_C1.png", width = 8, height = 4)
 load("D:/Data/DCATS/real_world/Haber2017_res.RData")
 all_resC3 %>% 
   dplyr::select(cluster, truth, contains('_Res')) %>% 
-  pivot_longer(truth:speckle_Res, names_to = "method", values_to = "res") %>% 
+  rename(origin = truth) %>% 
+  pivot_longer(origin:speckle_Res, names_to = "method", values_to = "res") %>% 
   pivot_wider(names_from = cluster, values_from = res) %>% 
   mutate(method = str_remove(method, "_Res")) %>% 
-  filter(method %in% c("truth", "estPhi_emSVM", "fisher", "scDC", "speckle")) %>% 
+  filter(method %in% c("origin", "estPhi_emSVM", "fisher", "scDC", "speckle")) %>% 
   mutate(method = ifelse(method == "estPhi_emSVM", "DCATS", method)) %>% 
   column_to_rownames("method") %>% 
   dplyr::select(Tuft, Endocrine, Enterocyte.Progenitor, Stem, Goblet, TA.Early, Enterocyte, TA) %>% 
@@ -677,10 +683,11 @@ all_resC3 %>%
 
 all_resC10 %>% 
   dplyr::select(cluster, truth, contains('_Res')) %>% 
-  pivot_longer(truth:speckle_Res, names_to = "method", values_to = "res") %>% 
+  rename(origin = truth) %>% 
+  pivot_longer(origin:speckle_Res, names_to = "method", values_to = "res") %>% 
   pivot_wider(names_from = cluster, values_from = res) %>% 
   mutate(method = str_remove(method, "_Res")) %>% 
-  filter(method %in% c("truth", "estPhi_emSVM", "fisher", "scDC", "speckle")) %>% 
+  filter(method %in% c("origin", "estPhi_emSVM", "fisher", "scDC", "speckle")) %>% 
   mutate(method = ifelse(method == "estPhi_emSVM", "DCATS", method)) %>% 
   column_to_rownames("method") %>% 
   dplyr::select(Tuft, TA.Early, Goblet, Enterocyte, Enterocyte.Progenitor, Endocrine, Stem, TA) %>% 
@@ -688,10 +695,11 @@ all_resC10 %>%
 
 all_resCS %>% 
   dplyr::select(cluster, truth, contains('_Res')) %>% 
-  pivot_longer(truth:speckle_Res, names_to = "method", values_to = "res") %>% 
+  rename(origin = truth) %>% 
+  pivot_longer(origin:speckle_Res, names_to = "method", values_to = "res") %>% 
   pivot_wider(names_from = cluster, values_from = res) %>% 
   mutate(method = str_remove(method, "_Res")) %>% 
-  filter(method %in% c("truth", "estPhi_emSVM", "fisher", "scDC", "speckle")) %>% 
+  filter(method %in% c("origin", "estPhi_emSVM", "fisher", "scDC", "speckle")) %>% 
   mutate(method = ifelse(method == "estPhi_emSVM", "DCATS", method)) %>% 
   column_to_rownames("method") %>% 
   dplyr::select(Enterocyte, Stem, TA, TA.Early, Enterocyte.Progenitor, Tuft, Goblet, Endocrine) %>% 
@@ -760,10 +768,11 @@ pA4 = exp6DF %>%
 load("D:/Data/DCATS/real_world/Kang2017_res.RData")
 all_res %>% 
   dplyr::select(cluster, truth, contains('_Res')) %>% 
-  pivot_longer(truth:speckle_Res, names_to = "method", values_to = "res") %>% 
+  rename(origin = truth) %>% 
+  pivot_longer(origin:speckle_Res, names_to = "method", values_to = "res") %>% 
   pivot_wider(names_from = cluster, values_from = res) %>% 
   mutate(method = str_remove(method, "_Res")) %>% 
-  filter(method %in% c("truth", "estPhi_emSVM", "fisher", "scDC", "speckle")) %>% 
+  filter(method %in% c("origin", "estPhi_emSVM", "fisher", "scDC", "speckle")) %>% 
   mutate(method = ifelse(method == "estPhi_emSVM", "DCATS", method)) %>% 
   column_to_rownames("method") %>% 
   knitr::kable()
@@ -817,7 +826,7 @@ stat.test2 = data.frame(group1 = "control", group2 = "severe/critical (progressi
   rownames_to_column("clusterRes")
 ```
 
-```{r}
+```{r, eval=FALSE}
 count_mat_sub %>% as.data.frame() %>% 
   cbind(design_mat_sub) %>% 
   rownames_to_column("sample_id") %>% 
@@ -898,24 +907,25 @@ Ren2021_plotDF = Ren2021$countM %>%
 ```
 
 ```{r}
-p1 = ggplot(data = Ren2021_plotDF[Ren2021_plotDF$clusterRes %in% c("CD8+ T cells", "Monocytes", "CD4+T cells", "B cells", "NK cells"),], aes(x = state, y = proportion)) +
+p1 = ggplot(data = Ren2021_plotDF[Ren2021_plotDF$clusterRes %in% c("CD8+ T cells", "Monocytes", "CD4+T cells", "B cells", "Megakaryocytes", "Plasma"),], aes(x = state, y = proportion)) +
     geom_boxplot(aes(color = state)) +
     theme(axis.title.x=element_blank(),
         axis.text.x=element_blank(),
         axis.ticks.x=element_blank()) + 
-    facet_grid(.~factor(clusterRes, levels=c("CD8+ T cells", "Monocytes", "CD4+T cells", "B cells", "NK cells"))) +
+    facet_grid(.~factor(clusterRes, levels=c("CD8+ T cells", "Monocytes", "CD4+T cells", "B cells", "Megakaryocytes", "Plasma"))) +
     theme(legend.position="none")
 
 
-p2 = ggplot(data = Ren2021_plotDF[Ren2021_plotDF$clusterRes %!in% c("CD8+ T cells", "Monocytes", "CD4+T cells", "B cells", "NK cells"),], aes(x = state, y = proportion)) +
+p2 = ggplot(data = Ren2021_plotDF[Ren2021_plotDF$clusterRes %in% c("NK cells", "Macrophages", "Dendritic cells", "Neutrophils"),], aes(x = state, y = proportion)) +
     geom_boxplot(aes(color = state)) +
     theme(axis.text.x=element_blank(),
           axis.ticks.x=element_blank()) +
-    facet_grid(.~factor(clusterRes, levels=c("Megakaryocytes", "Plasma", "Macrophages", "Dendritic cells", "Neutrophils"))) + 
+    facet_grid(.~factor(clusterRes, levels=c("NK cells", "Macrophages", "Dendritic cells", "Neutrophils"))) + 
     theme(legend.position="bottom") +
   guides(color = guide_legend(nrow = 2))
 p1/p2
 ```
+
 ```{r}
 stat.test = stat.test1 %>% rbind(stat.test2) %>% rbind(stat.test3) %>% rbind(stat.test4) %>% 
   mutate(p.signif = ifelse(p < 0.01, "***", "n.s."),
@@ -936,19 +946,19 @@ stat.test = stat.test1 %>% rbind(stat.test2) %>% rbind(stat.test3) %>% rbind(sta
 ```
 
 ```{r}
-pB1 = ggplot(data = Ren2021_plotDF[Ren2021_plotDF$clusterRes %in% c("CD8+ T cells", "Monocytes", "CD4+T cells", "B cells", "NK cells"),], aes(x = state, y = proportion)) +
+pB1 = ggplot(data = Ren2021_plotDF[Ren2021_plotDF$clusterRes %in% c("CD8+ T cells", "Monocytes", "CD4+T cells", "B cells", "Megakaryocytes", "Plasma"),], aes(x = state, y = proportion)) +
     geom_boxplot(aes(color = state)) +
     theme(axis.title.x=element_blank(),
         axis.text.x=element_blank(),
         axis.ticks.x=element_blank()) + 
-    facet_grid(.~factor(clusterRes, levels=c("CD8+ T cells", "Monocytes", "CD4+T cells", "B cells", "NK cells"))) +
-    theme(legend.position="none")
+    facet_grid(.~factor(clusterRes, levels=c("CD8+ T cells", "Monocytes", "CD4+T cells", "B cells", "Megakaryocytes", "Plasma"))) +
+    theme(legend.position="bottom")
 
-pB2 = ggplot(data = Ren2021_plotDF[Ren2021_plotDF$clusterRes %!in% c("CD8+ T cells", "Monocytes", "CD4+T cells", "B cells", "NK cells"),], aes(x = state, y = proportion)) +
+pB2 = ggplot(data = Ren2021_plotDF[Ren2021_plotDF$clusterRes %in% c("NK cells", "Macrophages", "Dendritic cells", "Neutrophils"),], aes(x = state, y = proportion)) +
     geom_boxplot(aes(color = state)) +
     theme(axis.text.x=element_blank(),
           axis.ticks.x=element_blank()) +
-    facet_grid(.~factor(clusterRes, levels=c("Megakaryocytes", "Plasma", "Macrophages", "Dendritic cells", "Neutrophils"))) + 
+    facet_grid(.~factor(clusterRes, levels=c("NK cells", "Macrophages", "Dendritic cells", "Neutrophils"))) + 
     theme(legend.position="bottom") +
   guides(color = guide_legend(nrow = 2))
 
@@ -956,21 +966,21 @@ stat.testp1 = stat.test %>%
   mutate(y.position = ifelse(group1 == "control" & group2 == "severe/critical_progression", 0.95, 0.9),
          y.position = ifelse(group1 == "mild/moderate_convalescence" & group2 == "mild/moderate_progression", 0.1, y.position),
          y.position = ifelse(group1 == "severe/critical_convalescence" & group2 == "severe/critical_progression", 0.15, y.position)) %>% 
-  filter(clusterRes %in% c("CD8+ T cells", "Monocytes", "CD4+T cells", "B cells", "NK cells"))
+  filter(clusterRes %in% c("CD8+ T cells", "Monocytes", "CD4+T cells", "B cells", "Megakaryocytes", "Plasma"))
 stat.testp2 = stat.test %>% 
   mutate(y.position = ifelse(group1 == "control" & group2 == "severe/critical_progression", 0.4, 0.35),
          y.position = ifelse(group1 == "mild/moderate_convalescence" & group2 == "mild/moderate_progression", 0.45, y.position),
          y.position = ifelse(group1 == "severe/critical_convalescence" & group2 == "severe/critical_progression", 0.5, y.position)) %>% 
-  filter(clusterRes %!in% c("CD8+ T cells", "Monocytes", "CD4+T cells", "B cells", "NK cells"))
+  filter(clusterRes %in% c("NK cells", "Macrophages", "Dendritic cells", "Neutrophils"))
 
 library(ggprism)
 #p1 + add_pvalue(stat.testp1, tip.length = 0.02)
 #p2 + add_pvalue(stat.testp2, tip.length = 0.002)
 
-(pA1+pA2+pA3+pA4)/(pB1 + add_pvalue(stat.testp1, tip.length = 0.015, step.increase = 0.03, colour = "color"))/(pB2  + add_pvalue(stat.testp2, tip.length = 0.015, step.increase = 0.03, colour = "color"))
-ggsave("./plot/Fig2.png", width = 10, height = 15)
-(pB1 + add_pvalue(stat.testp1, tip.length = 0.015, step.increase = 0.03, colour = "color"))/(pB2  + add_pvalue(stat.testp2, tip.length = 0.015, step.increase = 0.03, colour = "color"))
-ggsave("./plot/Fig2C.png", width = 10, height = 10)
+(pA4+pA2+pA3+pA1)/(pB1 + add_pvalue(stat.testp1, tip.length = 0.015, step.increase = 0.03, colour = "color"))
+ggsave("./plot/Fig2.png", width = 10, height = 12)
+(pB1 + add_pvalue(stat.testp1, tip.length = 0.015, step.increase = 0.03, colour = "color"))/(pB2)
+ggsave("./plot/supFig2C1.png", width = 10, height = 10)
 ```
 
 
