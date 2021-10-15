@@ -14,3 +14,17 @@ library(dplyr)
 library(patchwork)
 ```
 
+## real-world data 1 - Experiment 7
+
+```{r}
+exp7_data <- read.csv("./data/real_world/Exp7_Adam_2017/celltypelabels_Haber.txt", sep="") %>% 
+  rownames_to_column("cell") %>% 
+  separate(cell, c("batch", "barcode", "condition", "clusterRes"), sep = "_") 
+
+head(exp7_data)
+summary(exp7_data)
+
+exp7_data %>% 
+  group_by(batch, condition) %>% 
+  summarise(n = n())
+```
