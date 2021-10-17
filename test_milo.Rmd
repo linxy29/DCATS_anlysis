@@ -10,8 +10,10 @@ library(miloR)
 library(SingleCellExperiment)
 library(scater)
 library(scran)
-library(dplyr)
+library(tidyverse)
 library(patchwork)
+library(Seurat)
+library(Matrix)
 ```
 
 ## real-world data 1 - Experiment 7
@@ -27,4 +29,119 @@ summary(exp7_data)
 exp7_data %>% 
   group_by(batch, condition) %>% 
   summarise(n = n())
+```
+
+```{r}
+geneExpM <- read.delim("./data/real_world/Exp7_Adam_2017/GSE92332_SalmHelm_UMIcounts.txt", header=TRUE)
+seuratObj <- CreateSeuratObject(counts = geneExpM, project="Exp7")
+exp7_sce <- as.SingleCellExperiment(seuratObj)
+exp7_milo <- Milo(exp7_sce)
+```
+
+Milo part
+
+```{r}
+exp7_milo <- buildGraph(exp7_milo, k = 10, d = 30)
+exp7_milo <- makeNhoods(exp7_milo, prop = 0.1, k = 10, d=30, refined = TRUE)
+exp7_milo <- countCells(exp7_milo, meta.data = exp7_data, sample="condition")
+head(nhoodCounts(exp7_milo))
+```
+
+```{r}
+exp7_milo <- calcNhoodDistance(exp7_milo, d=30)
+da_results <- testNhoods(exp7_milo, design = ~ condition, design.df = exp7_data)
+```
+
+## real-world data 5: Exp6-demuxlet
+
+### store data
+
+```{r}
+exp6_clusterInfo = read.delim("./data/real_world/Exp6_Kang/GSE96583_batch2.total.tsne.df.tsv") %>% 
+  dplyr::rename(clusterRes = cell, condition = stim) %>% 
+  rownames_to_column("cell") %>% 
+  filter(!is.na(clusterRes))
+head(exp6_clusterInfo)
+exp6_clusterInfo %>% group_by(condition, clusterRes) %>% 
+  summarise(n = n())
+## check whether exist duplicate barcode -> no
+exp6_clusterInfo %>% 
+  group_by(cell) %>% 
+  summarise(n = n()) %>% 
+  filter(n > 1)
+```
+
+```{r}
+matrix1 = readMM(gzfile("./data/real_world/Exp6_Kang/GSM2560248_2.1.mtx.gz")) %>% 
+  as.matrix()
+matrix2 = readMM(gzfile("./data/real_world/Exp6_Kang/GSM2560249_2.2.mtx.gz")) %>% 
+  as.matrix()
+```
+
+```{r}
+data_dir1 = "./data/real_world/Exp6_Kang/GSM2560248"
+list.files(data_dir1) # Should show barcodes.tsv, genes.tsv, and matrix.mtx
+expression_matrix1 <- Read10X(data.dir = data_dir1)
+seuratObj1 = CreateSeuratObject(counts = expression_matrix1)
+seuratObj1 = AddMetaData(object = seuratObj1, metadata = rep("ctrl", dim(seuratObj1)[2]), col.name = 'sample')
+
+data_dir2 = "./data/real_world/Exp6_Kang/GSM2560249"
+list.files(data_dir2) # Should show barcodes.tsv, genes.tsv, and matrix.mtx
+expression_matrix2 <- Read10X(data.dir = data_dir2)
+seuratObj2 = CreateSeuratObject(counts = expression_matrix2)
+seuratObj2 = AddMetaData(object = seuratObj2, metadata = rep("stim", dim(seuratObj2)[2]), col.name = 'sample')
+```
+
+```{r}
+seuratObjL = c(sub1 = seuratObj1, sub2 = seuratObj2)
+```
+
+```{r}
+anchors <- FindIntegrationAnchors(object.list = seuratObjL, dims = 1:30)
+seurat_intg <- IntegrateData(anchorset = anchors, dims = 1:30)
+seurat_intg <- ScaleData(seurat_intg)
+seurat_intg <- RunPCA(seurat_intg, npcs = 30, verbose = FALSE)
+```
+
+```{r}
+ctrl_repInfo <- read.delim("./data/real_world/Exp6_Kang/ye1.ctrl.8.10.sm.best")
+stim_repInfo <- read.delim("./data/real_world/Exp6_Kang/ye2.stim.8.10.sm.best")
+head(ctrl_repInfo)
+head(stim_repInfo)
+
+exp6_repInfo = rbind(ctrl_repInfo, stim_repInfo) %>% 
+  dplyr::rename(cell = BARCODE, batch = BEST) %>% 
+  filter(str_detect(batch, 'SNG')) %>% 
+  dplyr::select(cell, batch)
+head(exp6_repInfo)
+```
+
+```{r}
+exp6_meta = data.frame(cell = str_replace(names(seurat_intg$orig.ident), "_[12]", "")) %>% 
+  inner_join(exp6_clusterInfo) %>%
+  inner_join(exp6_repInfo) %>% 
+  mutate(batch = str_c(condition, batch)) %>% 
+  dplyr::select(-cluster, -multiplets, -tsne1, -tsne2, -ind, -cell)
+
+exp6_meta[cellID,]
+```
+
+```{r}
+exp6_sce <- as.SingleCellExperiment(seurat_intg)
+exp6_milo <- Milo(exp6_sce)
+```
+
+```{r}
+exp6_milo <- buildGraph(exp6_milo, k = 10, d = 30)
+exp6_milo <- makeNhoods(exp6_milo, prop = 0.1, k = 10, d=30, refined = TRUE)
+exp6_milo <- countCells(exp6_milo, meta.data = seurat_intg@meta.data, sample="sample")
+head(nhoodCounts(exp6_milo))
+```
+
+
+
+```{r}
+exp7_milo <- calcNhoodDistance(exp7_milo, d=30)
+
+da_results <- testNhoods(exp7_milo, design = ~ sample, design.df = seurat_intg@meta.data)
 ```
