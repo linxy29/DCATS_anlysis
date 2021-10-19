@@ -639,7 +639,8 @@ pA1 = cellnumDF %>%
                dotsize = 0.6,position = position_dodge(0.5)) + 
   ylab("proportion") +
   xlab("Haber2017") +
-  theme(axis.text.x = element_text(angle = 45, hjust=1)) +
+  theme(axis.text.x = element_text(angle = 45, hjust=1),
+        axis.title.y = element_blank()) +
   theme(legend.position="top")
 pA2 = cellnumDF %>% 
   filter(condition == "Control" | condition == "Hpoly.Day10") %>% 
@@ -649,8 +650,7 @@ pA2 = cellnumDF %>%
                dotsize = 0.6,position = position_dodge(0.5)) + 
   ylab("proportion") +
   xlab("Haber2017") +
-  theme(axis.text.x = element_text(angle = 45, hjust=1),
-        axis.title.y = element_blank()) +
+  theme(axis.text.x = element_text(angle = 45, hjust=1)) +
   theme(legend.position="top") 
 pA3 = cellnumDF %>% 
   filter(condition == "Control" | condition == "Salmonella") %>% 
@@ -660,7 +660,8 @@ pA3 = cellnumDF %>%
                dotsize = 0.6,position = position_dodge(0.5)) + 
   ylab("proportion") +
   xlab("Haber2017") +
-  theme(axis.text.x = element_text(angle = 45, hjust=1)) +
+  theme(axis.text.x = element_text(angle = 45, hjust=1),
+        axis.title.y = element_blank()) +
   theme(legend.position="top")
 pA1+pA2
 ggsave("./plot/Fig1_C1.png", width = 8, height = 4)
@@ -671,7 +672,7 @@ ggsave("./plot/Fig1_C1.png", width = 8, height = 4)
 load("D:/Data/DCATS/real_world/Haber2017_res.RData")
 all_resC3 %>% 
   dplyr::select(cluster, truth, contains('_Res')) %>% 
-  rename(origin = truth) %>% 
+  dplyr::rename(origin = truth) %>% 
   pivot_longer(origin:speckle_Res, names_to = "method", values_to = "res") %>% 
   pivot_wider(names_from = cluster, values_from = res) %>% 
   mutate(method = str_remove(method, "_Res")) %>% 
@@ -683,7 +684,7 @@ all_resC3 %>%
 
 all_resC10 %>% 
   dplyr::select(cluster, truth, contains('_Res')) %>% 
-  rename(origin = truth) %>% 
+  dplyr::rename(origin = truth) %>% 
   pivot_longer(origin:speckle_Res, names_to = "method", values_to = "res") %>% 
   pivot_wider(names_from = cluster, values_from = res) %>% 
   mutate(method = str_remove(method, "_Res")) %>% 
@@ -695,7 +696,7 @@ all_resC10 %>%
 
 all_resCS %>% 
   dplyr::select(cluster, truth, contains('_Res')) %>% 
-  rename(origin = truth) %>% 
+  dplyr::rename(origin = truth) %>% 
   pivot_longer(origin:speckle_Res, names_to = "method", values_to = "res") %>% 
   pivot_wider(names_from = cluster, values_from = res) %>% 
   mutate(method = str_remove(method, "_Res")) %>% 
@@ -757,8 +758,7 @@ pA4 = exp6DF %>%
   mutate(clusterRes = factor(clusterRes, levels = c("NK", "Tc", "cM", "ncM", "B", "Th", "DC", "Mkc"))) %>% 
   ggplot(aes(x = clusterRes, y = freq)) +
   geom_boxplot(aes(color = condition)) +
-  theme(axis.text.x = element_text(angle = 45, hjust=1),
-        axis.title.y = element_blank()) +
+  theme(axis.text.x = element_text(angle = 45, hjust=1)) +
   theme(legend.position="top") +
   ylab("proportion") + 
   xlab("Kang2017")
@@ -768,7 +768,7 @@ pA4 = exp6DF %>%
 load("D:/Data/DCATS/real_world/Kang2017_res.RData")
 all_res %>% 
   dplyr::select(cluster, truth, contains('_Res')) %>% 
-  rename(origin = truth) %>% 
+  dplyr::rename(origin = truth) %>% 
   pivot_longer(origin:speckle_Res, names_to = "method", values_to = "res") %>% 
   pivot_wider(names_from = cluster, values_from = res) %>% 
   mutate(method = str_remove(method, "_Res")) %>% 
@@ -941,7 +941,7 @@ stat.test = stat.test1 %>% rbind(stat.test2) %>% rbind(stat.test3) %>% rbind(sta
          clusterRes = ifelse(clusterRes=="Mega", "Megakaryocytes", clusterRes),
          clusterRes = ifelse(clusterRes=="Macro", "Macrophages", clusterRes),
          clusterRes = ifelse(clusterRes=="Neu", "Neutrophils", clusterRes)) %>% 
-  mutate(color = ifelse(!((clusterRes == "CD8+ T cells"&group1 == "control"&group2 == "mild/moderate (progression)") | (clusterRes == "Monocytes"&group1 == "mild/moderate (convalescence)"&group2 == "mild/moderate (progression)")), "black", "red2"))
+  mutate(color = ifelse(!((clusterRes == "CD8+ T cells"&group1 == "control"&group2 == "mild/moderate (progression)") | (clusterRes == "Monocytes"&group1 == "mild/moderate (convalescence)"&group2 == "mild/moderate (progression)")), "y1", "y2"))
 
 ```
 
@@ -977,9 +977,9 @@ library(ggprism)
 #p1 + add_pvalue(stat.testp1, tip.length = 0.02)
 #p2 + add_pvalue(stat.testp2, tip.length = 0.002)
 
-(pA4+pA2+pA3+pA1)/(pB1 + add_pvalue(stat.testp1, tip.length = 0.015, step.increase = 0.03, colour = "color"))
+(pA4+pA2+pA3+pA1)/(pB1 + add_pvalue(stat.testp1, tip.length = 0.015, step.increase = 0.03, colour = "color") + scale_color_manual(values=c("#F8766D", "#A3A500", "#00BF7D", "#00B0F6", "#E76BF3", "black", "red")))
 ggsave("./plot/Fig2.png", width = 10, height = 12)
-(pB1 + add_pvalue(stat.testp1, tip.length = 0.015, step.increase = 0.03, colour = "color"))/(pB2)
+pB2
 ggsave("./plot/supFig2C1.png", width = 10, height = 10)
 ```
 
