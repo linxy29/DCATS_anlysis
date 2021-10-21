@@ -567,22 +567,62 @@ p1B2 = res_all %>%
     geom_text(aes(label = ifelse(is.na(auc), "N.A.", as.character(round(auc, 3))))) +
     scale_fill_gradient(low = "white", high = "red", limits = c(0.5,0.9))+
   xlab("Covariates")
+p1B2
 ggsave("./plot/Fig1_C.png", bg = "transparent")
 ```
 
-
 ```{r}
 p1B2_sup = res_all %>% 
+  dplyr::select(method, auc, factor) %>% 
+  pivot_wider(names_from = factor, values_from = auc) %>% 
+  pivot_longer(condition:gender, names_to = "factor", values_to = "auc") %>% 
   filter(method %in% c("speckle", "diffcyt", "fisher", "scDC", "betabin_null", "estPhi_null", "wtoPhi_emK", "estPhi_emK")) %>%
   mutate(method = ifelse(method == "fisher", "Fisher", method)) %>% 
   mutate(method = factor(method, level = c("scDC", "speckle", "diffcyt", "Fisher", "estPhi_null", "estPhi_emK", "betabin_null", "wtoPhi_emK")),
          factor = factor(factor, level = c("condition", "age", "gender"))) %>% 
   ggplot(aes(factor, method)) +
     geom_tile(aes(fill = auc)) + 
-    geom_text(aes(label = round(auc, 3))) +
+    geom_text(aes(label = ifelse(is.na(auc), "N.A.", as.character(round(auc, 3))))) +
     scale_fill_gradient(low = "white", high = "red", limits = c(0.5,0.9))+
   xlab("Covariates")
-ggsave("./plot/supFig1C1.png", bg = "transparent")
+p1B2_sup
+ggsave("./plot/sim3_auc.png", bg = "transparent")
+```
+
+```{r}
+p1B2_sup2 = res_all %>% 
+  dplyr::select(method, mcc, factor) %>% 
+  pivot_wider(names_from = factor, values_from = mcc) %>% 
+  pivot_longer(condition:gender, names_to = "factor", values_to = "mcc") %>% 
+  filter(method %in% c("speckle", "diffcyt", "fisher", "scDC", "betabin_null", "estPhi_null", "wtoPhi_emK", "estPhi_emK")) %>%
+  mutate(method = ifelse(method == "fisher", "Fisher", method)) %>% 
+  mutate(method = factor(method, level = c("scDC", "speckle", "diffcyt", "Fisher", "estPhi_null", "estPhi_emK", "betabin_null", "wtoPhi_emK")),
+         factor = factor(factor, level = c("condition", "age", "gender"))) %>% 
+  ggplot(aes(factor, method)) +
+    geom_tile(aes(fill = mcc)) + 
+    geom_text(aes(label = ifelse(is.na(mcc), "N.A.", as.character(round(mcc, 3))))) +
+    scale_fill_gradient(low = "white", high = "red", limits = c(0,0.6))+
+  xlab("Covariates")
+p1B2_sup2
+ggsave("./plot/sim3_mcc.png", bg = "transparent")
+```
+
+```{r}
+p1B2_sup3 = res_all %>% 
+  dplyr::select(method, F1, factor) %>% 
+  pivot_wider(names_from = factor, values_from = F1) %>% 
+  pivot_longer(condition:gender, names_to = "factor", values_to = "F1") %>% 
+  filter(method %in% c("speckle", "diffcyt", "fisher", "scDC", "betabin_null", "estPhi_null", "wtoPhi_emK", "estPhi_emK")) %>%
+  mutate(method = ifelse(method == "fisher", "Fisher", method)) %>% 
+  mutate(method = factor(method, level = c("scDC", "speckle", "diffcyt", "Fisher", "estPhi_null", "estPhi_emK", "betabin_null", "wtoPhi_emK")),
+         factor = factor(factor, level = c("condition", "age", "gender"))) %>% 
+  ggplot(aes(factor, method)) +
+    geom_tile(aes(fill = F1)) + 
+    geom_text(aes(label = ifelse(is.na(F1), "N.A.", as.character(round(F1, 3))))) +
+    scale_fill_gradient(low = "white", high = "red", limits = c(0.1,0.8))+
+  xlab("Covariates")
+p1B2_sup3
+ggsave("./plot/sim3_f1.png", bg = "transparent")
 ```
 
 ```{r}
@@ -707,6 +747,10 @@ all_resCS %>%
   knitr::kable()
 ```
 
+```{r}
+data("Haber2017")
+Haber2017$svm_mat %>% knitr::kable()
+```
 
 
 ## real-world data2 
@@ -977,7 +1021,7 @@ library(ggprism)
 #p1 + add_pvalue(stat.testp1, tip.length = 0.02)
 #p2 + add_pvalue(stat.testp2, tip.length = 0.002)
 
-(pA4+pA2+pA3+pA1)/(pB1 + add_pvalue(stat.testp1, tip.length = 0.015, step.increase = 0.03, colour = "color") + scale_color_manual(values=c("#F8766D", "#A3A500", "#00BF7D", "#00B0F6", "#E76BF3", "black", "red")))
+(pA4+pA1+pA2+pA3)/(pB1 + add_pvalue(stat.testp1, tip.length = 0.015, step.increase = 0.03, colour = "color") + scale_color_manual(values=c("#F8766D", "#A3A500", "#00BF7D", "#00B0F6", "#E76BF3", "black", "red")))
 ggsave("./plot/Fig2.png", width = 10, height = 12)
 pB2
 ggsave("./plot/supFig2C1.png", width = 10, height = 10)
