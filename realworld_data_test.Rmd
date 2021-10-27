@@ -1,0 +1,1319 @@
+---
+title: "Realworld Data Figures"
+output: html_document
+---
+
+```{r,message=FALSE,warning=FALSE}
+library(splatter)
+library(Seurat)
+library(SeuratWrappers)
+library(speckle)
+library(DCATS)
+library(ggplot2)
+library(tidyverse)
+library(tidymodels)
+library(diffcyt)
+library(scdney)
+library(Matrix)
+```
+
+```{r}
+source("functionsV2.r")
+```
+
+```{r}
+eachPhi <- function(count_mat, design_mat, similarity_mat=NULL, n_samples=NULL, pseudo_count=NULL,  base_model='NULL', fix_phi=NULL) {
+  # Output matrices
+  coeffs     <- matrix(NA, ncol(count_mat), ncol(design_mat))
+  coeffs_err <- matrix(NA, ncol(count_mat), ncol(design_mat))
+  LR_vals    <- matrix(NA, ncol(count_mat), ncol(design_mat))
+  LRT_pvals  <- matrix(NA, ncol(count_mat), ncol(design_mat))
+  pvals  <- matrix(NA, ncol(count_mat), ncol(design_mat))
+  LRT_fdr    <- matrix(NA, ncol(count_mat), ncol(design_mat))
+  fm0_phi <- matrix(NA, ncol(count_mat), ncol(design_mat))
+  fm1_phi <- matrix(NA, ncol(count_mat), ncol(design_mat))
+  
+  # Check colnames
+  if (is.null(colnames(count_mat)))
+    colnames(count_mat) <- paste0('cell_type_', seq(ncol(count_mat)))
+  if (is.null(colnames(design_mat)))
+    colnames(design_mat) <- paste0('factor_', seq(ncol(design_mat)))
+  
+  # Add rownames and colnames
+  rownames(fm0_phi) <- rownames(fm1_phi) <- rownames(LR_vals) <- rownames(LRT_pvals) <- rownames(pvals) <- rownames(LRT_fdr) <- rownames(coeffs) <- rownames(coeffs_err) <- colnames(count_mat)
+  colnames(fm0_phi) <- colnames(fm1_phi) <- colnames(LR_vals) <- colnames(LRT_pvals) <- colnames(pvals) <- colnames(LRT_fdr) <-
+    colnames(coeffs) <- colnames(coeffs_err) <- colnames(design_mat)
+  
+  
+  ## using estimated the latent cell counts
+  count_latent = count_mat
+  if(!is.null(similarity_mat)) {
+    for (i in seq_len(nrow(count_mat))) {
+      count_latent[i, ] <- sum(count_mat[i, ]) *
+        multinom_EM(count_mat[i, ], similarity_mat, verbose = FALSE)$mu
+    }
+  }
+  
+  K <- ncol(count_mat) ## number of cell types
+  if (is.null(similarity_mat)) {
+    n_samples <- 1
+  }
+  
+  if (!is.null(n_samples) && !is.null(similarity_mat)) {
+    count_use <- matrix(0, nrow(count_mat) * n_samples, K)
+    for (i in seq_len(nrow(count_mat))) {
+      idx <- seq((i - 1) * n_samples + 1, i * n_samples)
+      for (j in seq_len(K)) {
+        count_use[idx, ] <- (
+          count_use[idx, ] + t(rmultinom(n_samples, count_latent[i, j], similarity_mat[j, ])))
+      }
+    }
+  } else{
+    count_use <- count_mat
+    n_samples <- 1
+  }
+  
+  # adding pseudo counts
+  if (is.null(pseudo_count)) {
+    if (any(colMeans(count_mat) == 0)) {
+      print(paste("Empty cell type exists in at least one conidtion;",
+                  "adding replicate & condition specific pseudo count:"))
+      count_use <- count_use + 1
+    }
+  } else {
+    count_use = count_use + pseudo_count
+  }
+  
+  count_use = round(count_use)
+  
+  # Test each factor
+  for (k in seq_len(ncol(design_mat))) {    ## for each factor
+    sub_LR_val <- matrix(NA, n_samples, K)
+    sub_coeffs_val <- matrix(NA, n_samples, K)
+    sub_coeffs_err <- matrix(NA, n_samples, K)
+    sub_fm0phi <- matrix(NA, n_samples, K)
+    sub_fm1phi <- matrix(NA, n_samples, K)
+    for (ir in seq_len(n_samples)) {          ## for each sampling
+      for (m in seq_len(ncol(count_use))) {       ## for each cluster
+        idx <- seq(1, nrow(count_use), n_samples) + ir - 1
+        
+        df_use <- data.frame(n1 = count_use[, m], total=rowSums(count_use))[idx,]
+        df_use <- cbind(df_use, design_mat)
+        df_tmp <- df_use[!is.na(design_mat[, k]), ]
+        
+        ## model fitting using betabin
+        if (base_model=='NULL' | ncol(design_mat) == 1) {
+          formula_fm0 <- as.formula('cbind(n1, total-n1) ~ 1')
+          formula_fm1 <- as.formula(paste0('cbind(n1, total-n1)', '~ 1+', colnames(design_mat)[k], sep=''))
+        } else if (base_model=='FULL') {
+          fm0_right <- paste(colnames(design_mat)[-k], collapse = " + ")
+          fm1_right <- paste(colnames(design_mat), collapse = " + ")
+          formula_fm0 <- as.formula(paste0('cbind(n1, total-n1)', ' ~ 1 + ', fm0_right, sep=''))
+          formula_fm1 <- as.formula(paste0('cbind(n1, total-n1)', ' ~ 1 + ', fm1_right, sep=''))
+        }
+        fm0 <- aod::betabin(formula_fm0, ~ 1, data = df_tmp, warnings = FALSE)
+        fm1 <- aod::betabin(formula_fm1, ~ 1, data = df_tmp, warnings = FALSE)
+        if (!is.null(fix_phi)){
+          fm0 <- aod::betabin(formula_fm0, ~ 1, data = df_tmp, warnings = FALSE, fixpar = list(fm0@nbpar, fix_phi))
+          fm1 <- aod::betabin(formula_fm1, ~ 1, data = df_tmp, warnings = FALSE, fixpar = list(fm1@nbpar, fix_phi))
+        }
+        
+        ## ignore the fitting if the hessian matrix is singular
+        if (length(fm1@varparam) < 4 || is.na(fm1@varparam[2, 2])) {next}
+        
+        
+        sub_LR_val[ir, m] <- fm0@dev - fm1@dev
+        sub_fm0phi[ir, m] <- tail(fm0@param, n=1)
+        sub_fm1phi[ir, m] <- tail(fm1@param, n=1)
+        parID <- grep(colnames(design_mat)[k], names(fm1@param))
+        if(length(parID) > 1) stop("Please check the design matrix, make sure all factors are continous or categorical with only two levels.")
+        sub_coeffs_val[ir, m] <- fm1@param[parID]
+        if(is.null(fix_phi))
+          sub_coeffs_err[ir, m] <-fm1@varparam[parID, parID]
+      }
+    }
+    
+    coeff_val_mean <- colMeans(sub_coeffs_val, na.rm = TRUE)
+    if (is.null(fix_phi)){
+      ## averaging the estimation to get the final result
+      if (is.null(n_samples) || is.null(similarity_mat) || n_samples == 1){
+        sub_coeff_err_pool <- colMeans(sub_coeffs_err**2, na.rm = TRUE)
+      } else {
+        sub_coeff_err_pool <- colMeans(sub_coeffs_err**2, na.rm = TRUE) +
+          matrixStats::colSds(sub_coeffs_val) +
+          matrixStats::colSds(sub_coeffs_val) / n_samples
+      }
+      # p values with Ward test: https://en.wikipedia.org/wiki/Wald_test
+      pvals[,k] <- pnorm(-abs(coeff_val_mean) / sqrt(sub_coeff_err_pool))  * 2
+      coeffs_err[, k] <- sqrt(sub_coeff_err_pool)
+      fm0_phi[,k] <- colMeans(sub_fm0phi, na.rm = TRUE)
+      fm1_phi[,k] <- colMeans(sub_fm1phi, na.rm = TRUE)
+    }
+    
+    
+    LR_median = robustbase::colMedians(sub_LR_val, na.rm = TRUE)
+    LR_vals[, k] <- LR_median
+    LRT_pvals[, k] <- pchisq(LR_median, df=1, lower.tail = FALSE, log.p = FALSE)
+    coeffs[, k] <- coeff_val_mean
+  }
+  
+  # Return list
+  LRT_fdr[,] <- p.adjust(LRT_pvals, method = 'fdr')
+  res <- list('ceoffs'=coeffs, 'coeffs_err'=coeffs_err, 'pvals' = pvals, 'LR_vals'=LR_vals, 'LRT_pvals'=LRT_pvals, 'fdr'=LRT_fdr, 'fm0_phi' = fm0_phi, 'fm1_phi' = fm1_phi)
+  res
+}
+```
+
+```{r}
+getPhi2 = function(count_mat, design_mat, similarity_mat=NULL, n_samples=NULL, pseudo_count=NULL,  base_model='NULL', fix_phi=NULL){
+  res = eachPhi(count_mat, design_mat, similarity_mat, n_samples, pseudo_count,  base_model, fix_phi)
+  avrgPhiV = res$fm0_phi %>% rowMeans()
+  avrgPhi = mean(avrgPhiV)
+  data = data.frame(phi = avrgPhiV, count = colSums(count_mat))
+  fm = lm(phi~count, data)
+  adjPhiV = (avrgPhiV + avrgPhi)/2
+  return(list(adjPhiV = adjPhiV, avrgPhi = avrgPhi))
+}
+```
+
+```{r}
+dcats_GLM <- function(count_mat, design_mat, similarity_mat=NULL, n_samples=50, pseudo_count=NULL,  base_model='NULL', phi=NULL) {
+  if(!is.null(phi) & length(phi)!=ncol(count_mat)) stop("Please check the phi vector, make sure you provide over dispersion for all cell types.")
+  
+  # Output matrices
+  coeffs     <- matrix(NA, ncol(count_mat), ncol(design_mat))
+  coeffs_err <- matrix(NA, ncol(count_mat), ncol(design_mat))
+  LR_vals    <- matrix(NA, ncol(count_mat), ncol(design_mat))
+  LRT_pvals  <- matrix(NA, ncol(count_mat), ncol(design_mat))
+  pvals  <- matrix(NA, ncol(count_mat), ncol(design_mat))
+  LRT_fdr    <- matrix(NA, ncol(count_mat), ncol(design_mat))
+  
+  # Check colnames
+  if (is.null(colnames(count_mat)))
+    colnames(count_mat) <- paste0('cell_type_', seq(ncol(count_mat)))
+  if (is.null(colnames(design_mat)))
+    colnames(design_mat) <- paste0('factor_', seq(ncol(design_mat)))
+  
+  # Add rownames and colnames
+  rownames(LR_vals) <- rownames(LRT_pvals) <- rownames(pvals) <- rownames(LRT_fdr) <-
+    rownames(coeffs) <- rownames(coeffs_err) <- colnames(count_mat)
+  colnames(LR_vals) <- colnames(LRT_pvals) <- colnames(pvals) <- colnames(LRT_fdr) <-
+    colnames(coeffs) <- colnames(coeffs_err) <- colnames(design_mat)
+  
+  
+  ## using estimated the latent cell counts
+  count_latent = count_mat
+  if(!is.null(similarity_mat)) {
+    for (i in seq_len(nrow(count_mat))) {
+      count_latent[i, ] <- sum(count_mat[i, ]) *
+        multinom_EM(count_mat[i, ], similarity_mat, verbose = FALSE)$mu
+    }
+  }
+  
+  K <- ncol(count_mat) ## number of cell types
+  if (is.null(similarity_mat)) {
+    n_samples <- 1
+  }
+  
+  if (!is.null(n_samples) && !is.null(similarity_mat)) {
+    count_use <- matrix(0, nrow(count_mat) * n_samples, K)
+    for (i in seq_len(nrow(count_mat))) {
+      idx <- seq((i - 1) * n_samples + 1, i * n_samples)
+      for (j in seq_len(K)) {
+        count_use[idx, ] <- (
+          count_use[idx, ] + t(rmultinom(n_samples, count_latent[i, j], similarity_mat[j, ])))
+      }
+    }
+  } else{
+    count_use <- count_latent
+    n_samples <- 1
+  }
+  
+  # adding pseudo counts
+  if (is.null(pseudo_count)) {
+    if (any(colMeans(count_mat) == 0)) {
+      print(paste("Empty cell type exists in at least one conidtion;",
+                  "adding replicate & condition specific pseudo count:"))
+      count_use <- count_use + 1
+    }
+  } else {
+    count_use = count_use + pseudo_count
+  }
+  
+  count_use = round(count_use)
+  
+  #print(count_use)
+  # Test each factor
+  for (k in seq_len(ncol(design_mat))) {    ## for each factor
+    sub_LR_val <- matrix(NA, n_samples, K)
+    sub_coeffs_val <- matrix(NA, n_samples, K)
+    sub_coeffs_err <- matrix(NA, n_samples, K)
+    for (ir in seq_len(n_samples)) {          ## for each sampling
+      for (m in seq_len(ncol(count_use))) {       ## for each cluster
+        idx <- seq(1, nrow(count_use), n_samples) + ir - 1
+        
+        df_use <- data.frame(n1 = count_use[, m], total=rowSums(count_use))[idx,]
+        df_use <- cbind(df_use, design_mat)
+        df_tmp <- df_use[!is.na(design_mat[, k]), ]
+        
+        ## model fitting using betabin
+        if (base_model=='NULL' | ncol(design_mat) == 1) {
+          formula_fm0 <- as.formula('cbind(n1, total-n1) ~ 1')
+          
+          formula_fm1 <- as.formula(paste0('cbind(n1, total-n1)', '~ 1+', colnames(design_mat)[k], sep=''))
+        } else if (base_model=='FULL') {
+          fm0_right <- paste(colnames(design_mat)[-k], collapse = " + ")
+          fm1_right <- paste(colnames(design_mat), collapse = " + ")
+          formula_fm0 <- as.formula(paste0('cbind(n1, total-n1)', ' ~ 1 + ', fm0_right, sep=''))
+          formula_fm1 <- as.formula(paste0('cbind(n1, total-n1)', ' ~ 1 + ', fm1_right, sep=''))
+        }
+        fm0 <- aod::betabin(formula_fm0, ~ 1, data = df_tmp, warnings = FALSE)
+        fm1 <- aod::betabin(formula_fm1, ~ 1, data = df_tmp, warnings = FALSE)
+        if (!is.null(phi)){
+          fm0 <- aod::betabin(formula_fm0, ~ 1, data = df_tmp, warnings = FALSE, fixpar = list(fm0@nbpar, phi[m]))
+          fm1 <- aod::betabin(formula_fm1, ~ 1, data = df_tmp, warnings = FALSE, fixpar = list(fm1@nbpar, phi[m]))
+        }
+        
+        ## ignore the fitting if the hessian matrix is singular
+        if (length(fm1@varparam) < 4 || is.na(fm1@varparam[2, 2])) {next}
+        
+        sub_LR_val[ir, m] <- fm0@dev - fm1@dev
+        parID <- grep(colnames(design_mat)[k], names(fm1@param))
+        if(length(parID) > 1) stop("Please check the design matrix, make sure all factors are continous or categorical with only two levels.")
+        sub_coeffs_val[ir, m] <- fm1@param[parID]
+        if(is.null(phi))
+          sub_coeffs_err[ir, m] <-fm1@varparam[parID, parID]
+      }
+    }
+    
+    coeff_val_mean <- colMeans(sub_coeffs_val, na.rm = TRUE)
+    if (is.null(phi)){
+      ## averaging the estimation to get the final result
+      if (is.null(n_samples) || is.null(similarity_mat) || n_samples == 1){
+        sub_coeff_err_pool <- colMeans(sub_coeffs_err**2, na.rm = TRUE)
+      } else {
+        sub_coeff_err_pool <- colMeans(sub_coeffs_err**2, na.rm = TRUE) +
+          matrixStats::colSds(sub_coeffs_val) +
+          matrixStats::colSds(sub_coeffs_val) / n_samples
+      }
+      # p values with Ward test: https://en.wikipedia.org/wiki/Wald_test
+      pvals[,k] <- pnorm(-abs(coeff_val_mean) / sqrt(sub_coeff_err_pool))  * 2
+      coeffs_err[, k] <- sqrt(sub_coeff_err_pool)
+    }
+    
+    
+    LR_median = robustbase::colMedians(sub_LR_val, na.rm = TRUE)
+    LR_vals[, k] <- LR_median
+    LRT_pvals[, k] <- pchisq(LR_median, df=1, lower.tail = FALSE, log.p = FALSE)
+    coeffs[, k] <- coeff_val_mean
+  }
+  
+  # Return list
+  LRT_fdr[,] <- p.adjust(LRT_pvals, method = 'fdr')
+  res <- list('ceoffs'=coeffs, 'coeffs_err'=coeffs_err, 'pvals' = pvals, 'LR_vals'=LR_vals, 'LRT_pvals'=LRT_pvals, 'fdr'=LRT_fdr)
+  res
+}
+```
+
+
+## real-world data 1 - Experiment 7
+
+### codes to generate data we need and store it
+
+The 'group' column started with 'B' is the indicators of replicates
+
+```{r, eval=FALSE}
+## save data as RData
+Haber2017 = list(svmDF = exp7DF, ctrl_Hpoly3 = ctrl_Hpoly3, ctrl_Hpoly10 = ctrl_Hpoly10, ctrl_Salma = ctrl_Salma, source = "A single-cell survey of the small intestinal epithelium")
+ctrl_Hpoly3 = list(numb_cond1 = as.matrix(numb_cond1), numb_cond2 = as.matrix(numb_cond2), svm_mat = svm_mat)
+ctrl_Hpoly10 = list(numb_cond1 = as.matrix(numb_cond1), numb_cond2 = as.matrix(numb_cond2), svm_mat = svm_mat)
+ctrl_Salma = list(numb_cond1 = as.matrix(numb_cond1), numb_cond2 = as.matrix(numb_cond2), svm_mat = svm_mat)
+save(Haber2017, file = "./data/real_world/Haber2017.RData")
+```
+
+```{r}
+exp7_data <- read.csv("./data/real_world/Exp7_Adam_2017/celltypelabels_Haber.txt", sep="") %>% 
+  rownames_to_column("cell") %>% 
+  separate(cell, c("batch", "barcode", "condition", "clusterRes"), sep = "_") 
+
+head(exp7_data)
+summary(exp7_data)
+
+exp7_data %>% 
+  group_by(batch, condition) %>% 
+  summarise(n = n())
+```
+
+```{r, eval=FALSE}
+geneExpM <- read.delim("./data/real_world/Exp7_Adam_2017/GSE92332_SalmHelm_UMIcounts.txt", header=TRUE)
+test2 = colnames(geneExpM)
+test2a = str_split(test2, "_")
+barcode = rep(NA, length(test2))
+group = rep(NA, length(test2))
+for (i in 1:length(test2)) {
+  barcode[i] = test2a[[i]][2]
+  group[i] = test2a[[i]][1]
+}
+test2b = data.frame(barcode = barcode, group = group) %>% 
+  filter(barcode %in% exp7_data$barcode)
+
+test2b %>% group_by(group) %>% 
+  summarise(n = n())
+```
+
+```{r, eval=FALSE}
+seuratObj <- CreateSeuratObject(counts = geneExpM, project="Exp7")
+seuratObj <- NormalizeData(seuratObj)
+seuratObj <- FindVariableFeatures(seuratObj, selection.method = "vst", nfeatures = 2000)
+seuratObj <- ScaleData(seuratObj)
+seuratObj <- RunPCA(seuratObj, npcs = 30, verbose = FALSE)
+```
+
+```{r, eval=FALSE}
+exp7DF = seuratObj@reductions$pca@cell.embeddings %>% 
+  as.data.frame() %>% 
+  tibble::rownames_to_column("cell") %>% 
+  separate(cell, c("batch", "barcode", "condition", "clusterRes"), sep = "_") %>% 
+  dplyr::select(-barcode)
+
+## check whether there is duplicate ID -> No with cellID, Yes with only barcode
+#exp7 %>% group_by(cell) %>% summarise(n = n()) %>% filter(n != 1)
+```
+
+control vs Hpoly.Day3
+
+```{r}
+## data convert
+numb_cond1 = exp7_data %>% 
+  filter(condition == "Control") %>% 
+  group_by(clusterRes, batch) %>% 
+  summarise(n = n()) %>% 
+  pivot_wider(names_from = "clusterRes", values_from = "n") %>% 
+  column_to_rownames(var = "batch")
+numb_cond2 = exp7_data %>% 
+  filter(condition == "Hpoly.Day3") %>% 
+  group_by(clusterRes, batch) %>% 
+  summarise(n = n()) %>% 
+  pivot_wider(names_from = "clusterRes", values_from = "n") %>% 
+  column_to_rownames(var = "batch")
+exp7_C3 = exp7_data %>% 
+  filter(condition == "Control" | condition == "Hpoly.Day3") %>% mutate(clusterRes = as.factor(clusterRes))
+```
+
+Get matrices
+
+```{r, eval=FALSE}
+set.seed(123)
+simil_matU = get_similarity_matRW(dim(Haber2017$count_ctrl)[2], confuse_rate=0.1)
+rf_mat = get_similarity_matRW(method = "rf", df = exp7DF)
+svm_mat = get_similarity_matRW(method = "svm", df = exp7DF)
+```
+
+### Test part
+
+```{r}
+data("Haber2017")
+countM = rbind(Haber2017$count_ctrl, Haber2017$count_Hpoly3) %>% as.matrix()
+designM = data.frame(condition = c(rep("g1", nrow(Haber2017$count_ctrl)), rep("g2", nrow(Haber2017$count_Hpoly3))))
+#betabin_null = dcats_GLM(countM, designM)
+#wtoPhi_emSVM = dcats_GLM(countM, designM, similarity_mat = Haber2017$svm_mat, n_samples = NULL)
+betabin_null = eachPhi(countM, designM)
+wtoPhi_emSVM = eachPhi(countM, designM, similarity_mat = Haber2017$svm_mat, n_samples = NULL)
+estPhi = getPhi(countM, designM)
+avrgPhi = getPhi2(countM, designM)$avrgPhi
+adjPhi = getPhi2(countM, designM)$adjPhiV
+estPhi_null = dcats_GLM(countM, designM, phi = rep(estPhi, ncol(countM)))
+estPhi_emSVM = dcats_GLM(countM, designM, similarity_mat = Haber2017$svm_mat, n_samples = NULL, phi = rep(estPhi, ncol(countM)))
+avrgPhi_null = dcats_GLM(countM, designM, phi = rep(avrgPhi, ncol(countM)))
+avrgPhi_emSVM = dcats_GLM(countM, designM, similarity_mat = Haber2017$svm_mat, n_samples = NULL, phi = rep(avrgPhi, ncol(countM)))
+adjPhi_null = dcats_GLM(countM, designM, phi = adjPhi)
+adjPhi_emSVM = dcats_GLM(countM, designM, similarity_mat = Haber2017$svm_mat, n_samples = NULL, phi = adjPhi)
+## Fisher's exact test
+fisher_pvals = getFisher(as.matrix(Haber2017$count_ctrl), as.matrix(Haber2017$count_Hpoly3))
+## speckle
+speckleRes = propeller(clusters = exp7_C3$clusterRes, sample = exp7_C3$batch, group = exp7_C3$condition) %>% 
+  dplyr::rename(cluster = BaselineProp.clusters,
+                      speckle_pvals = FDR) %>%
+  dplyr::select(cluster, speckle_pvals)
+## scDC
+cluster_num = dim(numb_cond1)[2]
+res_scDC <- scDC_noClustering(cellTypes = exp7_C3$clusterRes, exp7_C3$batch, calCI = TRUE, calCI_method = c("percentile", "BCa", "multinom"),nboot = 1000, verbose = FALSE)
+res_GLM <- fitGLM(res_scDC, c(rep("cond1",dim(numb_cond1)[1]*cluster_num),rep("cond2",dim(numb_cond2)[1]*cluster_num)), pairwise = FALSE, fixed_only = TRUE, verbose = FALSE)
+scDCRes_temp = summary(res_GLM$pool_res_fixed)
+scDCRes = scDCRes_temp[c(cluster_num+1,(dim(scDCRes_temp)[1]-cluster_num+2):dim(scDCRes_temp)[1]),]
+```
+
+```{r}
+plot(colSums(Haber2017$count_ctrl)+colSums(Haber2017$count_Hpoly3), betabin_null$fm0_phi)
+abline(h = phi, col = 'red')
+plot(colSums(Haber2017$count_ctrl)+colSums(Haber2017$count_Hpoly3), betabin_null$fm1_phi)
+abline(h = phi, col = 'red')
+plot(colSums(Haber2017$count_ctrl)+colSums(Haber2017$count_Hpoly3), wtoPhi_emSVM$fm0_phi)
+abline(h = phi, col = 'red')
+plot(colSums(Haber2017$count_ctrl)+colSums(Haber2017$count_Hpoly3), wtoPhi_emSVM$fm1_phi)
+abline(h = phi, col = 'red')
+```
+
+
+```{r}
+## results
+all_resC3 = data.frame(cluster = rownames(betabin_null$LRT_pvals), truth = c(rep("N", 7), "P")) %>% 
+  mutate(betabin_null_pvals = as.vector(betabin_null$LRT_pvals),
+         wtoPhi_emSVM_pvals = as.vector(wtoPhi_emSVM$LRT_pvals),
+         estPhi_null_pvals = as.vector(estPhi_null$LRT_pvals),
+         estPhi_emSVM_pvals = as.vector(estPhi_emSVM$LRT_pvals),
+         avrgPhi_null_pvals = as.vector(avrgPhi_null$LRT_pvals),
+         avrgPhi_emSVM_pvals = as.vector(avrgPhi_emSVM$LRT_pvals),
+         adjPhi_null_pvals = as.vector(adjPhi_null$LRT_pvals),
+         adjPhi_emSVM_pvals = as.vector(adjPhi_emSVM$LRT_pvals),
+         fisher_pvals = fisher_pvals,
+         scDC_pvals = scDCRes$p.value) %>%
+  merge(speckleRes, by = "cluster") %>% 
+  mutate(betabin_null_Res = ifelse(betabin_null_pvals < 0.01, "***", "n.s."),
+         betabin_null_Res = ifelse(0.01<betabin_null_pvals&betabin_null_pvals<0.05, "**", betabin_null_Res),
+         betabin_null_Res = ifelse(0.05<betabin_null_pvals&betabin_null_pvals<0.1, "*", betabin_null_Res)) %>% 
+  #dplyr::select(truth, betabin_null_Res, betabin_null_pvals)
+  mutate(wtoPhi_emSVM_Res = ifelse(wtoPhi_emSVM_pvals < 0.01, "***", "n.s."),
+         wtoPhi_emSVM_Res = ifelse(0.01<wtoPhi_emSVM_pvals&wtoPhi_emSVM_pvals<0.05, "**", wtoPhi_emSVM_Res),
+         wtoPhi_emSVM_Res = ifelse(0.05<wtoPhi_emSVM_pvals&wtoPhi_emSVM_pvals<0.1, "*", wtoPhi_emSVM_Res)) %>%
+  #dplyr::select(truth, wtoPhi_emSVM_Res, wtoPhi_emSVM_pvals)
+  mutate(estPhi_null_Res = ifelse(estPhi_null_pvals < 0.01, "***", "n.s."),
+         estPhi_null_Res = ifelse(0.01<estPhi_null_pvals&estPhi_null_pvals<0.05, "**", estPhi_null_Res),
+         estPhi_null_Res = ifelse(0.05<estPhi_null_pvals&estPhi_null_pvals<0.1, "*", estPhi_null_Res)) %>%
+  mutate(estPhi_emSVM_Res = ifelse(estPhi_emSVM_pvals < 0.01, "***", "n.s."),
+         estPhi_emSVM_Res = ifelse(0.01<estPhi_emSVM_pvals&estPhi_emSVM_pvals<0.05, "**", estPhi_emSVM_Res),
+         estPhi_emSVM_Res = ifelse(0.05<estPhi_emSVM_pvals&estPhi_emSVM_pvals<0.1, "*", estPhi_emSVM_Res)) %>%
+  #dplyr::select(truth, estPhi_emSVM_Res, estPhi_emSVM_pvals)
+  mutate(avrgPhi_null_Res = ifelse(avrgPhi_null_pvals < 0.01, "***", "n.s."),
+         avrgPhi_null_Res = ifelse(0.01<avrgPhi_null_pvals&avrgPhi_null_pvals<0.05, "**", avrgPhi_null_Res),
+         avrgPhi_null_Res = ifelse(0.05<avrgPhi_null_pvals&avrgPhi_null_pvals<0.1, "*", avrgPhi_null_Res)) %>%
+  mutate(avrgPhi_emSVM_Res = ifelse(avrgPhi_emSVM_pvals < 0.01, "***", "n.s."),
+         avrgPhi_emSVM_Res = ifelse(0.01<avrgPhi_emSVM_pvals&avrgPhi_emSVM_pvals<0.05, "**", avrgPhi_emSVM_Res),
+         avrgPhi_emSVM_Res = ifelse(0.05<avrgPhi_emSVM_pvals&avrgPhi_emSVM_pvals<0.1, "*", avrgPhi_emSVM_Res)) %>%
+  mutate(adjPhi_null_Res = ifelse(adjPhi_null_pvals < 0.01, "***", "n.s."),
+         adjPhi_null_Res = ifelse(0.01<adjPhi_null_pvals&adjPhi_null_pvals<0.05, "**", adjPhi_null_Res),
+         adjPhi_null_Res = ifelse(0.05<adjPhi_null_pvals&adjPhi_null_pvals<0.1, "*", adjPhi_null_Res)) %>%
+  mutate(adjPhi_emSVM_Res = ifelse(adjPhi_emSVM_pvals < 0.01, "***", "n.s."),
+         adjPhi_emSVM_Res = ifelse(0.01<adjPhi_emSVM_pvals&adjPhi_emSVM_pvals<0.05, "**", adjPhi_emSVM_Res),
+         adjPhi_emSVM_Res = ifelse(0.05<adjPhi_emSVM_pvals&adjPhi_emSVM_pvals<0.1, "*", adjPhi_emSVM_Res)) %>%
+  mutate(fisher_Res = ifelse(fisher_pvals < 0.01, "***", "n.s."),
+         fisher_Res = ifelse(0.01<fisher_pvals&fisher_pvals<0.05, "**", fisher_Res),
+         fisher_Res = ifelse(0.05<fisher_pvals&fisher_pvals<0.1, "*", fisher_Res)) %>%
+  #dplyr::select(truth, fisher_Res, fisher_pvals)
+  mutate(scDC_Res = ifelse(scDC_pvals < 0.01, "***", "n.s."),
+         scDC_Res = ifelse(0.01<scDC_pvals&scDC_pvals<0.05, "**", scDC_Res),
+         scDC_Res = ifelse(0.05<scDC_pvals&scDC_pvals<0.1, "*", scDC_Res)) %>%
+  #dplyr::select(truth, scDC_Res, scDC_pvals)
+  mutate(speckle_Res = ifelse(speckle_pvals < 0.01, "***", "n.s."),
+         speckle_Res = ifelse(0.01<speckle_pvals&speckle_pvals<0.05, "**", speckle_Res),
+         speckle_Res = ifelse(0.05<speckle_pvals&speckle_pvals<0.1, "*", speckle_Res))
+
+
+all_resC3 %>% 
+  dplyr::select(cluster, truth, contains("_Res"))
+```
+
+control vs Hpoly.Day10
+
+```{r}
+## data convert
+numb_cond1 = exp7_data %>% 
+  filter(condition == "Control") %>% 
+  group_by(clusterRes, batch) %>% 
+  summarise(n = n()) %>% 
+  pivot_wider(names_from = "clusterRes", values_from = "n") %>% 
+  column_to_rownames(var = "batch")
+numb_cond2 = exp7_data %>% 
+  filter(condition == "Hpoly.Day10") %>% 
+  group_by(clusterRes, batch) %>% 
+  summarise(n = n()) %>% 
+  pivot_wider(names_from = "clusterRes", values_from = "n") %>% 
+  column_to_rownames(var = "batch")
+exp7_C10 = exp7_data %>% 
+  filter(condition == "Control" | condition == "Hpoly.Day10") %>% mutate(clusterRes = as.factor(clusterRes))
+```
+
+Test part
+
+```{r}
+data("Haber2017")
+countM = rbind(Haber2017$count_ctrl, Haber2017$count_Hpoly10) %>% as.matrix()
+designM = data.frame(condition = c(rep("g1", nrow(Haber2017$count_ctrl)), rep("g2", nrow(Haber2017$count_Hpoly3))))
+#betabin_null = dcats_GLM(countM, designM)
+#wtoPhi_emSVM = dcats_GLM(countM, designM, similarity_mat = Haber2017$svm_mat, n_samples = NULL)
+betabin_null = eachPhi(countM, designM)
+wtoPhi_emSVM = eachPhi(countM, designM, similarity_mat = Haber2017$svm_mat, n_samples = NULL)
+estPhi = getPhi(countM, designM)
+avrgPhi = getPhi2(countM, designM)$avrgPhi
+adjPhi = getPhi2(countM, designM)$adjPhiV
+estPhi_null = dcats_GLM(countM, designM, phi = rep(estPhi, ncol(countM)))
+estPhi_emSVM = dcats_GLM(countM, designM, similarity_mat = Haber2017$svm_mat, n_samples = NULL, phi = rep(estPhi, ncol(countM)))
+avrgPhi_null = dcats_GLM(countM, designM, phi = rep(avrgPhi, ncol(countM)))
+avrgPhi_emSVM = dcats_GLM(countM, designM, similarity_mat = Haber2017$svm_mat, n_samples = NULL, phi = rep(avrgPhi, ncol(countM)))
+adjPhi_null = dcats_GLM(countM, designM, phi = adjPhi)
+adjPhi_emSVM = dcats_GLM(countM, designM, similarity_mat = Haber2017$svm_mat, n_samples = NULL, phi = adjPhi)
+## Fisher's exact test
+fisher_pvals = getFisher(as.matrix(Haber2017$count_ctrl), as.matrix(Haber2017$count_Hpoly10))
+## speckle
+speckleRes = propeller(clusters = exp7_C10$clusterRes, sample = exp7_C10$batch, group = exp7_C10$condition) %>% 
+  dplyr::rename(cluster = BaselineProp.clusters,
+                      speckle_pvals = FDR) %>%
+  dplyr::select(cluster, speckle_pvals)
+## scDC
+cluster_num = dim(numb_cond1)[2]
+res_scDC <- scDC_noClustering(cellTypes = exp7_C10$clusterRes, exp7_C10$batch, calCI = TRUE, calCI_method = c("percentile", "BCa", "multinom"),nboot = 1000, verbose = FALSE)
+res_GLM <- fitGLM(res_scDC, c(rep("cond1",dim(numb_cond1)[1]*cluster_num),rep("cond2",dim(numb_cond2)[1]*cluster_num)), pairwise = FALSE, fixed_only = TRUE, verbose = FALSE)
+scDCRes_temp = summary(res_GLM$pool_res_fixed)
+scDCRes = scDCRes_temp[c(cluster_num+1,(dim(scDCRes_temp)[1]-cluster_num+2):dim(scDCRes_temp)[1]),]
+```
+
+```{r}
+plot(colSums(Haber2017$count_ctrl)+colSums(Haber2017$count_Hpoly10), betabin_null$fm0_phi)
+abline(h = phi, col = 'red')
+plot(colSums(Haber2017$count_ctrl)+colSums(Haber2017$count_Hpoly10), betabin_null$fm1_phi)
+abline(h = phi, col = 'red')
+plot(colSums(Haber2017$count_ctrl)+colSums(Haber2017$count_Hpoly10), wtoPhi_emSVM$fm0_phi)
+abline(h = phi, col = 'red')
+plot(colSums(Haber2017$count_ctrl)+colSums(Haber2017$count_Hpoly10), wtoPhi_emSVM$fm1_phi)
+abline(h = phi, col = 'red')
+```
+
+```{r}
+## results
+all_resC10 = data.frame(cluster = rownames(betabin_null$LRT_pvals), truth = c("N","P","N","P","N","N","P","P")) %>% 
+  mutate(betabin_null_pvals = as.vector(betabin_null$LRT_pvals),
+         wtoPhi_emSVM_pvals = as.vector(wtoPhi_emSVM$LRT_pvals),
+         estPhi_null_pvals = as.vector(estPhi_null$LRT_pvals),
+         estPhi_emSVM_pvals = as.vector(estPhi_emSVM$LRT_pvals),
+         avrgPhi_null_pvals = as.vector(avrgPhi_null$LRT_pvals),
+         avrgPhi_emSVM_pvals = as.vector(avrgPhi_emSVM$LRT_pvals),
+         adjPhi_null_pvals = as.vector(adjPhi_null$LRT_pvals),
+         adjPhi_emSVM_pvals = as.vector(adjPhi_emSVM$LRT_pvals),
+         fisher_pvals = fisher_pvals,
+         scDC_pvals = scDCRes$p.value) %>%
+  merge(speckleRes, by = "cluster") %>% 
+  mutate(betabin_null_Res = ifelse(betabin_null_pvals < 0.01, "***", "n.s."),
+         betabin_null_Res = ifelse(0.01<betabin_null_pvals&betabin_null_pvals<0.05, "**", betabin_null_Res),
+         betabin_null_Res = ifelse(0.05<betabin_null_pvals&betabin_null_pvals<0.1, "*", betabin_null_Res)) %>% 
+  #dplyr::select(truth, betabin_null_Res, betabin_null_pvals)
+  mutate(wtoPhi_emSVM_Res = ifelse(wtoPhi_emSVM_pvals < 0.01, "***", "n.s."),
+         wtoPhi_emSVM_Res = ifelse(0.01<wtoPhi_emSVM_pvals&wtoPhi_emSVM_pvals<0.05, "**", wtoPhi_emSVM_Res),
+         wtoPhi_emSVM_Res = ifelse(0.05<wtoPhi_emSVM_pvals&wtoPhi_emSVM_pvals<0.1, "*", wtoPhi_emSVM_Res)) %>%
+  #dplyr::select(truth, wtoPhi_emSVM_Res, wtoPhi_emSVM_pvals)
+  mutate(estPhi_null_Res = ifelse(estPhi_null_pvals < 0.01, "***", "n.s."),
+         estPhi_null_Res = ifelse(0.01<estPhi_null_pvals&estPhi_null_pvals<0.05, "**", estPhi_null_Res),
+         estPhi_null_Res = ifelse(0.05<estPhi_null_pvals&estPhi_null_pvals<0.1, "*", estPhi_null_Res)) %>%
+  mutate(estPhi_emSVM_Res = ifelse(estPhi_emSVM_pvals < 0.01, "***", "n.s."),
+         estPhi_emSVM_Res = ifelse(0.01<estPhi_emSVM_pvals&estPhi_emSVM_pvals<0.05, "**", estPhi_emSVM_Res),
+         estPhi_emSVM_Res = ifelse(0.05<estPhi_emSVM_pvals&estPhi_emSVM_pvals<0.1, "*", estPhi_emSVM_Res)) %>%
+  #dplyr::select(truth, estPhi_emSVM_Res, estPhi_emSVM_pvals)
+  mutate(avrgPhi_null_Res = ifelse(avrgPhi_null_pvals < 0.01, "***", "n.s."),
+         avrgPhi_null_Res = ifelse(0.01<avrgPhi_null_pvals&avrgPhi_null_pvals<0.05, "**", avrgPhi_null_Res),
+         avrgPhi_null_Res = ifelse(0.05<avrgPhi_null_pvals&avrgPhi_null_pvals<0.1, "*", avrgPhi_null_Res)) %>%
+  mutate(avrgPhi_emSVM_Res = ifelse(avrgPhi_emSVM_pvals < 0.01, "***", "n.s."),
+         avrgPhi_emSVM_Res = ifelse(0.01<avrgPhi_emSVM_pvals&avrgPhi_emSVM_pvals<0.05, "**", avrgPhi_emSVM_Res),
+         avrgPhi_emSVM_Res = ifelse(0.05<avrgPhi_emSVM_pvals&avrgPhi_emSVM_pvals<0.1, "*", avrgPhi_emSVM_Res)) %>%
+  mutate(adjPhi_null_Res = ifelse(adjPhi_null_pvals < 0.01, "***", "n.s."),
+         adjPhi_null_Res = ifelse(0.01<adjPhi_null_pvals&adjPhi_null_pvals<0.05, "**", adjPhi_null_Res),
+         adjPhi_null_Res = ifelse(0.05<adjPhi_null_pvals&adjPhi_null_pvals<0.1, "*", adjPhi_null_Res)) %>%
+  mutate(adjPhi_emSVM_Res = ifelse(adjPhi_emSVM_pvals < 0.01, "***", "n.s."),
+         adjPhi_emSVM_Res = ifelse(0.01<adjPhi_emSVM_pvals&adjPhi_emSVM_pvals<0.05, "**", adjPhi_emSVM_Res),
+         adjPhi_emSVM_Res = ifelse(0.05<adjPhi_emSVM_pvals&adjPhi_emSVM_pvals<0.1, "*", adjPhi_emSVM_Res)) %>%
+  mutate(fisher_Res = ifelse(fisher_pvals < 0.01, "***", "n.s."),
+         fisher_Res = ifelse(0.01<fisher_pvals&fisher_pvals<0.05, "**", fisher_Res),
+         fisher_Res = ifelse(0.05<fisher_pvals&fisher_pvals<0.1, "*", fisher_Res)) %>%
+  #dplyr::select(truth, fisher_Res, fisher_pvals)
+  mutate(scDC_Res = ifelse(scDC_pvals < 0.01, "***", "n.s."),
+         scDC_Res = ifelse(0.01<scDC_pvals&scDC_pvals<0.05, "**", scDC_Res),
+         scDC_Res = ifelse(0.05<scDC_pvals&scDC_pvals<0.1, "*", scDC_Res)) %>%
+  #dplyr::select(truth, scDC_Res, scDC_pvals)
+  mutate(speckle_Res = ifelse(speckle_pvals < 0.01, "***", "n.s."),
+         speckle_Res = ifelse(0.01<speckle_pvals&speckle_pvals<0.05, "**", speckle_Res),
+         speckle_Res = ifelse(0.05<speckle_pvals&speckle_pvals<0.1, "*", speckle_Res))
+
+
+all_resC10 %>% 
+  dplyr::select(cluster, truth, contains("_Res"))
+```
+
+control vs Salmonella
+
+```{r}
+## data convert
+numb_cond1 = exp7_data %>% 
+  filter(condition == "Control") %>% 
+  group_by(clusterRes, batch) %>% 
+  summarise(n = n()) %>% 
+  pivot_wider(names_from = "clusterRes", values_from = "n") %>% 
+  column_to_rownames(var = "batch")
+numb_cond2 = exp7_data %>% 
+  filter(condition == "Salmonella") %>% 
+  group_by(clusterRes, batch) %>% 
+  summarise(n = n()) %>% 
+  pivot_wider(names_from = "clusterRes", values_from = "n") %>% 
+  column_to_rownames(var = "batch")
+exp7_CS = exp7_data %>% 
+  filter(condition == "Control" | condition == "Salmonella") %>% mutate(clusterRes = as.factor(clusterRes))
+```
+
+Test part
+
+```{r}
+data("Haber2017")
+countM = rbind(Haber2017$count_ctrl, Haber2017$count_Salma) %>% as.matrix()
+designM = data.frame(condition = c(rep("g1", nrow(Haber2017$count_ctrl)), rep("g2", nrow(Haber2017$count_Salma))))
+#betabin_null = dcats_GLM(countM, designM)
+#wtoPhi_emSVM = dcats_GLM(countM, designM, similarity_mat = Haber2017$svm_mat, n_samples = NULL)
+betabin_null = eachPhi(countM, designM)
+wtoPhi_emSVM = eachPhi(countM, designM, similarity_mat = Haber2017$svm_mat, n_samples = NULL)
+estPhi = getPhi(countM, designM)
+avrgPhi = getPhi2(countM, designM)$avrgPhi
+adjPhi = getPhi2(countM, designM)$adjPhiV
+estPhi_null = dcats_GLM(countM, designM, phi = rep(estPhi, ncol(countM)))
+estPhi_emSVM = dcats_GLM(countM, designM, similarity_mat = Haber2017$svm_mat, n_samples = NULL, phi = rep(estPhi, ncol(countM)))
+avrgPhi_null = dcats_GLM(countM, designM, phi = rep(avrgPhi, ncol(countM)))
+avrgPhi_emSVM = dcats_GLM(countM, designM, similarity_mat = Haber2017$svm_mat, n_samples = NULL, phi = rep(avrgPhi, ncol(countM)))
+adjPhi_null = dcats_GLM(countM, designM, phi = adjPhi)
+adjPhi_emSVM = dcats_GLM(countM, designM, similarity_mat = Haber2017$svm_mat, n_samples = NULL, phi = adjPhi)
+## Fisher's exact test
+fisher_pvals = getFisher(as.matrix(Haber2017$count_ctrl), as.matrix(Haber2017$count_Salma))
+## speckle
+speckleRes = propeller(clusters = exp7_CS$clusterRes, sample = exp7_CS$batch, group = exp7_CS$condition) %>% 
+  dplyr::rename(cluster = BaselineProp.clusters,
+                      speckle_pvals = FDR) %>%
+  dplyr::select(cluster, speckle_pvals)
+## scDC
+cluster_num = dim(numb_cond1)[2]
+res_scDC <- scDC_noClustering(cellTypes = exp7_CS$clusterRes, exp7_CS$batch, calCI = TRUE, calCI_method = c("percentile", "BCa", "multinom"),nboot = 1000, verbose = FALSE)
+res_GLM <- fitGLM(res_scDC, c(rep("cond1",dim(numb_cond1)[1]*cluster_num),rep("cond2",dim(numb_cond2)[1]*cluster_num)), pairwise = FALSE, fixed_only = TRUE, verbose = FALSE)
+scDCRes_temp = summary(res_GLM$pool_res_fixed)
+scDCRes = scDCRes_temp[c(cluster_num+1,(dim(scDCRes_temp)[1]-cluster_num+2):dim(scDCRes_temp)[1]),]
+```
+
+```{r}
+plot(colSums(Haber2017$count_ctrl)+colSums(Haber2017$count_Salma), betabin_null$fm0_phi)
+abline(h = phi, col = 'red')
+plot(colSums(Haber2017$count_ctrl)+colSums(Haber2017$count_Salma), betabin_null$fm1_phi)
+abline(h = phi, col = 'red')
+plot(colSums(Haber2017$count_ctrl)+colSums(Haber2017$count_Salma), wtoPhi_emSVM$fm0_phi)
+abline(h = phi, col = 'red')
+plot(colSums(Haber2017$count_ctrl)+colSums(Haber2017$count_Salma), wtoPhi_emSVM$fm1_phi)
+abline(h = phi, col = 'red')
+plot(colSums(Haber2017$count_ctrl)+colSums(Haber2017$count_Salma), adjPhi)
+abline(h = phi, col = 'red')
+```
+
+```{r}
+## results
+all_resCS = data.frame(cluster = rownames(betabin_null$LRT_pvals), truth = c("N","P","N","N","P","P","P","N")) %>% 
+   mutate(betabin_null_pvals = as.vector(betabin_null$LRT_pvals),
+         wtoPhi_emSVM_pvals = as.vector(wtoPhi_emSVM$LRT_pvals),
+         estPhi_null_pvals = as.vector(estPhi_null$LRT_pvals),
+         estPhi_emSVM_pvals = as.vector(estPhi_emSVM$LRT_pvals),
+         avrgPhi_null_pvals = as.vector(avrgPhi_null$LRT_pvals),
+         avrgPhi_emSVM_pvals = as.vector(avrgPhi_emSVM$LRT_pvals),
+         adjPhi_null_pvals = as.vector(adjPhi_null$LRT_pvals),
+         adjPhi_emSVM_pvals = as.vector(adjPhi_emSVM$LRT_pvals),
+         fisher_pvals = fisher_pvals,
+         scDC_pvals = scDCRes$p.value) %>%
+  merge(speckleRes, by = "cluster") %>% 
+  mutate(betabin_null_Res = ifelse(betabin_null_pvals < 0.01, "***", "n.s."),
+         betabin_null_Res = ifelse(0.01<betabin_null_pvals&betabin_null_pvals<0.05, "**", betabin_null_Res),
+         betabin_null_Res = ifelse(0.05<betabin_null_pvals&betabin_null_pvals<0.1, "*", betabin_null_Res)) %>% 
+  #dplyr::select(truth, betabin_null_Res, betabin_null_pvals)
+  mutate(wtoPhi_emSVM_Res = ifelse(wtoPhi_emSVM_pvals < 0.01, "***", "n.s."),
+         wtoPhi_emSVM_Res = ifelse(0.01<wtoPhi_emSVM_pvals&wtoPhi_emSVM_pvals<0.05, "**", wtoPhi_emSVM_Res),
+         wtoPhi_emSVM_Res = ifelse(0.05<wtoPhi_emSVM_pvals&wtoPhi_emSVM_pvals<0.1, "*", wtoPhi_emSVM_Res)) %>%
+  #dplyr::select(truth, wtoPhi_emSVM_Res, wtoPhi_emSVM_pvals)
+  mutate(estPhi_null_Res = ifelse(estPhi_null_pvals < 0.01, "***", "n.s."),
+         estPhi_null_Res = ifelse(0.01<estPhi_null_pvals&estPhi_null_pvals<0.05, "**", estPhi_null_Res),
+         estPhi_null_Res = ifelse(0.05<estPhi_null_pvals&estPhi_null_pvals<0.1, "*", estPhi_null_Res)) %>%
+  mutate(estPhi_emSVM_Res = ifelse(estPhi_emSVM_pvals < 0.01, "***", "n.s."),
+         estPhi_emSVM_Res = ifelse(0.01<estPhi_emSVM_pvals&estPhi_emSVM_pvals<0.05, "**", estPhi_emSVM_Res),
+         estPhi_emSVM_Res = ifelse(0.05<estPhi_emSVM_pvals&estPhi_emSVM_pvals<0.1, "*", estPhi_emSVM_Res)) %>%
+  #dplyr::select(truth, estPhi_emSVM_Res, estPhi_emSVM_pvals)
+  mutate(avrgPhi_null_Res = ifelse(avrgPhi_null_pvals < 0.01, "***", "n.s."),
+         avrgPhi_null_Res = ifelse(0.01<avrgPhi_null_pvals&avrgPhi_null_pvals<0.05, "**", avrgPhi_null_Res),
+         avrgPhi_null_Res = ifelse(0.05<avrgPhi_null_pvals&avrgPhi_null_pvals<0.1, "*", avrgPhi_null_Res)) %>%
+  mutate(avrgPhi_emSVM_Res = ifelse(avrgPhi_emSVM_pvals < 0.01, "***", "n.s."),
+         avrgPhi_emSVM_Res = ifelse(0.01<avrgPhi_emSVM_pvals&avrgPhi_emSVM_pvals<0.05, "**", avrgPhi_emSVM_Res),
+         avrgPhi_emSVM_Res = ifelse(0.05<avrgPhi_emSVM_pvals&avrgPhi_emSVM_pvals<0.1, "*", avrgPhi_emSVM_Res)) %>%
+  mutate(adjPhi_null_Res = ifelse(adjPhi_null_pvals < 0.01, "***", "n.s."),
+         adjPhi_null_Res = ifelse(0.01<adjPhi_null_pvals&adjPhi_null_pvals<0.05, "**", adjPhi_null_Res),
+         adjPhi_null_Res = ifelse(0.05<adjPhi_null_pvals&adjPhi_null_pvals<0.1, "*", adjPhi_null_Res)) %>%
+  mutate(adjPhi_emSVM_Res = ifelse(adjPhi_emSVM_pvals < 0.01, "***", "n.s."),
+         adjPhi_emSVM_Res = ifelse(0.01<adjPhi_emSVM_pvals&adjPhi_emSVM_pvals<0.05, "**", adjPhi_emSVM_Res),
+         adjPhi_emSVM_Res = ifelse(0.05<adjPhi_emSVM_pvals&adjPhi_emSVM_pvals<0.1, "*", adjPhi_emSVM_Res)) %>%
+  mutate(fisher_Res = ifelse(fisher_pvals < 0.01, "***", "n.s."),
+         fisher_Res = ifelse(0.01<fisher_pvals&fisher_pvals<0.05, "**", fisher_Res),
+         fisher_Res = ifelse(0.05<fisher_pvals&fisher_pvals<0.1, "*", fisher_Res)) %>%
+  #dplyr::select(truth, fisher_Res, fisher_pvals)
+  mutate(scDC_Res = ifelse(scDC_pvals < 0.01, "***", "n.s."),
+         scDC_Res = ifelse(0.01<scDC_pvals&scDC_pvals<0.05, "**", scDC_Res),
+         scDC_Res = ifelse(0.05<scDC_pvals&scDC_pvals<0.1, "*", scDC_Res)) %>%
+  #dplyr::select(truth, scDC_Res, scDC_pvals)
+  mutate(speckle_Res = ifelse(speckle_pvals < 0.01, "***", "n.s."),
+         speckle_Res = ifelse(0.01<speckle_pvals&speckle_pvals<0.05, "**", speckle_Res),
+         speckle_Res = ifelse(0.05<speckle_pvals&speckle_pvals<0.1, "*", speckle_Res))
+
+
+all_resCS %>% 
+  dplyr::select(cluster, truth, contains("_Res"))
+```
+
+```{r}
+save(all_resC3, all_resC10, all_resCS, file = "D:/Data/DCATS/real_world/Haber2017_res.RData")
+```
+
+## real-world data 5: Exp6-demuxlet
+
+### store data
+
+```{r, eval=FALSE}
+## save data as demonstarate data
+Kang2017 = list(numb_cond1 = as.matrix(numb_cond1), numb_cond2 = as.matrix(numb_cond2), svm_mat = svm_mat, svmDF = exp6DF, source = "Multiplexed droplet single-cell RNA-sequencing using natural genetic variation")
+save(Kang2017, file = "./data/real_world/Kang2017.RData")
+```
+
+```{r, eval=FALSE}
+graphs = seurat_intg@graphs$RNA_snn
+labels = exp6DF$clusterRes
+knn_mat = KNN_transition(graphs, labels)
+order1 = colnames(numb_cond1)
+simil_matK = knn_mat[order1, order1]
+```
+
+
+```{r}
+exp6_clusterInfo = read.delim("./data/real_world/Exp6_Kang/GSE96583_batch2.total.tsne.df.tsv") %>% 
+  dplyr::rename(clusterRes = cell, condition = stim) %>% 
+  rownames_to_column("cell") %>% 
+  filter(!is.na(clusterRes))
+head(exp6_clusterInfo)
+exp6_clusterInfo %>% group_by(condition, clusterRes) %>% 
+  summarise(n = n())
+## check whether exist duplicate barcode -> no
+exp6_clusterInfo %>% 
+  group_by(cell) %>% 
+  summarise(n = n()) %>% 
+  filter(n > 1)
+```
+
+```{r}
+matrix1 = readMM(gzfile("./data/real_world/Exp6_Kang/GSM2560248_2.1.mtx.gz")) %>% 
+  as.matrix()
+matrix2 = readMM(gzfile("./data/real_world/Exp6_Kang/GSM2560249_2.2.mtx.gz")) %>% 
+  as.matrix()
+```
+
+```{r}
+data_dir1 = "./data/real_world/Exp6_Kang/GSM2560248"
+list.files(data_dir1) # Should show barcodes.tsv, genes.tsv, and matrix.mtx
+expression_matrix1 <- Read10X(data.dir = data_dir1)
+seuratObj1 = CreateSeuratObject(counts = expression_matrix1)
+seuratObj1 = AddMetaData(object = seuratObj1, metadata = rep("ctrl", dim(seuratObj1)[2]), col.name = 'sample')
+
+data_dir2 = "./data/real_world/Exp6_Kang/GSM2560249"
+list.files(data_dir2) # Should show barcodes.tsv, genes.tsv, and matrix.mtx
+expression_matrix2 <- Read10X(data.dir = data_dir2)
+seuratObj2 = CreateSeuratObject(counts = expression_matrix2)
+seuratObj2 = AddMetaData(object = seuratObj2, metadata = rep("stim", dim(seuratObj2)[2]), col.name = 'sample')
+```
+
+```{r}
+seuratObjL = c(sub1 = seuratObj1, sub2 = seuratObj2)
+```
+
+```{r}
+anchors <- FindIntegrationAnchors(object.list = seuratObjL, dims = 1:30)
+seurat_intg <- IntegrateData(anchorset = anchors, dims = 1:30)
+seurat_intg <- ScaleData(seurat_intg)
+seurat_intg <- RunPCA(seurat_intg, npcs = 30, verbose = FALSE)
+```
+
+```{r}
+ctrl_repInfo <- read.delim("./data/real_world/Exp6_Kang/ye1.ctrl.8.10.sm.best")
+stim_repInfo <- read.delim("./data/real_world/Exp6_Kang/ye2.stim.8.10.sm.best")
+head(ctrl_repInfo)
+head(stim_repInfo)
+
+exp6_repInfo = rbind(ctrl_repInfo, stim_repInfo) %>% 
+  dplyr::rename(cell = BARCODE, batch = BEST) %>% 
+  filter(str_detect(batch, 'SNG')) %>% 
+  dplyr::select(cell, batch)
+head(exp6_repInfo)
+```
+
+```{r}
+exp6DF_mul = seurat_intg@reductions$pca@cell.embeddings %>% 
+  as.data.frame() %>% 
+  tibble::rownames_to_column("cell") %>% 
+  mutate(cell = str_replace(cell, "_[12]", "")) %>% 
+  merge(exp6_clusterInfo) %>% 
+  merge(exp6_repInfo) %>% 
+  mutate(batch = str_c(condition, batch)) %>% 
+  dplyr::select(-cell, -cluster, -multiplets, -tsne1, -tsne2, -ind)
+
+head(exp6DF_mul)
+```
+
+```{r, eval=FALSE}
+## data convert
+numb_cond1 = exp6DF_mul %>% 
+  filter(condition == "ctrl") %>% 
+  group_by(clusterRes, batch) %>% 
+  summarise(n = n()) %>% 
+  pivot_wider(names_from = "clusterRes", values_from = "n") %>% 
+  column_to_rownames(var = "batch")
+numb_cond2 = exp6DF_mul %>% 
+  filter(condition == "stim") %>% 
+  group_by(clusterRes, batch) %>% 
+  summarise(n = n()) %>% 
+  pivot_wider(names_from = "clusterRes", values_from = "n") %>% 
+  column_to_rownames(var = "batch")
+```
+
+Test part
+
+```{r}
+data("Kang2017")
+countM = rbind(Kang2017$count_ctrl, Kang2017$count_stim) %>% as.matrix()
+designM = data.frame(condition = c(rep("g1", nrow(Kang2017$count_ctrl)), rep("g2", nrow(Kang2017$count_stim))))
+betabin_null = eachPhi(countM, designM)
+wtoPhi_emSVM = eachPhi(countM, designM, similarity_mat = Haber2017$svm_mat, n_samples = NULL)
+estPhi = getPhi(countM, designM)
+avrgPhi = getPhi2(countM, designM)$avrgPhi
+adjPhi = getPhi2(countM, designM)$adjPhiV
+estPhi_null = dcats_GLM(countM, designM, phi = rep(estPhi, ncol(countM)))
+estPhi_emSVM = dcats_GLM(countM, designM, similarity_mat = Haber2017$svm_mat, n_samples = NULL, phi = rep(estPhi, ncol(countM)))
+avrgPhi_null = dcats_GLM(countM, designM, phi = rep(avrgPhi, ncol(countM)))
+avrgPhi_emSVM = dcats_GLM(countM, designM, similarity_mat = Haber2017$svm_mat, n_samples = NULL, phi = rep(avrgPhi, ncol(countM)))
+adjPhi_null = dcats_GLM(countM, designM, phi = adjPhi)
+adjPhi_emSVM = dcats_GLM(countM, designM, similarity_mat = Haber2017$svm_mat, n_samples = NULL, phi = adjPhi)
+## Fisher's exact test
+fisher_pvals = getFisher(as.matrix(Kang2017$count_ctrl), as.matrix(Kang2017$count_stim))
+## speckle
+speckleRes = speckle::propeller(clusters = exp6DF_mul$clusterRes, sample = exp6DF_mul$batch, group = exp6DF_mul$condition) %>% 
+  dplyr::rename(cluster = BaselineProp.clusters,
+                      speckle_pvals = FDR) %>%
+  dplyr::select(cluster, speckle_pvals)
+## scDC
+cluster_num = dim(Kang2017$count_ctrl)[2]
+res_scDC <- scDC_noClustering(cellTypes = exp6DF_mul$clusterRes, exp6DF_mul$batch, calCI = TRUE, calCI_method = c("percentile", "BCa", "multinom"),nboot = 1000, verbose = FALSE)
+res_GLM <- scdney::fitGLM(res_scDC, c(rep("cond1",dim(Kang2017$count_ctrl)[1]*cluster_num),rep("cond2",dim(Kang2017$count_stim)[1]*cluster_num)), pairwise = FALSE, fixed_only = TRUE, verbose = FALSE)
+scDCRes_temp = summary(res_GLM$pool_res_fixed)
+scDCRes = scDCRes_temp[c(cluster_num+1,(dim(scDCRes_temp)[1]-cluster_num+2):dim(scDCRes_temp)[1]),]
+```
+
+```{r}
+## results
+all_res = data.frame(cluster = rownames(betabin_null$LRT_pvals), truth = rep("N", 8)) %>% 
+  mutate(betabin_null_pvals = as.vector(betabin_null$LRT_pvals),
+         wtoPhi_emSVM_pvals = as.vector(wtoPhi_emSVM$LRT_pvals),
+         estPhi_null_pvals = as.vector(estPhi_null$LRT_pvals),
+         estPhi_emSVM_pvals = as.vector(estPhi_emSVM$LRT_pvals),
+         avrgPhi_null_pvals = as.vector(avrgPhi_null$LRT_pvals),
+         avrgPhi_emSVM_pvals = as.vector(avrgPhi_emSVM$LRT_pvals),
+         adjPhi_null_pvals = as.vector(adjPhi_null$LRT_pvals),
+         adjPhi_emSVM_pvals = as.vector(adjPhi_emSVM$LRT_pvals),
+         fisher_pvals = fisher_pvals,
+         scDC_pvals = scDCRes$p.value) %>%
+  merge(speckleRes, by = "cluster") %>% 
+  mutate(betabin_null_Res = ifelse(betabin_null_pvals < 0.01, "***", "n.s."),
+         betabin_null_Res = ifelse(0.01<betabin_null_pvals&betabin_null_pvals<0.05, "**", betabin_null_Res),
+         betabin_null_Res = ifelse(0.05<betabin_null_pvals&betabin_null_pvals<0.1, "*", betabin_null_Res)) %>% 
+  #dplyr::select(truth, betabin_null_Res, betabin_null_pvals)
+  mutate(wtoPhi_emSVM_Res = ifelse(wtoPhi_emSVM_pvals < 0.01, "***", "n.s."),
+         wtoPhi_emSVM_Res = ifelse(0.01<wtoPhi_emSVM_pvals&wtoPhi_emSVM_pvals<0.05, "**", wtoPhi_emSVM_Res),
+         wtoPhi_emSVM_Res = ifelse(0.05<wtoPhi_emSVM_pvals&wtoPhi_emSVM_pvals<0.1, "*", wtoPhi_emSVM_Res)) %>%
+  #dplyr::select(truth, wtoPhi_emSVM_Res, wtoPhi_emSVM_pvals)
+  mutate(estPhi_null_Res = ifelse(estPhi_null_pvals < 0.01, "***", "n.s."),
+         estPhi_null_Res = ifelse(0.01<estPhi_null_pvals&estPhi_null_pvals<0.05, "**", estPhi_null_Res),
+         estPhi_null_Res = ifelse(0.05<estPhi_null_pvals&estPhi_null_pvals<0.1, "*", estPhi_null_Res)) %>%
+  mutate(estPhi_emSVM_Res = ifelse(estPhi_emSVM_pvals < 0.01, "***", "n.s."),
+         estPhi_emSVM_Res = ifelse(0.01<estPhi_emSVM_pvals&estPhi_emSVM_pvals<0.05, "**", estPhi_emSVM_Res),
+         estPhi_emSVM_Res = ifelse(0.05<estPhi_emSVM_pvals&estPhi_emSVM_pvals<0.1, "*", estPhi_emSVM_Res)) %>%
+  #dplyr::select(truth, estPhi_emSVM_Res, estPhi_emSVM_pvals)
+  mutate(avrgPhi_null_Res = ifelse(avrgPhi_null_pvals < 0.01, "***", "n.s."),
+         avrgPhi_null_Res = ifelse(0.01<avrgPhi_null_pvals&avrgPhi_null_pvals<0.05, "**", avrgPhi_null_Res),
+         avrgPhi_null_Res = ifelse(0.05<avrgPhi_null_pvals&avrgPhi_null_pvals<0.1, "*", avrgPhi_null_Res)) %>%
+  mutate(avrgPhi_emSVM_Res = ifelse(avrgPhi_emSVM_pvals < 0.01, "***", "n.s."),
+         avrgPhi_emSVM_Res = ifelse(0.01<avrgPhi_emSVM_pvals&avrgPhi_emSVM_pvals<0.05, "**", avrgPhi_emSVM_Res),
+         avrgPhi_emSVM_Res = ifelse(0.05<avrgPhi_emSVM_pvals&avrgPhi_emSVM_pvals<0.1, "*", avrgPhi_emSVM_Res)) %>%
+  mutate(adjPhi_null_Res = ifelse(adjPhi_null_pvals < 0.01, "***", "n.s."),
+         adjPhi_null_Res = ifelse(0.01<adjPhi_null_pvals&adjPhi_null_pvals<0.05, "**", adjPhi_null_Res),
+         adjPhi_null_Res = ifelse(0.05<adjPhi_null_pvals&adjPhi_null_pvals<0.1, "*", adjPhi_null_Res)) %>%
+  mutate(adjPhi_emSVM_Res = ifelse(adjPhi_emSVM_pvals < 0.01, "***", "n.s."),
+         adjPhi_emSVM_Res = ifelse(0.01<adjPhi_emSVM_pvals&adjPhi_emSVM_pvals<0.05, "**", adjPhi_emSVM_Res),
+         adjPhi_emSVM_Res = ifelse(0.05<adjPhi_emSVM_pvals&adjPhi_emSVM_pvals<0.1, "*", adjPhi_emSVM_Res)) %>%
+  mutate(fisher_Res = ifelse(fisher_pvals < 0.01, "***", "n.s."),
+         fisher_Res = ifelse(0.01<fisher_pvals&fisher_pvals<0.05, "**", fisher_Res),
+         fisher_Res = ifelse(0.05<fisher_pvals&fisher_pvals<0.1, "*", fisher_Res)) %>%
+  #dplyr::select(truth, fisher_Res, fisher_pvals)
+  mutate(scDC_Res = ifelse(scDC_pvals < 0.01, "***", "n.s."),
+         scDC_Res = ifelse(0.01<scDC_pvals&scDC_pvals<0.05, "**", scDC_Res),
+         scDC_Res = ifelse(0.05<scDC_pvals&scDC_pvals<0.1, "*", scDC_Res)) %>%
+  #dplyr::select(truth, scDC_Res, scDC_pvals)
+  mutate(speckle_Res = ifelse(speckle_pvals < 0.01, "***", "n.s."),
+         speckle_Res = ifelse(0.01<speckle_pvals&speckle_pvals<0.05, "**", speckle_Res),
+         speckle_Res = ifelse(0.05<speckle_pvals&speckle_pvals<0.1, "*", speckle_Res))
+
+
+all_res %>% 
+  dplyr::select(cluster, truth, contains("_Res"))
+save(all_res, file = "D:/Data/DCATS/real_world/Kang2017_res.RData")
+```
+
+## Ren 2021
+
+COVID-19 immune features revealed by a large-scale single-cell transcriptome atlas
+
+First look at PBMC data.
+
+### save data
+
+```{r, eval=FALSE}
+Ren2021 = list(countM = countM, designM = designM, source = "COVID-19 immune features revealed by a large-scale single-cell transcriptome atlas")
+save(Ren2021, file = "D:/Data/DCATS/Ren2021.RData")
+```
+
+
+```{r}
+library(readxl)
+Ren2021_cell = read.csv(gzfile("D:/Data/DCATS/real_world/Ren_2021/cell_annotation.csv.gz")) %>% 
+  janitor::clean_names()
+Ren2021_donors = read_excel("D:/Data/DCATS/real_world/Ren_2021/donors_info.xlsx") %>% 
+  janitor::clean_names()
+Ren2021_pca = read.csv("D:/Data/DCATS/real_world/Ren_2021/pca_subsample.csv") %>% 
+  dplyr::select(-X, -sampleID) %>% 
+  rename(cell_name = barcode)
+```
+
+```{r}
+pbmc_sampleL = Ren2021_donors %>% 
+  filter(sample_type == "frozen PBMC" | sample_type == "fresh PBMC") %>% 
+  .$sample_id %>% 
+  unique()
+
+sample_patient = Ren2021_donors %>% dplyr::select(sample_id, patient_id)
+```
+
+### major type
+
+```{r}
+countM = Ren2021_cell %>% 
+  filter(sample_id %in% pbmc_sampleL) %>% 
+  group_by(sample_id, major_type) %>% 
+  summarise(n = n()) %>% 
+  pivot_wider(names_from = major_type, values_from = n) %>% 
+  arrange(sample_id) %>% 
+  filter(sample_id != 'S-M032') %>% 
+  column_to_rownames("sample_id") %>% 
+  replace(is.na(.), 0) %>% 
+  as.matrix()
+
+countM = Ren2021_cell %>% 
+  filter(sample_id %in% pbmc_sampleL) %>% 
+  mutate(major_type == ifelse(major_type == "Mono"&contains(celltype, "CD14"), "CD14Mono", major_type))
+  group_by(sample_id, major_type) %>% 
+  summarise(n = n()) %>% 
+  pivot_wider(names_from = major_type, values_from = n) %>% 
+  arrange(sample_id) %>% 
+  filter(sample_id != 'S-M032') %>% 
+  column_to_rownames("sample_id") %>% 
+  replace(is.na(.), 0) %>% 
+  as.matrix()
+```
+
+```{r}
+designM = Ren2021_donors %>% 
+  filter(sample_id %in% pbmc_sampleL) %>% 
+  mutate(state = ifelse(sample_time == "control", "control", str_c(co_vid_19_severity, "_", sample_time)),
+         age = as.numeric(age)) %>% 
+  dplyr::select(sample_id, age, sex, sample_type, state) %>% 
+  #unique() %>% 
+  arrange(sample_id) %>% 
+  filter(sample_id != 'S-M032') %>% 
+  column_to_rownames("sample_id")
+designM
+```
+
+```{r}
+simil_mat = create_simMat(dim(countM)[2], confuse_rate=0.1)
+betabin_null = dcats_GLM(countM, designM, base_model = 'FULL')
+wtoPhi_emSVM = dcats_GLM(countM, designM, similarity_mat = simil_mat, n_samples = NULL, base_model = 'FULL')
+phi = getPhi(countM, designM)
+estPhi_null = dcats_GLM(countM, designM, fix_phi = phi, base_model = 'FULL')
+estPhi_emSVM = dcats_GLM(countM, designM, similarity_mat = simil_mat, n_samples = NULL, fix_phi = phi, base_model = 'FULL')
+
+#ifelse(res_GLM$LRT_pvals < 0.05, "P", "N") 
+ifelse(res_GLM$pvals < 0.05, "P", "N") 
+#print(res_GLM$LR_vals)
+print(res_GLM$pvals)
+```
+
+Separate into different group comparison
+
+control vs mild/moderate_progression
+
+```{r}
+designM_sub = designM %>% 
+  filter(state == "control" | state == "mild/moderate_progression")
+countM_sub = countM[rownames(designM_sub),]
+
+simil_mat = create_simMat(dim(countM_sub)[2], confuse_rate=0.1)
+#betabin_null = dcats_GLM(countM_sub, designM_sub, base_model = 'FULL')
+#wtoPhi_emSVM = dcats_GLM(countM_sub, designM_sub, similarity_mat = simil_mat, n_samples = NULL, base_model = 'FULL')
+betabin_null = eachPhi(countM_sub, designM_sub, base_model = 'FULL')
+wtoPhi_emSVM = eachPhi(countM_sub, designM_sub, similarity_mat = simil_mat, n_samples = NULL, base_model = 'FULL')
+phi = getPhi(countM_sub, designM_sub)
+estPhi_null = dcats_GLM(countM_sub, designM_sub, fix_phi = phi, base_model = 'FULL')
+estPhi_emSVM = dcats_GLM(countM_sub, designM_sub, similarity_mat = simil_mat, n_samples = NULL, fix_phi = phi, base_model = 'FULL')
+betabin_null$LRT_pvals < 0.05
+wtoPhi_emSVM$LRT_pvals < 0.05
+estPhi_null$LRT_pvals < 0.05
+estPhi_emSVM$LRT_pvals < 0.05
+```
+
+```{r}
+plot(colSums(countM_sub), betabin_null$fm0_phi[,1])
+abline(h = phi, col = 'red')
+plot(colSums(countM_sub), betabin_null$fm1_phi[,1])
+abline(h = phi, col = 'red')
+plot(colSums(countM_sub), wtoPhi_emSVM$fm0_phi[,1])
+abline(h = phi, col = 'red')
+plot(colSums(countM_sub), wtoPhi_emSVM$fm1_phi[,1])
+abline(h = phi, col = 'red')
+```
+
+
+Separate into different group comparison
+
+control vs severe/critical_progression
+
+```{r}
+designM_sub = designM %>% 
+  filter(state == "control" | state == "severe/critical_progression")
+countM_sub = countM[rownames(designM_sub),]
+
+simil_mat = create_simMat(dim(countM_sub)[2], confuse_rate=0.1)
+#betabin_null = dcats_GLM(countM_sub, designM_sub, base_model = 'FULL')
+#wtoPhi_emSVM = dcats_GLM(countM_sub, designM_sub, similarity_mat = simil_mat, n_samples = NULL, base_model = 'FULL')
+betabin_null = eachPhi(countM_sub, designM_sub, base_model = 'FULL')
+wtoPhi_emSVM = eachPhi(countM_sub, designM_sub, similarity_mat = simil_mat, n_samples = NULL, base_model = 'FULL')
+phi = getPhi(countM_sub, designM_sub)
+estPhi_null = dcats_GLM(countM_sub, designM_sub, fix_phi = phi, base_model = 'FULL')
+estPhi_emSVM = dcats_GLM(countM_sub, designM_sub, similarity_mat = simil_mat, n_samples = NULL, fix_phi = phi, base_model = 'FULL')
+betabin_null$LRT_pvals < 0.05
+wtoPhi_emSVM$LRT_pvals < 0.05
+estPhi_null$LRT_pvals < 0.05
+estPhi_emSVM$LRT_pvals < 0.05
+```
+
+```{r}
+plot(colSums(countM_sub), betabin_null$fm0_phi[,1])
+abline(h = phi, col = 'red')
+plot(colSums(countM_sub), betabin_null$fm1_phi[,1])
+abline(h = phi, col = 'red')
+plot(colSums(countM_sub), wtoPhi_emSVM$fm0_phi[,1])
+abline(h = phi, col = 'red')
+plot(colSums(countM_sub), wtoPhi_emSVM$fm1_phi[,1])
+abline(h = phi, col = 'red')
+```
+
+```{r}
+count_mat_sub %>% as.data.frame() %>% 
+  cbind(design_mat_sub) %>% 
+  rownames_to_column("sample_id") %>% 
+  pivot_longer(names_to = "cell_type", values_to = "n", B:Neu) %>% 
+  group_by(sample_id) %>% 
+  mutate(prop = n/sum(n)) %>% 
+  ggplot(aes(x = cell_type, y = prop)) +
+    geom_boxplot(aes(color = state))
+```
+
+mild/moderate_convalescence vs mild/moderate_progression
+
+```{r}
+designM_sub = designM %>% 
+  filter(state == "mild/moderate_convalescence" | state == "mild/moderate_progression")
+countM_sub = countM[rownames(designM_sub),]
+
+simil_mat = create_simMat(dim(countM_sub)[2], confuse_rate=0.1)
+#betabin_null = dcats_GLM(countM_sub, designM_sub, base_model = 'FULL')
+#wtoPhi_emSVM = dcats_GLM(countM_sub, designM_sub, similarity_mat = simil_mat, n_samples = NULL, base_model = 'FULL')
+betabin_null = eachPhi(countM_sub, designM_sub, base_model = 'FULL')
+wtoPhi_emSVM = eachPhi(countM_sub, designM_sub, similarity_mat = simil_mat, n_samples = NULL, base_model = 'FULL')
+phi = getPhi(countM_sub, designM_sub)
+estPhi_null = dcats_GLM(countM_sub, designM_sub, fix_phi = phi, base_model = 'FULL')
+estPhi_emSVM = dcats_GLM(countM_sub, designM_sub, similarity_mat = simil_mat, n_samples = NULL, fix_phi = phi, base_model = 'FULL')
+betabin_null$LRT_pvals < 0.05
+wtoPhi_emSVM$LRT_pvals < 0.05
+estPhi_null$LRT_pvals < 0.05
+estPhi_emSVM$LRT_pvals < 0.05
+```
+
+```{r}
+colSums(countM_sub)[order(colSums(countM_sub))]
+plot(colSums(countM_sub), betabin_null$fm0_phi[,1])
+abline(h = phi, col = 'red')
+plot(colSums(countM_sub), betabin_null$fm1_phi[,1])
+abline(h = phi, col = 'red')
+plot(colSums(countM_sub), wtoPhi_emSVM$fm0_phi[,1])
+abline(h = phi, col = 'red')
+plot(colSums(countM_sub), wtoPhi_emSVM$fm1_phi[,1])
+abline(h = phi, col = 'red')
+```
+
+```{r}
+count_mat_sub %>% as.data.frame() %>% 
+  cbind(design_mat_sub) %>% 
+  rownames_to_column("sample_id") %>% 
+  pivot_longer(names_to = "cell_type", values_to = "n", B:Neu) %>% 
+  group_by(sample_id) %>% 
+  mutate(prop = n/sum(n)) %>% 
+  ggplot(aes(x = cell_type, y = prop)) +
+    geom_boxplot(aes(color = state))
+```
+
+severe/critical_convalescence vs severe/critical_progression
+
+```{r}
+designM_sub = designM %>% 
+  filter(state == "severe/critical_convalescence" | state == "severe/critical_progression")
+countM_sub = countM[rownames(designM_sub),]
+
+simil_mat = create_simMat(dim(countM_sub)[2], confuse_rate=0.1)
+#betabin_null = dcats_GLM(countM_sub, designM_sub, base_model = 'FULL')
+#wtoPhi_emSVM = dcats_GLM(countM_sub, designM_sub, similarity_mat = simil_mat, n_samples = NULL, base_model = 'FULL')
+betabin_null = eachPhi(countM_sub, designM_sub, base_model = 'FULL')
+wtoPhi_emSVM = eachPhi(countM_sub, designM_sub, similarity_mat = simil_mat, n_samples = NULL, base_model = 'FULL')
+phi = getPhi(countM_sub, designM_sub)
+estPhi_null = dcats_GLM(countM_sub, designM_sub, fix_phi = phi, base_model = 'FULL')
+estPhi_emSVM = dcats_GLM(countM_sub, designM_sub, similarity_mat = simil_mat, n_samples = NULL, fix_phi = phi, base_model = 'FULL')
+betabin_null$LRT_pvals < 0.05
+wtoPhi_emSVM$LRT_pvals < 0.05
+estPhi_null$LRT_pvals < 0.05
+estPhi_emSVM$LRT_pvals < 0.05
+```
+
+```{r}
+colSums(countM_sub)[order(colSums(countM_sub))]
+plot(colSums(countM_sub), betabin_null$fm0_phi[,1])
+abline(h = phi, col = 'red')
+plot(colSums(countM_sub), betabin_null$fm1_phi[,1])
+abline(h = phi, col = 'red')
+plot(colSums(countM_sub), wtoPhi_emSVM$fm0_phi[,1])
+abline(h = phi, col = 'red')
+plot(colSums(countM_sub), wtoPhi_emSVM$fm1_phi[,1])
+abline(h = phi, col = 'red')
+```
+
+```{r}
+count_mat_sub %>% as.data.frame() %>% 
+  cbind(design_mat_sub) %>% 
+  rownames_to_column("sample_id") %>% 
+  pivot_longer(names_to = "cell_type", values_to = "n", B:Neu) %>% 
+  group_by(sample_id) %>% 
+  mutate(prop = n/sum(n)) %>% 
+  ggplot(aes(x = cell_type, y = prop)) +
+    geom_boxplot(aes(color = state))
+```
+
+mild/moderate_progression vs severe/critical_progression
+
+```{r}
+design_mat_sub = design_mat %>% 
+  filter(state == "mild/moderate_progression" | state == "severe/critical_progression")
+count_mat_sub = count_mat[rownames(design_mat_sub),]
+
+simil_mat = create_simMat(dim(count_mat_sub)[2], confuse_rate=0.1)
+res_GLM = dcats_GLM(count_mat = count_mat_sub, design_mat = design_mat_sub, similarity_mat = simil_mat)
+#ifelse(res_GLM$LRT_pvals < 0.05, "P", "N") 
+ifelse(res_GLM$pvals < 0.05, "P", "N") 
+#print(res_GLM$LR_vals)
+print(res_GLM$pvals)
+```
+
+```{r}
+count_mat_sub %>% as.data.frame() %>% 
+  cbind(design_mat_sub) %>% 
+  rownames_to_column("sample_id") %>% 
+  pivot_longer(names_to = "cell_type", values_to = "n", B:Neu) %>% 
+  group_by(sample_id) %>% 
+  mutate(prop = n/sum(n)) %>% 
+  ggplot(aes(x = cell_type, y = prop)) +
+    geom_boxplot(aes(color = state))
+```
+
+
+
+## sub type
+
+First, check the number of sub-celltype. Some sub-cell type contains less cell count. Those cell types including DC_c1-CLEC9A, NK_c02-NCAM1, NK_c03-MKI67, T_CD4_c13-MKI67-CCL5_l, T_CD4_c14-MKI67-CCL5_h, T_CD8_c12-MKI67-TYROBP, T_CD8_c13-HAVCR2, Macro_c1-C1QC, B_c05-MZB1-XBP1, B_c06-MKI67, T_CD4_c10-IFNG, T_CD8_c11-MKI67-FOS, all Neu, Macro
+
+```{r}
+Ren2021_cell %>% 
+  filter(sample_id %in% pbmc_sampleL) %>% 
+  group_by(sample_id, celltype) %>% 
+  summarise(n = n()) %>% 
+  pivot_wider(names_from = celltype, values_from = n)
+```
+
+```{r}
+library(tidymodels)
+svm_input = Ren2021_cell %>% 
+  filter(cell_name %in% Ren2021_pca$cell_name) %>% 
+  plyr::join(Ren2021_pca) %>% 
+  mutate(clusterRes = ifelse(major_type %in% c("Neu", "Macro"), major_type, celltype),
+         clusterRes = ifelse(celltype %in% c("DC_c1-CLEC9A", "NK_c02-NCAM1", "NK_c03-MKI67", "T_CD4_c13-MKI67-CCL5_l", "T_CD4_c14-MKI67-CCL5_h", "T_CD8_c12-MKI67-TYROBP", "T_CD8_c13-HAVCR2", "B_c05-MZB1-XBP1", "B_c06-MKI67", "T_CD4_c10-IFNG", "T_CD8_c11-MKI67-FOS"), "others", clusterRes)) %>% 
+  select(-cell_name, -sample_id, -major_type, -celltype)
+svm_mat = svm_simMat(svm_input)
+```
+
+
+```{r}
+Ren2021_cell %>% 
+  mutate(clusterRes = ifelse(major_type %in% c("Neu", "Macro"), major_type, celltype)) %>% 
+  select(-cell_namem, -sample_id, -major_type, -celltype)
+```
+
+
+```{r}
+Neu_count = Ren2021_cell %>% 
+  merge(sample_patient) %>% 
+  filter(sample_id %in% pbmc_sampleL) %>% 
+  group_by(patient_id, celltype) %>% 
+  summarise(n = n()) %>% 
+  pivot_wider(names_from = celltype, values_from = n) %>% 
+  column_to_rownames("patient_id") %>% 
+  select(starts_with("Neu")) %>% 
+  replace(is.na(.), 0) %>% 
+  rowSums()
+Macro_count = Ren2021_cell %>% 
+  merge(sample_patient) %>% 
+  filter(sample_id %in% pbmc_sampleL) %>% 
+  group_by(patient_id, celltype) %>% 
+  summarise(n = n()) %>% 
+  pivot_wider(names_from = celltype, values_from = n) %>% 
+  column_to_rownames("patient_id") %>% 
+  select(starts_with("Macro")) %>% 
+  replace(is.na(.), 0) %>% 
+  rowSums()
+```
+
+```{r}
+count_mat = Ren2021_cell %>% 
+  merge(sample_patient) %>% 
+  filter(sample_id %in% pbmc_sampleL) %>% 
+  group_by(patient_id, celltype) %>% 
+  summarise(n = n()) %>% 
+  pivot_wider(names_from = celltype, values_from = n) %>% 
+  column_to_rownames("patient_id") %>% 
+  select(-starts_with("Neu"), -starts_with("Macro")) %>% 
+  mutate(Neu = Neu_count,
+         Macro = Macro_count)
+```
+
+
+

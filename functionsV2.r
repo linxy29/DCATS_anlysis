@@ -452,7 +452,8 @@ getDiffcyt = function(numb_cond1, numb_cond2, dfRes){
   contrast <- createContrast(c(0, 1))
   # Test for differential abundance (DA) of clusters
   res_DA <- testDA_edgeR(d_counts, design, contrast)
-  diffcytP = topTable(res_DA, format_vals = TRUE) %>% 
+  #diffcytP = topTable(res_DA, format_vals = TRUE) %>% 
+  diffcytP = res_DA@elementMetadata %>% 
     as.data.frame() %>% 
     dplyr::rename(cluster = cluster_id) %>% 
     dplyr::rename(diffcyt_pvals = p_adj) %>% 
@@ -880,4 +881,148 @@ dcats_GLM_mltPhi <- function(count_mat, design_mat, similarity_mat=NULL, n_sampl
 }
 
 # function 17: inverse of %in%
-'%!in%' <- function(x,y)!('%in%'(x,y))
+'%!in%' <- function(x,y) !('%in%'(x,y))
+
+# function 18: simulator for milo(without removing batch effect)
+simulator_noInt = function(totals1, totals2, probC1, probC2, setresolu, sim_mat){
+  K = length(probC1)
+  n_rep1 = length(totals1)
+  n_rep2 = length(totals2)
+  
+  prop_cond1 = matrix(0, n_rep1, K)
+  prop_cond2 = matrix(0, n_rep2, K)
+  numb_cond1 <- matrix(0, n_rep1, K)
+  numb_cond2 <- matrix(0, n_rep2, K)
+  
+  # cell selection
+  slt_sim_matC1 = matrix(NA, ncol = 0, nrow = dim(sim_mat)[1])
+  slt_origLabelsC1 = vector()
+  slt_batchesC1 = character()
+  for (rep in seq_len(n_rep1)) {
+    prop_cond1[rep, ] <- MCMCpack::rdirichlet(1, probC1 * concentration)
+    #prop_cond1[rep, ] = probC1
+    numb_cond1[rep, ] <- rmultinom(1, totals1[rep], prop_cond1[rep, ])
+    #numb_cond1[rep, ] = (totals1[rep] * prop_cond1[rep, ]) %>% ceiling()
+    cell_slt = cell_slt_dup(numb_cond1[rep,], sim_mat, origLabels)
+    slt_sim_matC1 = cbind(slt_sim_matC1, cell_slt$sub_sim_mat)
+    slt_origLabelsC1 = c(slt_origLabelsC1, cell_slt$sub_origLabels)
+    slt_batchesC1 = c(slt_batchesC1, rep(str_c("cond1s", as.character(rep)), length(cell_slt$sub_origLabels)))
+  }
+  
+  slt_sim_matC2 = matrix(NA, ncol = 0, nrow = dim(sim_mat)[1])
+  slt_origLabelsC2 = factor()
+  slt_batchesC2 = character()
+  for (rep in seq_len(n_rep2)) {
+    prop_cond2[rep, ] <- MCMCpack::rdirichlet(1, probC2 * concentration)
+    #prop_cond2[rep, ] = probC2
+    numb_cond2[rep, ] <- rmultinom(1, totals2[rep], prop_cond2[rep, ])
+    cell_slt = cell_slt_dup(numb_cond2[rep,], sim_mat, origLabels)
+    slt_sim_matC2 = cbind(slt_sim_matC2, cell_slt$sub_sim_mat)
+    slt_origLabelsC2 = c(slt_origLabelsC2, cell_slt$sub_origLabels)
+    slt_batchesC2 = c(slt_batchesC2, rep(str_c("cond2s", as.character(rep)), length(cell_slt$sub_origLabels)))
+  }
+  
+  print(numb_cond1)
+  print(numb_cond2)
+  
+  ## seurat process
+  ### pre-process
+  seuratObj <- CreateSeuratObject(counts = cbind(slt_sim_matC1, slt_sim_matC2), project="Splatter")
+  seuratObj <- AddMetaData(object = seuratObj, metadata = c(slt_batchesC1, slt_batchesC2), col.name = 'batch')
+  seuratObj <- AddMetaData(object = seuratObj, metadata = c(rep("Cond1", length(slt_batchesC1)), rep("Cond2", length(slt_batchesC2))), col.name = 'condition')
+  seuratObj <- NormalizeData(seuratObj, verbose = FALSE)
+  #integratedSamples <- RunFastMNN(object.list = SplitObject(seuratObj, split.by = "batch"), verbose = FALSE)
+  integratedSamples <- FindVariableFeatures(seuratObj, verbose = FALSE)
+  integratedSamples <- ScaleData(integratedSamples, verbose = FALSE)
+  integratedSamples <- RunPCA(integratedSamples, npcs = 30, verbose = FALSE)
+  #integratedSamples <- RunUMAP(integratedSamples, reduction = "mnn", dims = 1:30, verbose = FALSE)
+  #integratedSamples <- FindNeighbors(integratedSamples, reduction = "mnn", dims = 1:30, verbose = FALSE)
+  integratedSamples <- RunUMAP(integratedSamples, dims = 1:30, verbose = FALSE)
+  integratedSamples <- FindNeighbors(integratedSamples, dims = 1:30, verbose = FALSE)
+  integratedSamples <- FindClusters(integratedSamples, resolution = setresolu, verbose = FALSE)
+  
+  ## decide resolution
+  Kprep = integratedSamples@active.ident %>% as.factor() %>% summary() %>% length()
+  str_c("Kprep: ", as.character(Kprep)) %>% print()
+  str_c("setresolu: ", as.character(setresolu)) %>% print()
+  while (Kprep != K & setresolu > 0.03) {
+    if (Kprep > K){
+      setresolu = setresolu - 0.03
+      integratedSamples <- FindClusters(integratedSamples, resolution = setresolu, verbose = FALSE)
+      Kprep = integratedSamples@active.ident %>% as.factor() %>% summary() %>% length()
+      str_c("Kprep: ", as.character(Kprep)) %>% print()
+      str_c("setresolu: ", as.character(setresolu)) %>% print()
+    } else {
+      setresolu = setresolu + 0.01
+      integratedSamples <- FindClusters(integratedSamples, resolution = setresolu, verbose = FALSE)
+      Kprep = integratedSamples@active.ident %>% as.factor() %>% summary() %>% length()
+      str_c("Kprep: ", as.character(Kprep)) %>% print()
+      str_c("setresolu: ", as.character(setresolu)) %>% print()
+    }
+  }
+  ### change labels to A, B, C
+  integratedSamples@active.ident = integratedSamples@active.ident %>% 
+    plyr::mapvalues(from = c(0:15), to = c("A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P"))
+  
+  # get count data
+  dfRes = data.frame(clusterRes = integratedSamples@active.ident, batch = integratedSamples$batch, condition = integratedSamples$condition) %>% 
+    tibble::rownames_to_column("cellID")
+  if(Kprep == K){
+    Res = list(integratedSamples = integratedSamples, dfRes = dfRes, trueLabels = c(slt_origLabelsC1, slt_origLabelsC2), numb_cond1 = numb_cond1, numb_cond2 = numb_cond2, prop_cond1 = prop_cond1, prop_cond2 = prop_cond2)
+    return(Res)
+  } else {
+    return(NA)
+  }
+  
+}
+## function to get milo results
+getMilo = function(integratedSamples){
+  sceObj <- as.SingleCellExperiment(integratedSamples)
+  milo <- Milo(sceObj)
+  milo <- buildGraph(milo, k = 10, d = 30)
+  milo <- makeNhoods(milo, prop = 0.1, k = 10, d=30, refined = TRUE)
+  milo <- countCells(milo, meta.data = data.frame(colData(milo)), sample="batch")
+  designDF <- data.frame(colData(milo))[,c("batch", "condition")]
+  designDF <- distinct(designDF)
+  milo <- calcNhoodDistance(milo, d=30)
+  rownames(designDF) <- designDF$batch
+  da_results <- testNhoods(milo, design = ~ condition, design.df = designDF)
+  da_results <- annotateNhoods(milo, da_results, coldata_col = "ident")
+  counts <- nhoodCounts(milo)
+  #da_results %>% arrange(ident_fraction)
+  return(list(da_results = da_results, counts = counts))
+}
+
+getMilo = function(integratedSamples){
+  # create object
+  sceObj <- as.SingleCellExperiment(integratedSamples)
+  milo <- Milo(sceObj)
+  milo <- buildGraph(milo, k = 10, d = 30)
+  milo <- makeNhoods(milo, prop = 0.1, k = 10, d=30, refined = TRUE)
+  # get milo result
+  milo <- countCells(milo, meta.data = data.frame(colData(milo)), sample="batch")
+  designDF <- data.frame(colData(milo))[,c("batch", "condition")]
+  designDF <- distinct(designDF)
+  milo <- calcNhoodDistance(milo, d=30)
+  rownames(designDF) <- designDF$batch
+  da_results <- testNhoods(milo, design = ~ condition, design.df = designDF)
+  da_results <- annotateNhoods(milo, da_results, coldata_col = "ident")
+  counts <- nhoodCounts(milo)
+  # get nhoods
+  anno_vec <- colData(milo) %>% rownames()
+  if (!is.factor(anno_vec)) {
+    anno_vec <- factor(anno_vec, levels=unique(anno_vec))
+  }
+  
+  ## Count occurrence of labels in each nhood
+  n.levels <- length(levels(anno_vec))
+  nhood_counts <- vapply(seq_len(ncol(nhoods(milo))), FUN=function(n)
+    table(anno_vec[which(nhoods(milo)[,n]==1)]),FUN.VALUE=numeric(n.levels))
+  colnames(nhood_counts) = str_c("hoods", 1:ncol(nhood_counts))
+  select_nhood = nhood_counts[rowSums(nhood_counts) > 0,]
+  nhoodsID = sapply(seq_len(nrow(select_nhood)), FUN = function(n)
+    sample(colnames(select_nhood)[select_nhood[n,] != 0], size = 1))
+  names(nhoodsID) = rownames(select_nhood)
+  #nhoodsInfo = data.frame(cellID = rownames(select_nhood), nhoodsID = hoodsID)
+  return(list(da_results = da_results, counts = counts, nhoodsID = nhoodsID))
+}
