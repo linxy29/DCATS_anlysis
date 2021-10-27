@@ -48,7 +48,10 @@ theme_set(theme_classic()+
 
 ```{r}
 theme_set(theme_classic()+
-            theme(panel.grid = element_blank(),
+            theme(panel.border = element_blank(),
+          legend.key = element_blank(),
+          axis.ticks = element_blank(),
+          panel.grid = element_blank(),
           panel.grid.minor = element_blank(), 
           panel.grid.major = element_blank(),
           panel.background = element_blank(),
