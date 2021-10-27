@@ -165,7 +165,7 @@ library(SingleCellExperiment)
 ```
 
 ```{r}
-cluster_num = 12  # numbers of clusters
+cluster_num = 8  # numbers of clusters
 concentration = 100 # indicate how simulated proportion far away from true, the larger the closer
 setresolu = 0.7
 rep1 = 3
@@ -219,6 +219,7 @@ clusterDF = data.frame()  # data frame to store test result
 nhoodDF = data.frame()  # data frame to store test result
 time = matrix(NA, nrow = simulation_times, ncol = 8) # matrix contains time for each test need in each simulation and time need to calculate svm/rf matrix
 true_countL = vector(mode = "list", length = simulation_times) # list contains the count table of each true cluster
+nhood_countL = vector(mode = "list", length = simulation_times) # list contains the count table of each true cluster
 seurat_countL = vector(mode = "list", length = simulation_times) # list contains the count table of each cluster defined by seurat
 knn_matrixL = vector(mode = "list", length = simulation_times) # list contains the knn matrix getting from each simulation
 true_matrixL = vector(mode = "list", length = simulation_times) # list contains the true similarity matrix getting from each simulation
@@ -401,6 +402,7 @@ for (sim in 1:simulation_times){
       ## Test
       ### DCATS---betabinLRT
       sim_count = milo_res$counts %>% as.matrix() %>% t()
+      nhood_countL[[sim]] = sim_count
       sim_design = data.frame(condition = c(rep("g1", rep1), rep("g2", rep2)))
       betabin_null = dcats_GLM(sim_count, sim_design)
       ###  DCATS---betabinLRT with Bias correction from similarity matrix
@@ -447,7 +449,8 @@ head(nhoodDF, 15)
 ```{r}
 load(file_name)
 nhoodDF = nhoodDF %>% na.omit() %>% 
-  dplyr::rename(milo_pvals = SpatialFDR)
+  dplyr::rename(milo_pvals = SpatialFDR) %>% 
+  filter(ident_fraction > 0.8)  # get nhoods mainly contains one cell type -> 90%
 methods = colnames(nhoodDF)[colnames(nhoodDF) %>% str_detect("_pvals")] %>% str_remove("_pvals")
 numb_mthd = length(methods)
 mcc = rep(NA, numb_mthd)
@@ -492,8 +495,9 @@ print(res)
 load(file_name)
 nhoodDF_res = nhoodDF %>% 
   na.omit() %>% 
+  filter(ident_fraction > 0.8) %>% 
   mutate(milo_res = ifelse(SpatialFDR < 0.1, "P", "N"),
-         betabin_null_res = ifelse(betabin_null_pvals < 0.1, "P", "N"),
+         betabin_null_res = ifelse(betabin_null_pvals < 0.05, "P", "N"),
          estPhi_null_res = ifelse(estPhi_null_pvals < 0.05, "P", "N"),
          wtoPhi_emU_res = ifelse(wtoPhi_emU_pvals < 0.05, "P", "N"),
          estPhi_emU_res = ifelse(estPhi_emU_pvals < 0.05, "P", "N"),
@@ -507,5 +511,11 @@ nhoodDF_res = nhoodDF %>%
   pivot_wider(names_from = res, values_from = freq) %>% 
   mutate()
 nhoodDF_res
+```
+
+```{r}
+hist(sim_count[1,])
+summary(sim_count[1,])
+hist(sim_count)
 ```
 
