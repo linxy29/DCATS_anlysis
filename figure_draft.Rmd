@@ -48,7 +48,12 @@ theme_set(theme_classic()+
 
 ```{r}
 theme_set(theme_classic()+
-            theme(plot.background = element_rect(fill = "transparent",colour = NA)) + 
+            theme(panel.grid = element_blank(),
+          panel.grid.minor = element_blank(), 
+          panel.grid.major = element_blank(),
+          panel.background = element_blank(),
+          legend.background = element_blank(),
+          plot.background = element_rect(fill = "transparent",colour = NA)) + 
             theme(axis.text=element_text(size=12), axis.title=element_text(size=13))+
             theme(legend.title = element_text(size=13), #change legend title font size
                   legend.text = element_text(size=10)))
