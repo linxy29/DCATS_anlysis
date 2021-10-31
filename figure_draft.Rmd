@@ -158,8 +158,30 @@ evaluationDF %>%
     values_to = "value") %>% 
   mutate(condition = ifelse(condition == "null", "noBC", condition)) %>%
   ggplot(aes(x = condition, y = value, color = method)) + geom_boxplot() + facet_grid(.~statistics) +
+  ylab("Value") +
     theme(axis.title.x = element_blank())
 ggsave("./plot/supFig1A2.png", bg = "transparent")
+```
+
+```{r}
+evaluationDF %>% 
+  tidyr::separate(method, c("method", "condition"), sep = "_") %>% 
+  filter(condition != "test") %>% 
+  dplyr::select(-auc, -prauc) %>% 
+  filter(method %in% c("estPhi", "fisher")) %>% 
+  mutate(method = ifelse(method == "fisher", "Fisher", method),
+         method = ifelse(method == "estPhi", "DCATS", method)) %>% 
+  pivot_longer(
+    sensitivity:mcc,
+    names_to = "statistics", 
+    values_to = "value") %>% 
+  mutate(condition = ifelse(condition == "null", "noBC", condition)) %>%
+  ggplot(aes(x = condition, y = value, color = method)) + geom_boxplot() +
+  scale_color_manual(values=c("#F8766D", "#00B0F6")) +
+  facet_grid(.~statistics) +
+  ylab("Value") +
+    theme(axis.title.x = element_blank())
+ggsave("./plot/supFig1A.png", bg = "transparent")
 ```
 
 ```{r}
@@ -309,6 +331,24 @@ p2
 Try to use heatmap
 
 ```{r}
+sup1 = res_all %>% 
+  filter(method %in% c("speckle", "diffcyt", "fisher", "scDC", "estPhi_emK")) %>%
+  mutate(method = ifelse(method == "fisher", "Fisher", method)) %>% 
+  mutate(method = ifelse(method == "estPhi_emK", "DCTAS", method)) %>% 
+  mutate(method = factor(method, level = c("scDC", "Fisher", "speckle", "diffcyt", "DCTAS"))) %>% 
+  dplyr::select(method, mcc, sensitivity, specificity, replicates) %>% 
+  pivot_longer(mcc:specificity, names_to = "statistics", values_to = "value") %>% 
+  ggplot(aes(replicates, method)) +
+    geom_tile(aes(fill = value)) + 
+    geom_text(aes(label = round(value, 3))) +
+    scale_fill_gradient(low = "white", high = "red", limits = c(0.28,1)) +
+  xlab("# of Replicates") +
+  theme(legend.position = "none") +
+  facet_grid(.~statistics)
+sup1
+```
+
+```{r}
 pH1 = res_all %>% 
   filter(method %in% c("speckle", "diffcyt", "fisher", "scDC", "betabin_null", "estPhi_null", "wtoPhi_emK", "estPhi_emK")) %>%
   mutate(method = ifelse(method == "fisher", "Fisher", method)) %>% 
@@ -344,6 +384,7 @@ res_all %>%
 ## cluster number = 8
 filenames = list.files("D:/Data/DCATS/simulation", full.names = TRUE)
 filenames = filenames[grep("D:/Data/DCATS/simulation/replicates3&3", filenames)]
+filenames = filenames[-grep("withMilo", filenames)]
 filenames
 ```
 
@@ -452,6 +493,30 @@ p4 = res_all %>%
   facet_grid(.~statistics) + 
   theme(axis.title.y = element_blank())
 p4
+```
+
+```{r}
+sup2 = res_all %>% 
+  mutate(clustersN = ifelse(is.na(clustersN), "K8", clustersN),
+         clustersN = str_remove(clustersN, "K"),
+         clustersN = factor(clustersN, levels = c("8", "10", "12"))) %>% 
+  filter(method %in% c("speckle", "diffcyt", "fisher", "scDC", "estPhi_emK")) %>%
+  mutate(method = ifelse(method == "fisher", "Fisher", method)) %>% 
+  mutate(method = ifelse(method == "estPhi_emK", "DCTAS", method)) %>% 
+  mutate(method = factor(method, level = c("scDC", "Fisher", "speckle", "diffcyt", "DCTAS"))) %>% 
+  dplyr::select(method, mcc, sensitivity, specificity, clustersN) %>% 
+  pivot_longer(mcc:specificity, names_to = "statistics", values_to = "value") %>% 
+  ggplot(aes(clustersN, method)) +
+    geom_tile(aes(fill = value)) + 
+    geom_text(aes(label = round(value, 3))) +
+    scale_fill_gradient(low = "white", high = "red", limits = c(0,1)) +
+  xlab("# of Cell Types") +
+  theme(legend.position = "none",
+        axis.text.y = element_blank(),
+        axis.title.y = element_blank()) +
+  facet_grid(.~statistics)
+sup1 + sup2
+ggsave("./plot/supFig1B.png", bg = "transparent", width = 10, height = 6)
 ```
 
 ```{r}
