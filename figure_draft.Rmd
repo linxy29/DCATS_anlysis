@@ -341,9 +341,10 @@ sup1 = res_all %>%
   ggplot(aes(replicates, method)) +
     geom_tile(aes(fill = value)) + 
     geom_text(aes(label = round(value, 3))) +
-    scale_fill_gradient(low = "white", high = "red", limits = c(0.28,1)) +
+    scale_fill_gradient(low = "white", high = "red", limits = c(0,1)) +
   xlab("# of Replicates") +
-  theme(legend.position = "none") +
+  theme(legend.position = "none",
+        axis.title.y = element_blank()) +
   facet_grid(.~statistics)
 sup1
 ```
