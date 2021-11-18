@@ -168,8 +168,8 @@ library(SingleCellExperiment)
 cluster_num = 8  # numbers of clusters
 concentration = 100 # indicate how simulated proportion far away from true, the larger the closer
 setresolu = 0.7
-rep1 = 4
-rep2 = 4
+rep1 = 3
+rep2 = 3
 simulation_times = 30
 sample_size1 = 1500
 sample_size2 = 2500
@@ -203,8 +203,8 @@ options(future.globals.maxSize = 15000 * 1024^2)
 
 ```{r}
 if (cell_pool == "splatter"){
-  load(str_c("D:/#Data/DCATS/cells_pool", as.character(cluster_num), "_splatter.RData"))
-  #load(str_c("D:/Data/DCATS/cells_pool", as.character(cluster_num), "_splatter.RData"))
+  #load(str_c("D:/#Data/DCATS/cells_pool", as.character(cluster_num), "_splatter.RData"))
+  load(str_c("D:/Data/DCATS/cells_pool", as.character(cluster_num), "_splatter.RData"))
 } else if (cell_pool == "SPAR") {
     load(str_c("D:/Data/DCATS/cells_pool", as.character(cluster_num), "_SPARSim.RData"))
   
@@ -225,243 +225,441 @@ knn_matrixL = vector(mode = "list", length = simulation_times) # list contains t
 true_matrixL = vector(mode = "list", length = simulation_times) # list contains the true similarity matrix getting from each simulation
 rf_matrixL = vector(mode = "list", length = simulation_times) # list contains the knn matrix getting from each simulation
 svm_matrixL = vector(mode = "list", length = simulation_times) # list contains the true similarity matrix getting from each simulation
-
+startTime = Sys.time()
 set.seed(1)
+#for (sim in 1:3){
 for (sim in 1:simulation_times){
   print(sim)
   timeL = rep(NA, 8) # DCATS w/wto similarity matrix, fisher, speckle, diffcyt, scDC
   ## simulation
   #simulation = simulator_fastMNN(totals1 = runif(rep1, sample_size1, sample_size2), totals2 = runif(rep2, sample_size1, sample_size2), probC1, probC2, setresolu, sim_mat)
   simulation = simulator_noInt(totals1 = runif(rep1, sample_size1, sample_size2), totals2 = runif(rep2, sample_size1, sample_size2), probC1, probC2, setresolu, sim_mat)
-  if (is.na(simulation)[1] == FALSE){
-    true_countL[[sim]] = c(cond1 = simulation$numb_cond1, cond2 = simulation$numb_cond2)
-    
-    ## data convert
-    numb_cond1 = simulation$dfRes %>% 
-      filter(condition == "Cond1") %>%
-      group_by(clusterRes, batch) %>% 
-      summarise(n = n()) %>% 
-      pivot_wider(names_from = "clusterRes", values_from = "n") %>% 
-      column_to_rownames(var = "batch")
-    numb_cond2 = simulation$dfRes %>% 
-      filter(condition == "Cond2") %>%
-      group_by(clusterRes, batch) %>% 
-      summarise(n = n()) %>% 
-      pivot_wider(names_from = "clusterRes", values_from = "n") %>% 
-      column_to_rownames(var = "batch")
-    numb_cond1[is.na(numb_cond1)] <- 0
-    numb_cond2[is.na(numb_cond2)] <- 0
-    conf.mat <- table(simulation$trueLabels, Idents(simulation$integratedSamples))
-    true.conf <- conf.mat/rowSums(conf.mat)
-    
-    #print(numb_cond1)
-    #print(numb_cond2)
-    
-    library(clue)
-    order2 = as.vector(solve_LSAP(true.conf, maximum = TRUE))
-    L_sum1 = colSums(numb_cond1)
-    L_sum2 = colSums(numb_cond2)
-    decider = sum(L_sum1 > 10)+sum(L_sum2 > 10)
-    if (decider == cluster_num*2) {   # if one cluster has least than 10 cells in one condition, then won't continue
-      seurat_countL[[sim]] = list(cond1 = numb_cond1[,order2], cond2 = numb_cond2[,order2])
-      
-      ## Get matrices
-      ### KNN matrix
-      graphs = simulation$integratedSamples@graphs$RNA_snn
-      labels = Idents(simulation$integratedSamples)
-      knn_mat = knn_simMat(graphs, labels)
-      order1 = colnames(numb_cond1)
-      simil_matK = knn_mat[order1, order1]
-      knn_matrixL[[sim]] = simil_matK
-      ### True matrix
-      simil_matT = true.conf[,order2]
-      true_matrixL[[sim]] = simil_matT
-      ### Uniform matrix
-      simil_matU = create_simMat(cluster_num, confuse_rate=0.1)
-      ### svm&rf
-      mlDF = simulation$integratedSamples@reductions$pca@cell.embeddings %>% 
-        as.data.frame() %>% 
-        tibble::rownames_to_column("cellID") %>% 
-        merge(simulation$dfRes, by = "cellID") %>% 
-        dplyr::select(-cellID)
-      set.seed(123)
-      simil_matSVM = svm_simMat(mlDF)
-      svm_matrixL[[sim]] = simil_matSVM
-      print(simil_matSVM)
-      
-      ## Test
-      ### DCATS---betabinLRT
-      sim_count = rbind(numb_cond1, numb_cond2) %>% as.matrix()
-      sim_design = data.frame(condition = c(rep("g1", rep1), rep("g2", rep2)))
-      t1start = Sys.time()
-      betabin_null = dcats_GLM(sim_count, sim_design)
-      timeL[1] = Sys.time() - t1start
-      ###  DCATS---betabinLRT with Bias correction from similarity matrix
-      phi = getPhi(sim_count, sim_design)
-      estPhi_null = dcats_GLM(sim_count, sim_design, fix_phi = phi)
-      numb_cond1 = numb_cond1 %>% as.matrix()
-      numb_cond2 = numb_cond2 %>% as.matrix()
-      ## KNN
-      numb_cond1BC = numb_cond1
-      numb_cond2BC = numb_cond2
-      for (i in seq_len(nrow(numb_cond1))) {
-        numb_cond1BC[i, ] <- sum(numb_cond1[i, ]) * multinom_EM(numb_cond1[i, ], simil_matK, verbose = FALSE)$mu
-        numb_cond1BC[i, ] = ceiling(numb_cond1BC[i, ])}
-      for (i in seq_len(nrow(numb_cond2))) {
-        numb_cond2BC[i, ] <- sum(numb_cond2[i, ]) * multinom_EM(numb_cond2[i, ], simil_matK, verbose = FALSE)$mu
-        numb_cond2BC[i, ] = ceiling(numb_cond2BC[i, ])}
-      countBC_mat = rbind(numb_cond1BC, numb_cond2BC)
-      wtoPhi_emK = dcats_GLM(countBC_mat, sim_design)
-      estPhi_emK = dcats_GLM(countBC_mat, sim_design, fix_phi = phi)
-      ## Uniform
-      numb_cond1BC = numb_cond1
-      numb_cond2BC = numb_cond2
-      for (i in seq_len(nrow(numb_cond1))) {
-        numb_cond1BC[i, ] <- sum(numb_cond1[i, ]) * multinom_EM(numb_cond1[i, ], simil_matU, verbose = FALSE)$mu
-        numb_cond1BC[i, ] = ceiling(numb_cond1BC[i, ])}
-      for (i in seq_len(nrow(numb_cond2))) {
-        numb_cond2BC[i, ] <- sum(numb_cond2[i, ]) * multinom_EM(numb_cond2[i, ], simil_matU, verbose = FALSE)$mu
-        numb_cond2BC[i, ] = ceiling(numb_cond2BC[i, ])}
-      countBC_mat = rbind(numb_cond1BC, numb_cond2BC) %>% as.matrix()
-      wtoPhi_emU = dcats_GLM(countBC_mat, sim_design)
-      estPhi_emU = dcats_GLM(countBC_mat, sim_design, fix_phi = phi)
-      ## True
-      numb_cond1BC = numb_cond1
-      numb_cond2BC = numb_cond2
-      for (i in seq_len(nrow(numb_cond1))) {
-        numb_cond1BC[i, ] <- sum(numb_cond1[i, ]) * multinom_EM(numb_cond1[i, ], simil_matT, verbose = FALSE)$mu
-        numb_cond1BC[i, ] = ceiling(numb_cond1BC[i, ])}
-      for (i in seq_len(nrow(numb_cond2))) {
-        numb_cond2BC[i, ] <- sum(numb_cond2[i, ]) * multinom_EM(numb_cond2[i, ], simil_matT, verbose = FALSE)$mu
-        numb_cond2BC[i, ] = ceiling(numb_cond2BC[i, ])}
-      countBC_mat = rbind(numb_cond1BC, numb_cond2BC) %>% as.matrix()
-      wtoPhi_emT = dcats_GLM(countBC_mat, sim_design)
-      estPhi_emT = dcats_GLM(countBC_mat, sim_design, fix_phi = phi)
-      ## svm
-      numb_cond1BC = numb_cond1
-      numb_cond2BC = numb_cond2
-      for (i in seq_len(nrow(numb_cond1))) {
-        numb_cond1BC[i, ] <- sum(numb_cond1[i, ]) * multinom_EM(numb_cond1[i, ], simil_matSVM, verbose = FALSE)$mu
-        numb_cond1BC[i, ] = ceiling(numb_cond1BC[i, ])}
-      for (i in seq_len(nrow(numb_cond2))) {
-        numb_cond2BC[i, ] <- sum(numb_cond2[i, ]) * multinom_EM(numb_cond2[i, ], simil_matSVM, verbose = FALSE)$mu
-        numb_cond2BC[i, ] = ceiling(numb_cond2BC[i, ])}
-      countBC_mat = rbind(numb_cond1BC, numb_cond2BC) %>% as.matrix()
-      wtoPhi_emSVM = dcats_GLM(countBC_mat, sim_design)
-      estPhi_emSVM = dcats_GLM(countBC_mat, sim_design, fix_phi = phi)
-      
-      ## Fisher's exact test
-      t3start = Sys.time()
-      fisher_pvals = getFisher(as.matrix(numb_cond1), as.matrix(numb_cond2))
-      timeL[3] = Sys.time() - t3start
-      ## speckle
-      t4start = Sys.time()
-      speckleRes = propeller(clusters = simulation$dfRes$clusterRes, sample = simulation$dfRes$batch, group = simulation$dfRes$condition) %>% 
-        dplyr::rename(cluster = BaselineProp.clusters,
-                      speckle_pvals = FDR) %>%
-        dplyr::select(cluster, speckle_pvals)
-      timeL[4] = Sys.time() - t4start
-      ## diffcyt
-      t5start = Sys.time()
-      diffcytP = getDiffcyt(numb_cond1, numb_cond2, simulation$dfRes)
-      timeL[5] = Sys.time() - t5start
-      ## scDC
-      t6start = Sys.time()
-      res_scDC <- scDC_noClustering(cellTypes = simulation$dfRes$clusterRes, simulation$dfRes$batch, calCI = TRUE, calCI_method = c("percentile", "BCa", "multinom"),nboot = 1000, verbose = FALSE)
-      res_GLM <- fitGLM(res_scDC, c(rep("cond1",rep1*cluster_num),rep("cond2",rep2*cluster_num)), pairwise = FALSE, fixed_only = TRUE, verbose = FALSE)
-      timeL[6] = Sys.time() - t6start
-      scDCRes_temp = summary(res_GLM$pool_res_fixed)
-      scDCRes = scDCRes_temp[c(cluster_num+1,(dim(scDCRes_temp)[1]-cluster_num+2):dim(scDCRes_temp)[1]),]
-      ## milo
-      milo_res = getMilo(simulation$integratedSamples)
-      miloDF_temp = milo_res$da_results %>% 
-        filter(ident_fraction > 0.8) %>%
-        mutate(direct = ifelse( logFC > 0  & SpatialFDR < 0.1, "milo_more", "neutral"),
-               direct = ifelse( logFC < 0  & SpatialFDR < 0.1, "milo_less", direct)) %>% 
-        group_by(ident, direct) %>% 
-        summarise(n = n()) %>% 
-        pivot_wider(names_from = direct, values_from = n) %>% 
-        replace(is.na(.), 0) %>% 
-        dplyr::rename(cluster = ident)
-      if ("milo_less" %!in% colnames(miloDF_temp)) {miloDF_temp$milo_less = rep(0, nrow(miloDF_temp))}
-      if ("milo_more" %!in% colnames(miloDF_temp)) {miloDF_temp$milo_more = rep(0, nrow(miloDF_temp))}
-      miloDF = miloDF_temp %>% 
-        dplyr::select(cluster, milo_less, neutral, milo_more)
-      ## results
-      cluster_map = data.frame(cluster = colnames(numb_cond1[,order2]), truth = truthRes) %>% 
-        arrange(cluster)
-      all_res = cluster_map %>% 
-        mutate(betabin_null_pvals = as.vector(betabin_null$LRT_pvals),
-               estPhi_null_pvals = as.vector(estPhi_null$LRT_pvals),
-               wtoPhi_emSVM_pvals = as.vector(wtoPhi_emSVM$LRT_pvals),
-               estPhi_emSVM_pvals = as.vector(estPhi_emSVM$LRT_pvals),
-               wtoPhi_emT_pvals = as.vector(wtoPhi_emT$LRT_pvals),
-               estPhi_emT_pvals = as.vector(estPhi_emT$LRT_pvals),
-               wtoPhi_emU_pvals = as.vector(wtoPhi_emU$LRT_pvals),
-               estPhi_emU_pvals = as.vector(estPhi_emU$LRT_pvals),
-               wtoPhi_emK_pvals = as.vector(wtoPhi_emK$LRT_pvals),
-               estPhi_emK_pvals = as.vector(estPhi_emK$LRT_pvals),
-               fisher_pvals = fisher_pvals,
-               scDC_pvals = scDCRes$p.value) %>%
-        merge(speckleRes, by = "cluster") %>% 
-        merge(diffcytP, by = "cluster") %>% 
-        left_join(miloDF, by = "cluster") %>% 
-        replace(is.na(.), 0)
-      clusterDF = rbind(clusterDF, all_res)
-
-      ## subset data
-      posCluster = all_res %>% filter(truth == "P") %>% .$cluster
-      subsetSamples = subset(simulation$integratedSamples, cells = names(milo_res$nhoodsID))
-      subsetSamples = AddMetaData(object = subsetSamples, metadata = milo_res$nhoodsID[Cells(subsetSamples)], col.name = 'nhoods')
-      ### Uniform matrix
-      simil_matU = create_simMat(nrow(milo_res$da_results), confuse_rate=0.15)
-      ## Test
-      ### DCATS---betabinLRT
-      sim_count = milo_res$counts %>% as.matrix() %>% t()
-      nhood_countL[[sim]] = sim_count
-      sim_design = data.frame(condition = c(rep("g1", rep1), rep("g2", rep2)))
-      betabin_null = dcats_GLM(sim_count, sim_design)
-      ###  DCATS---betabinLRT with Bias correction from similarity matrix
-      phi = getPhi(sim_count[,sample(1:ncol(sim_count), 20)], sim_design)
-      estPhi_null = dcats_GLM(sim_count, sim_design, fix_phi = phi)
-      wtoPhi_emU = dcats_GLM(sim_count, sim_design, similarity_mat = simil_matU)
-      estPhi_emU = dcats_GLM(sim_count, sim_design, similarity_mat = simil_matU, fix_phi = phi)
-      ## Fisher's exact test
-      fisher_pvals = getFisher(sim_count[1:rep1,], sim_count[(rep1+1):(rep1+rep2),])
-      ## speckle
-      speckleRes = propeller(clusters = subsetSamples$nhoods, sample = subsetSamples$batch, group = subsetSamples$condition) %>% 
-        dplyr::rename(Nhood = BaselineProp.clusters,
-                      speckle_pvals = FDR) %>%
-        dplyr::select(Nhood, speckle_pvals)
-      
-      all_res2 = milo_res$da_results %>% 
-        mutate(truth = ifelse(ident %in% posCluster, "P", "N"),
-               betabin_null_pvals = as.vector(betabin_null$LRT_pvals),
-               estPhi_null_pvals = as.vector(estPhi_null$LRT_pvals),
-               wtoPhi_emU_pvals = as.vector(wtoPhi_emU$LRT_pvals),
-               estPhi_emU_pvals = as.vector(estPhi_emU$LRT_pvals),
-               fisher_pvals = fisher_pvals,
-               Nhood = str_c("hoods", Nhood)) %>%
-        merge(speckleRes, by = "Nhood")
-        nhoodDF = rbind(nhoodDF, all_res2)
-    }
+  if (is.na(simulation)[1] == TRUE){
+    next
   }
-}
+  true_countL[[sim]] = c(cond1 = simulation$numb_cond1, cond2 = simulation$numb_cond2)
+  ## data convert
+  numb_cond1 = simulation$dfRes %>% 
+    filter(condition == "Cond1") %>%
+    group_by(clusterRes, batch) %>% 
+    summarise(n = n()) %>% 
+    pivot_wider(names_from = "clusterRes", values_from = "n") %>% 
+    column_to_rownames(var = "batch")
+  numb_cond2 = simulation$dfRes %>% 
+    filter(condition == "Cond2") %>%
+    group_by(clusterRes, batch) %>% 
+    summarise(n = n()) %>% 
+    pivot_wider(names_from = "clusterRes", values_from = "n") %>% 
+    column_to_rownames(var = "batch")
+  numb_cond1[is.na(numb_cond1)] <- 0
+  numb_cond2[is.na(numb_cond2)] <- 0
+  conf.mat <- table(simulation$trueLabels, Idents(simulation$integratedSamples))
+  true.conf <- conf.mat/rowSums(conf.mat)
+    
+  library(clue)
+  order2 = as.vector(solve_LSAP(true.conf, maximum = TRUE))
+  L_sum1 = colSums(numb_cond1)
+  L_sum2 = colSums(numb_cond2)
+  decider = sum(L_sum1 > 10)+sum(L_sum2 > 10)
+  
+  if (decider != cluster_num*2){
+    next
+  } # if one cluster has least than 10 cells in one condition, then won't continue
+  
+  seurat_countL[[sim]] = list(cond1 = numb_cond1[,order2], cond2 = numb_cond2[,order2])
+  ## Get matrices
+  ### KNN matrix
+  graphs = simulation$integratedSamples@graphs$RNA_snn
+  labels = Idents(simulation$integratedSamples)
+  knn_mat = knn_simMat(graphs, labels)
+  order1 = colnames(numb_cond1)
+  simil_matK = knn_mat[order1, order1]
+  knn_matrixL[[sim]] = simil_matK
+  ### True matrix
+  simil_matT = true.conf[,order2]
+  true_matrixL[[sim]] = simil_matT
+  ### Uniform matrix
+  simil_matU = create_simMat(cluster_num, confuse_rate=0.1)
+  ### svm&rf
+  mlDF = simulation$integratedSamples@reductions$pca@cell.embeddings %>% 
+    as.data.frame() %>% 
+    tibble::rownames_to_column("cellID") %>% 
+    merge(simulation$dfRes, by = "cellID") %>% 
+    dplyr::select(-cellID)
+  set.seed(123)
+  simil_matSVM = svm_simMat(mlDF)
+  svm_matrixL[[sim]] = simil_matSVM
+  print(simil_matSVM)
+      
+  ## Test
+  ### DCATS---betabinLRT
+  sim_count = rbind(numb_cond1, numb_cond2) %>% as.matrix()
+  sim_design = data.frame(condition = c(rep("g1", rep1), rep("g2", rep2)))
+  t1start = Sys.time()
+  betabin_null = dcats_GLM(sim_count, sim_design)
+  timeL[1] = Sys.time() - t1start
+  ###  DCATS---betabinLRT with Bias correction from similarity matrix
+  phi = getPhi(sim_count, sim_design)
+  estPhi_null = dcats_GLM(sim_count, sim_design, fix_phi = phi)
+  ## KNN
+  wtoPhi_emK = dcats_GLM(sim_count, sim_design, simil_matK)
+  estPhi_emK = dcats_GLM(sim_count, sim_design, simil_matK, fix_phi = phi)
+  ## Uniform
+  wtoPhi_emU = dcats_GLM(sim_count, sim_design, simil_matU)
+  estPhi_emU = dcats_GLM(sim_count, sim_design, simil_matU, fix_phi = phi)
+  ## True
+  wtoPhi_emT = dcats_GLM(sim_count, sim_design, simil_matU)
+  estPhi_emT = dcats_GLM(sim_count, sim_design, simil_matU, fix_phi = phi)
+  ## svm
+  wtoPhi_emSVM = dcats_GLM(sim_count, sim_design, simil_matSVM)
+  estPhi_emSVM = dcats_GLM(sim_count, sim_design, simil_matSVM, fix_phi = phi)
+      
+  ## Fisher's exact test
+  t3start = Sys.time()
+  fisher_pvals = getFisher(as.matrix(numb_cond1), as.matrix(numb_cond2))
+  timeL[3] = Sys.time() - t3start
+  ## speckle
+  t4start = Sys.time()
+  speckleRes = propeller(clusters = simulation$dfRes$clusterRes, sample = simulation$dfRes$batch, group = simulation$dfRes$condition) %>% 
+    dplyr::rename(cluster = BaselineProp.clusters, speckle_pvals = FDR) %>%
+    dplyr::select(cluster, speckle_pvals)
+  timeL[4] = Sys.time() - t4start
+  ## diffcyt
+  t5start = Sys.time()
+  diffcytP = getDiffcyt(numb_cond1, numb_cond2, simulation$dfRes)
+  timeL[5] = Sys.time() - t5start
+  ## scDC
+  t6start = Sys.time()
+  res_scDC <- scDC_noClustering(cellTypes = simulation$dfRes$clusterRes, simulation$dfRes$batch, calCI = TRUE, calCI_method = c("percentile", "BCa", "multinom"),nboot = 1000, verbose = FALSE)
+  res_GLM <- fitGLM(res_scDC, c(rep("cond1",rep1*cluster_num),rep("cond2",rep2*cluster_num)), pairwise = FALSE, fixed_only = TRUE, verbose = FALSE)
+  timeL[6] = Sys.time() - t6start
+  scDCRes_temp = summary(res_GLM$pool_res_fixed)
+  scDCRes = scDCRes_temp[c(cluster_num+1,(dim(scDCRes_temp)[1]-cluster_num+2):dim(scDCRes_temp)[1]),]
+  ## milo
+  milo_res = getMilo(simulation$integratedSamples)
+  miloDF_temp = milo_res$da_results %>% 
+    filter(ident_fraction > 0.8) %>%
+    mutate(direct = ifelse( logFC > 0  & SpatialFDR < 0.1, "milo_more", "neutral"),
+           direct = ifelse( logFC < 0  & SpatialFDR < 0.1, "milo_less", direct)) %>% 
+    group_by(ident, direct) %>% 
+    summarise(n = n()) %>% 
+    pivot_wider(names_from = direct, values_from = n) %>% 
+    replace(is.na(.), 0) %>% 
+    dplyr::rename(cluster = ident)
+  if ("milo_less" %!in% colnames(miloDF_temp)) {miloDF_temp$milo_less = rep(0, nrow(miloDF_temp))}
+  if ("milo_more" %!in% colnames(miloDF_temp)) {miloDF_temp$milo_more = rep(0, nrow(miloDF_temp))}
+  miloDF = miloDF_temp %>% 
+    dplyr::select(cluster, milo_less, neutral, milo_more)
+  ## results
+  cluster_map = data.frame(cluster = colnames(numb_cond1[,order2]), truth = truthRes) %>% 
+    arrange(cluster)
+  all_res = cluster_map %>% 
+    mutate(betabin_null_pvals = as.vector(betabin_null$LRT_pvals),
+           estPhi_null_pvals = as.vector(estPhi_null$LRT_pvals),
+           wtoPhi_emSVM_pvals = as.vector(wtoPhi_emSVM$LRT_pvals),
+           estPhi_emSVM_pvals = as.vector(estPhi_emSVM$LRT_pvals),
+           wtoPhi_emT_pvals = as.vector(wtoPhi_emT$LRT_pvals),
+           estPhi_emT_pvals = as.vector(estPhi_emT$LRT_pvals),
+           wtoPhi_emU_pvals = as.vector(wtoPhi_emU$LRT_pvals),
+           estPhi_emU_pvals = as.vector(estPhi_emU$LRT_pvals),
+           wtoPhi_emK_pvals = as.vector(wtoPhi_emK$LRT_pvals),
+           estPhi_emK_pvals = as.vector(estPhi_emK$LRT_pvals),
+           fisher_pvals = fisher_pvals,
+           scDC_pvals = scDCRes$p.value) %>%
+    merge(speckleRes, by = "cluster") %>% 
+    merge(diffcytP, by = "cluster") %>% 
+    left_join(miloDF, by = "cluster") %>% 
+    replace(is.na(.), 0)
+  clusterDF = rbind(clusterDF, all_res)
 
+  ## subset data
+  posCluster = all_res %>% filter(truth == "P") %>% .$cluster
+  subsetSamples = subset(simulation$integratedSamples, cells = names(milo_res$nhoodsID))
+  subsetSamples = AddMetaData(object = subsetSamples, metadata = milo_res$nhoodsID[Cells(subsetSamples)], col.name = 'nhoods')
+  ### Uniform matrix
+  simil_matU = create_simMat(nrow(milo_res$da_results), confuse_rate=0.15)
+  ## Test
+  ### DCATS---betabinLRT
+  sim_count = milo_res$counts %>% as.matrix() %>% t()
+  nhood_countL[[sim]] = sim_count
+  sim_design = data.frame(condition = c(rep("g1", rep1), rep("g2", rep2)))
+  betabin_null = dcats_GLM(sim_count, sim_design)
+  ###  DCATS---betabinLRT with Bias correction from similarity matrix
+  phi = getPhi(sim_count[,sample(1:ncol(sim_count), 20)], sim_design)
+  estPhi_null = dcats_GLM(sim_count, sim_design, fix_phi = phi)
+  wtoPhi_emU = dcats_GLM(sim_count, sim_design, similarity_mat = simil_matU)
+  estPhi_emU = dcats_GLM(sim_count, sim_design, similarity_mat = simil_matU, fix_phi = phi)
+  ## Fisher's exact test
+  fisher_pvals = getFisher(sim_count[1:rep1,], sim_count[(rep1+1):(rep1+rep2),])
+  ## speckle
+  speckleRes = propeller(clusters = subsetSamples$nhoods, sample = subsetSamples$batch, group = subsetSamples$condition) %>%
+    dplyr::rename(Nhood = BaselineProp.clusters, speckle_pvals = FDR) %>%
+    dplyr::select(Nhood, speckle_pvals)
+  
+  all_res2 = milo_res$da_results %>% 
+    mutate(truth = ifelse(ident %in% posCluster, "P", "N"),
+           betabin_null_pvals = as.vector(betabin_null$LRT_pvals),
+           estPhi_null_pvals = as.vector(estPhi_null$LRT_pvals),
+           wtoPhi_emU_pvals = as.vector(wtoPhi_emU$LRT_pvals),
+           estPhi_emU_pvals = as.vector(estPhi_emU$LRT_pvals),
+           fisher_pvals = fisher_pvals,
+           Nhood = str_c("hoods", Nhood)) %>%
+    merge(speckleRes, by = "Nhood")
+  nhoodDF = rbind(nhoodDF, all_res2)
+}
+fortime = Sys.time() - startTime
 ## send email after finishing
 #sendEmail('Simulation is done!!')
 ```
 
 ```{r}
-file_name = str_c("D:/#Data/DCATS/simulation/replicates", as.character(rep1), "&", as.character(rep2), "_K", as.character(cluster_num), "_con", as.character(concentration), "_", cell_pool, more_negative, sample_size1, "&", sample_size2, "withMilo.RData")
+library(foreach)
+library(doParallel)
+
+# Create class which holds multiple results for each loop iteration.
+# Each loop iteration populates nine properties: $clusterDF and $nhoodDF......
+# For a great tutorial on S3 classes, see: 
+# http://www.cyclismo.org/tutorial/R/s3Classes.html#creating-an-s3-class
+multiResultClass <- function(clusterDF=NULL,nhoodDF=NULL,time=NULL,true_count=NULL,nhood_count=NULL,seurat_count=NULL,knn_matrix=NULL,true_matrix=NULL,svm_matrix=NULL)
+{
+  me <- list(
+    clusterDF=clusterDF,
+    nhoodDF=nhoodDF,
+    time=time,
+    true_count=true_count,
+    nhood_count=nhood_count,
+    seurat_count=seurat_count,
+    knn_matrix=knn_matrix,
+    true_matrix=true_matrix,
+    svm_matrix=svm_matrix
+  )
+
+  ## Set the name for the class
+  class(me) <- append(class(me),"multiResultClass")
+  return(me)
+}
+
+unregister_dopar <- function() {
+  env <- foreach:::.foreachGlobals
+  rm(list=ls(name=env), pos=env)
+}
+
+#oper <- foreach(i=1:10) %dopar% {
+#   result <- multiResultClass()
+#   result$result1 <- i+1
+#   result$result2 <- i+2
+#   return(result)
+#}
+#oper1 <- oper[[1]]$result1
+#oper2 <- oper[[1]]$result2
+```
+
+
+```{r}
+#setup parallel backend to use many processors
+cores=detectCores()
+cl <- makeCluster(8) #not to overload your computer
+registerDoParallel(cl)
+startTime = Sys.time()
+set.seed(1)
+oper <- foreach(sim = 1:simulation_times, .packages=c("tidyverse", "Seurat", "DCATS", "speckle", "diffcyt", "scdney", "tidymodels", "miloR", "SingleCellExperiment"), .verbose = TRUE) %dopar% {
+  print(sim)
+  result <- multiResultClass()  # where to save output
+  timeL = rep(NA, 8) # DCATS w/wto similarity matrix, fisher, speckle, diffcyt, scDC
+  ## simulation
+  simulation = simulator_noInt(totals1 = runif(rep1, sample_size1, sample_size2), totals2 = runif(rep2, sample_size1, sample_size2), probC1, probC2, setresolu, sim_mat)
+  if (is.na(simulation)[1] == TRUE){
+    return(NA)
+  }
+  result$true_count = c(cond1 = simulation$numb_cond1, cond2 = simulation$numb_cond2)
+  ## data convert
+  numb_cond1 = simulation$dfRes %>% 
+    filter(condition == "Cond1") %>%
+    group_by(clusterRes, batch) %>% 
+    summarise(n = n()) %>% 
+    pivot_wider(names_from = "clusterRes", values_from = "n") %>% 
+    column_to_rownames(var = "batch")
+  numb_cond2 = simulation$dfRes %>% 
+    filter(condition == "Cond2") %>%
+    group_by(clusterRes, batch) %>% 
+    summarise(n = n()) %>% 
+    pivot_wider(names_from = "clusterRes", values_from = "n") %>% 
+    column_to_rownames(var = "batch")
+  numb_cond1[is.na(numb_cond1)] <- 0
+  numb_cond2[is.na(numb_cond2)] <- 0
+  conf.mat <- table(simulation$trueLabels, Idents(simulation$integratedSamples))
+  true.conf <- conf.mat/rowSums(conf.mat)
+  library(clue)
+  order2 = as.vector(solve_LSAP(true.conf, maximum = TRUE))
+  L_sum1 = colSums(numb_cond1)
+  L_sum2 = colSums(numb_cond2)
+  decider = sum(L_sum1 > 10)+sum(L_sum2 > 10)
+  if (decider != cluster_num*2){
+    return(NA)
+  } # if one cluster has least than 10 cells in one condition, then won't continue
+  result$seurat_count = list(cond1 = numb_cond1[,order2], cond2 = numb_cond2[,order2])
+  ## Get matrices
+  ### KNN matrix
+  graphs = simulation$integratedSamples@graphs$RNA_snn
+  labels = Idents(simulation$integratedSamples)
+  knn_mat = knn_simMat(graphs, labels)
+  order1 = colnames(numb_cond1)
+  simil_matK = knn_mat[order1, order1]
+  result$knn_matrix = simil_matK
+  ### True matrix
+  simil_matT = true.conf[,order2]
+  result$true_matrix = simil_matT
+  ### Uniform matrix
+  simil_matU = create_simMat(cluster_num, confuse_rate=0.1)
+  ### svm&rf
+  mlDF = simulation$integratedSamples@reductions$pca@cell.embeddings %>% 
+    as.data.frame() %>% 
+    tibble::rownames_to_column("cellID") %>% 
+    merge(simulation$dfRes, by = "cellID") %>% 
+    dplyr::select(-cellID)
+  set.seed(123)
+  simil_matSVM = svm_simMat(mlDF)
+  result$svm_matrix = simil_matSVM
+      
+  ## Test
+  ### DCATS---betabinLRT
+  sim_count = rbind(numb_cond1, numb_cond2) %>% as.matrix()
+  sim_design = data.frame(condition = c(rep("g1", rep1), rep("g2", rep2)))
+  t1start = Sys.time()
+  betabin_null = dcats_GLM(sim_count, sim_design)
+  timeL[1] = Sys.time() - t1start
+  ###  DCATS---betabinLRT with Bias correction from similarity matrix
+  phi = getPhi(sim_count, sim_design)
+  t2start = Sys.time()
+  estPhi_null = dcats_GLM(sim_count, sim_design, fix_phi = phi)
+  timeL[2] = Sys.time() - t2start
+  ## KNN
+  wtoPhi_emK = dcats_GLM(sim_count, sim_design, simil_matK)
+  t3start = Sys.time()
+  estPhi_emK = dcats_GLM(sim_count, sim_design, simil_matK, fix_phi = phi)
+  timeL[3] = Sys.time() - t3start
+  ## Uniform
+  wtoPhi_emU = dcats_GLM(sim_count, sim_design, simil_matU)
+  estPhi_emU = dcats_GLM(sim_count, sim_design, simil_matU, fix_phi = phi)
+  ## True
+  wtoPhi_emT = dcats_GLM(sim_count, sim_design, simil_matU)
+  estPhi_emT = dcats_GLM(sim_count, sim_design, simil_matU, fix_phi = phi)
+  ## svm
+  wtoPhi_emSVM = dcats_GLM(sim_count, sim_design, simil_matSVM)
+  estPhi_emSVM = dcats_GLM(sim_count, sim_design, simil_matSVM, fix_phi = phi)
+      
+  ## Fisher's exact test
+  t4start = Sys.time()
+  fisher_pvals = getFisher(as.matrix(numb_cond1), as.matrix(numb_cond2))
+  timeL[4] = Sys.time() - t4start
+  ## speckle
+  t5start = Sys.time()
+  speckleRes = propeller(clusters = simulation$dfRes$clusterRes, sample = simulation$dfRes$batch, group = simulation$dfRes$condition) %>% 
+    dplyr::rename(cluster = BaselineProp.clusters, speckle_pvals = FDR) %>%
+    dplyr::select(cluster, speckle_pvals)
+  timeL[5] = Sys.time() - t5start
+  ## diffcyt
+  t6start = Sys.time()
+  diffcytP = getDiffcyt(numb_cond1, numb_cond2, simulation$dfRes)
+  timeL[6] = Sys.time() - t6start
+  ## scDC
+  t7start = Sys.time()
+  res_scDC <- scDC_noClustering(cellTypes = simulation$dfRes$clusterRes, simulation$dfRes$batch, calCI = TRUE, calCI_method = c("percentile", "BCa", "multinom"),nboot = 1000, verbose = FALSE)
+  res_GLM <- fitGLM(res_scDC, c(rep("cond1",rep1*cluster_num),rep("cond2",rep2*cluster_num)), pairwise = FALSE, fixed_only = TRUE, verbose = FALSE)
+  timeL[7] = Sys.time() - t7start
+  scDCRes_temp = summary(res_GLM$pool_res_fixed)
+  scDCRes = scDCRes_temp[c(cluster_num+1,(dim(scDCRes_temp)[1]-cluster_num+2):dim(scDCRes_temp)[1]),]
+  ## milo
+  t8start = Sys.time()
+  milo_res = getMilo(simulation$integratedSamples)
+  timeL[8] = Sys.time() - t8start
+  miloDF_temp = milo_res$da_results %>% 
+    filter(ident_fraction > 0.8) %>%
+    mutate(direct = ifelse( logFC > 0  & SpatialFDR < 0.1, "milo_more", "neutral"),
+           direct = ifelse( logFC < 0  & SpatialFDR < 0.1, "milo_less", direct)) %>% 
+    group_by(ident, direct) %>% 
+    summarise(n = n()) %>% 
+    pivot_wider(names_from = direct, values_from = n) %>% 
+    replace(is.na(.), 0) %>% 
+    dplyr::rename(cluster = ident)
+  if ("milo_less" %!in% colnames(miloDF_temp)) {miloDF_temp$milo_less = rep(0, nrow(miloDF_temp))}
+  if ("milo_more" %!in% colnames(miloDF_temp)) {miloDF_temp$milo_more = rep(0, nrow(miloDF_temp))}
+  miloDF = miloDF_temp %>% 
+    dplyr::select(cluster, milo_less, neutral, milo_more)
+  ## results
+  cluster_map = data.frame(cluster = colnames(numb_cond1[,order2]), truth = truthRes) %>% 
+    arrange(cluster)
+  clusterDF = cluster_map %>% 
+    mutate(betabin_null_pvals = as.vector(betabin_null$LRT_pvals),
+           estPhi_null_pvals = as.vector(estPhi_null$LRT_pvals),
+           wtoPhi_emSVM_pvals = as.vector(wtoPhi_emSVM$LRT_pvals),
+           estPhi_emSVM_pvals = as.vector(estPhi_emSVM$LRT_pvals),
+           wtoPhi_emT_pvals = as.vector(wtoPhi_emT$LRT_pvals),
+           estPhi_emT_pvals = as.vector(estPhi_emT$LRT_pvals),
+           wtoPhi_emU_pvals = as.vector(wtoPhi_emU$LRT_pvals),
+           estPhi_emU_pvals = as.vector(estPhi_emU$LRT_pvals),
+           wtoPhi_emK_pvals = as.vector(wtoPhi_emK$LRT_pvals),
+           estPhi_emK_pvals = as.vector(estPhi_emK$LRT_pvals),
+           fisher_pvals = fisher_pvals,
+           scDC_pvals = scDCRes$p.value) %>%
+    merge(speckleRes, by = "cluster") %>% 
+    merge(diffcytP, by = "cluster") %>% 
+    left_join(miloDF, by = "cluster") %>% 
+    replace(is.na(.), 0)
+  result$clusterDF = clusterDF
+
+  ## subset data
+  posCluster = clusterDF %>% filter(truth == "P") %>% .$cluster
+  subsetSamples = subset(simulation$integratedSamples, cells = names(milo_res$nhoodsID))
+  subsetSamples = AddMetaData(object = subsetSamples, metadata = milo_res$nhoodsID[Cells(subsetSamples)], col.name = 'nhoods')
+  ### Uniform matrix
+  simil_matU = create_simMat(nrow(milo_res$da_results), confuse_rate=0.15)
+  ## Test
+  ### DCATS---betabinLRT
+  sim_count = milo_res$counts %>% as.matrix() %>% t()
+  result$nhood_count = sim_count
+  sim_design = data.frame(condition = c(rep("g1", rep1), rep("g2", rep2)))
+  betabin_null = dcats_GLM(sim_count, sim_design)
+  ###  DCATS---betabinLRT with Bias correction from similarity matrix
+  phi = getPhi(sim_count[,sample(1:ncol(sim_count), 20)], sim_design)
+  estPhi_null = dcats_GLM(sim_count, sim_design, fix_phi = phi)
+  wtoPhi_emU = dcats_GLM(sim_count, sim_design, similarity_mat = simil_matU)
+  estPhi_emU = dcats_GLM(sim_count, sim_design, similarity_mat = simil_matU, fix_phi = phi)
+  ## Fisher's exact test
+  fisher_pvals = getFisher(sim_count[1:rep1,], sim_count[(rep1+1):(rep1+rep2),])
+  ## speckle
+  speckleRes = propeller(clusters = subsetSamples$nhoods, sample = subsetSamples$batch, group = subsetSamples$condition) %>%
+    dplyr::rename(Nhood = BaselineProp.clusters, speckle_pvals = FDR) %>%
+    dplyr::select(Nhood, speckle_pvals)
+  
+  nhoodDF = milo_res$da_results %>% 
+    mutate(truth = ifelse(ident %in% posCluster, "P", "N"),
+           betabin_null_pvals = as.vector(betabin_null$LRT_pvals),
+           estPhi_null_pvals = as.vector(estPhi_null$LRT_pvals),
+           wtoPhi_emU_pvals = as.vector(wtoPhi_emU$LRT_pvals),
+           estPhi_emU_pvals = as.vector(estPhi_emU$LRT_pvals),
+           fisher_pvals = fisher_pvals,
+           Nhood = str_c("hoods", Nhood)) %>%
+    merge(speckleRes, by = "Nhood")
+  result$nhoodDF = nhoodDF
+  result$time = timeL
+  return(result)
+}
+stopCluster(cl) 
+foreachtime = Sys.time() - startTime
+```
+
+```{r}
+file_name = str_c("D:/Data/DCATS/simulation/replicates", as.character(rep1), "&", as.character(rep2), "_K", as.character(cluster_num), "_con", as.character(concentration), "_", cell_pool, more_negative, sample_size1, "&", sample_size2, "withMilo.RData")
 colnames(time) = c("DCATS_wtoM", "DCATS_wM", "fisher", "speckle", "diffcyt", "scDC", "rfM", "svmM")
 save(clusterDF, nhoodDF, time, true_countL, seurat_countL, knn_matrixL, true_matrixL, file = file_name)
 head(nhoodDF, 15)
 ```
 
-With milo
+cluster level
 
 ```{r}
+file_name = str_c("D:/Data/DCATS/simulation/replicates", as.character(rep1), "&", as.character(rep2), "_K", as.character(cluster_num), "_con", as.character(concentration), "_", cell_pool, more_negative, sample_size1, "&", sample_size2, "withMilo.RData")
 load(file_name)
 methods = colnames(clusterDF)[colnames(clusterDF) %>% str_detect("_pvals")] %>% str_remove("_pvals")
 methods = c(methods, "milo")
@@ -474,12 +672,17 @@ specificity = rep(NA, numb_mthd)
 precision = rep(NA, numb_mthd)
 F1 = rep(NA, numb_mthd)
 truth = clusterDF$truth
-for (i in 3:dim(clusterDF)[2]){
+clusterDF = clusterDF %>% 
+  mutate(milo_main = ifelse(milo_less > milo_more, milo_less, milo_more),
+         milo_pct = milo_main/(milo_less + neutral + milo_more),
+         milo_diff = abs(milo_less - milo_more)) %>% 
+  dplyr::select(-milo_less, -milo_more, - neutral, -milo_main)
+for (i in 3:(dim(clusterDF)[2]-1)){
   pred = clusterDF[,i]
-  if (colnames(clusterDF)[i] == "milo_diff") {
-    pred_res = ifelse(pred > 0, "P", "N")
-    auc[i-2] = NA
-    prauc[i-2] = NA}
+  if (colnames(clusterDF)[i] == "milo_pct") {
+    pred_res = ifelse(clusterDF$milo_diff > 0, "P", "N")
+    auc[i-2] = getROC(clusterDF$truth, 1-pred)$auc
+    prauc[i-2] = getPRC(clusterDF$truth, 1-pred)$prauc}
   else {
     pred_res = ifelse(pred < 0.1, "P", "N")
     auc[i-2] = getROC(clusterDF$truth, pred)$auc
@@ -500,12 +703,15 @@ for (i in 3:dim(clusterDF)[2]){
   F1[i-2] = 2*TP/(2*TP+FP+FN)
 }
 res = data.frame(methods = methods, mcc = mcc, auc = auc, prauc = prauc, sensitivity = sensitivity, specificity = specificity, precision = precision, F1 = F1) %>% 
-  arrange(desc(F1)) %>% 
+  arrange(desc(auc)) %>% 
   #filter(methods == "wtoPhi_fullK" | methods == "diffcyt" | methods == "speckle" | methods == "fisher" | methods == "scDC")
 print(res)
 ```
 
-Without adding milo
+
+
+
+nhoods level
 
 ```{r}
 load(file_name)
