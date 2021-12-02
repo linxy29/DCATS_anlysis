@@ -517,7 +517,7 @@ get_similarity_matRW = function(K, confuse_rate, method = "uniform", df){
 getROC = function(truth, pred){
   ## sensitivity and specificity
   library(ggplot2)
-  thresholds = c(0, pred)
+  thresholds = unique(c(0, pred))
   sensitivity = rep(NA, length(thresholds))
   specificity = rep(NA, length(thresholds))
   TP = rep(NA, length(thresholds))
@@ -525,7 +525,7 @@ getROC = function(truth, pred){
   FP = rep(NA, length(thresholds))
   FN = rep(NA, length(thresholds))
   for (j in 1:length(thresholds)) {
-    pred_res = ifelse(pred < thresholds[j], "P", "N")
+    pred_res = ifelse(pred <= thresholds[j], "P", "N")
     TP[j] <- sum(pred_res=="P"&truth=="P")
     TN[j] <- sum(pred_res=="N"&truth=="N")
     FP[j] <- sum(pred_res=="P"&truth=="N")
@@ -554,7 +554,7 @@ getROC = function(truth, pred){
 getPRC = function(truth, pred){
   ## precision and recall
   library(ggplot2)
-  thresholds = c(0, pred)
+  thresholds = unique(c(0, round(pred, 3)))
   precision = rep(NA, length(thresholds))
   recall = rep(NA, length(thresholds))
   TP = rep(NA, length(thresholds))
@@ -562,7 +562,7 @@ getPRC = function(truth, pred){
   FP = rep(NA, length(thresholds))
   FN = rep(NA, length(thresholds))
   for (j in 1:length(thresholds)) {
-    pred_res = ifelse(pred < thresholds[j], "P", "N")
+    pred_res = ifelse(pred <= thresholds[j], "P", "N")
     TP[j] <- sum(pred_res=="P"&truth=="P")
     TN[j] <- sum(pred_res=="N"&truth=="N")
     FP[j] <- sum(pred_res=="P"&truth=="N")
@@ -977,23 +977,6 @@ simulator_noInt = function(totals1, totals2, probC1, probC2, setresolu, sim_mat)
 }
 ## function to get milo results
 getMilo = function(integratedSamples){
-  sceObj <- as.SingleCellExperiment(integratedSamples)
-  milo <- Milo(sceObj)
-  milo <- buildGraph(milo, k = 10, d = 30)
-  milo <- makeNhoods(milo, prop = 0.1, k = 10, d=30, refined = TRUE)
-  milo <- countCells(milo, meta.data = data.frame(colData(milo)), sample="batch")
-  designDF <- data.frame(colData(milo))[,c("batch", "condition")]
-  designDF <- distinct(designDF)
-  milo <- calcNhoodDistance(milo, d=30)
-  rownames(designDF) <- designDF$batch
-  da_results <- testNhoods(milo, design = ~ condition, design.df = designDF)
-  da_results <- annotateNhoods(milo, da_results, coldata_col = "ident")
-  counts <- nhoodCounts(milo)
-  #da_results %>% arrange(ident_fraction)
-  return(list(da_results = da_results, counts = counts))
-}
-
-getMilo = function(integratedSamples){
   # create object
   sceObj <- as.SingleCellExperiment(integratedSamples)
   milo <- Milo(sceObj)
@@ -1001,11 +984,19 @@ getMilo = function(integratedSamples){
   milo <- makeNhoods(milo, prop = 0.1, k = 10, d=30, refined = TRUE)
   # get milo result
   milo <- countCells(milo, meta.data = data.frame(colData(milo)), sample="batch")
-  designDF <- data.frame(colData(milo))[,c("batch", "condition")]
-  designDF <- distinct(designDF)
-  milo <- calcNhoodDistance(milo, d=30)
-  rownames(designDF) <- designDF$batch
-  da_results <- testNhoods(milo, design = ~ condition, design.df = designDF)
+  if ("gender" %in% colnames(colData(milo))) {
+    designDF <- data.frame(colData(milo))[,c("batch", "condition", "gender", "age")]
+    designDF <- distinct(designDF)
+    milo <- calcNhoodDistance(milo, d=30)
+    rownames(designDF) <- designDF$batch
+    da_results <- testNhoods(milo, design = ~ age + gender + condition, design.df = designDF)
+  } else {
+    designDF <- data.frame(colData(milo))[,c("batch", "condition")]
+    designDF <- distinct(designDF)
+    milo <- calcNhoodDistance(milo, d=30)
+    rownames(designDF) <- designDF$batch
+    da_results <- testNhoods(milo, design = ~ condition, design.df = designDF)
+  }
   da_results <- annotateNhoods(milo, da_results, coldata_col = "ident")
   counts <- nhoodCounts(milo)
   # get nhoods
@@ -1025,4 +1016,80 @@ getMilo = function(integratedSamples){
   names(nhoodsID) = rownames(select_nhood)
   #nhoodsInfo = data.frame(cellID = rownames(select_nhood), nhoodsID = hoodsID)
   return(list(da_results = da_results, counts = counts, nhoodsID = nhoodsID))
+}
+
+## function to select cells for simulation with multi-covariates
+simulator_propM = function(totalV, prop_mat, setresolu, sim_mat, design_mat){
+  K = ncol(prop_mat)
+  prop_sim = matrix(NA, nrow = nrow(prop_mat), ncol = ncol(prop_mat))
+  numb_sim = matrix(NA, nrow = nrow(prop_mat), ncol = ncol(prop_mat))
+  
+  # cell selection
+  slt_sim_mat = matrix(NA, ncol = 0, nrow = dim(sim_mat)[1])
+  slt_origLabels = vector()
+  slt_batches = character()
+  slt_conditions = character()
+  slt_genders = character()
+  slt_ages = vector()
+  for (idx in 1:nrow(prop_mat)) {
+    prop_sim[idx, ] <- MCMCpack::rdirichlet(1, prop_mat[idx,] * concentration)
+    numb_sim[idx, ] <- rmultinom(1, totalV[idx], prop_sim[idx, ])
+    cell_slt = cell_slt_dup(numb_sim[idx, ], sim_mat, origLabels)
+    slt_sim_mat = cbind(slt_sim_mat, cell_slt$sub_sim_mat)
+    slt_origLabels = c(slt_origLabels, cell_slt$sub_origLabels)
+    slt_batches = c(slt_batches, rep(str_c("rep", as.character(idx)), length(cell_slt$sub_origLabels)))
+    slt_conditions = c(slt_conditions, rep(design_mat[idx,1], length(cell_slt$sub_origLabels)))
+    slt_genders = c(slt_genders, rep(design_mat[idx,2], length(cell_slt$sub_origLabels)))
+    slt_ages = c(slt_ages, rep(design_mat[idx,3], length(cell_slt$sub_origLabels)))
+  }
+  
+  print(numb_sim)
+  
+  ## seurat process
+  ### pre-process
+  seuratObj <- CreateSeuratObject(counts = slt_sim_mat, project="Splatter")
+  seuratObj <- AddMetaData(object = seuratObj, metadata = slt_batches, col.name = 'batch')
+  seuratObj <- AddMetaData(object = seuratObj, metadata = slt_conditions, col.name = 'condition')
+  seuratObj <- AddMetaData(object = seuratObj, metadata = slt_genders, col.name = 'gender')
+  seuratObj <- AddMetaData(object = seuratObj, metadata = slt_ages, col.name = 'age')
+  seuratObj <- NormalizeData(seuratObj, verbose = FALSE)
+  integratedSamples <- FindVariableFeatures(seuratObj, verbose = FALSE)
+  integratedSamples <- ScaleData(integratedSamples, verbose = FALSE)
+  integratedSamples <- RunPCA(integratedSamples, npcs = 30, verbose = FALSE, features = VariableFeatures(object = integratedSamples))
+  integratedSamples <- RunUMAP(integratedSamples, dims = 1:30, verbose = FALSE)
+  integratedSamples <- FindNeighbors(integratedSamples, dims = 1:30, verbose = FALSE)
+  integratedSamples <- FindClusters(integratedSamples, resolution = setresolu, verbose = FALSE)
+  
+  ## decide resolution
+  Kprep = integratedSamples@active.ident %>% as.factor() %>% summary() %>% length()
+  str_c("Kprep: ", as.character(Kprep)) %>% print()
+  str_c("setresolu: ", as.character(setresolu)) %>% print()
+  while (Kprep != K & setresolu > 0.03) {
+    if (Kprep > K){
+      setresolu = setresolu - 0.03
+      integratedSamples <- FindClusters(integratedSamples, resolution = setresolu, verbose = FALSE)
+      Kprep = integratedSamples@active.ident %>% as.factor() %>% summary() %>% length()
+      str_c("Kprep: ", as.character(Kprep)) %>% print()
+      str_c("setresolu: ", as.character(setresolu)) %>% print()
+    } else {
+      setresolu = setresolu + 0.01
+      integratedSamples <- FindClusters(integratedSamples, resolution = setresolu, verbose = FALSE)
+      Kprep = integratedSamples@active.ident %>% as.factor() %>% summary() %>% length()
+      str_c("Kprep: ", as.character(Kprep)) %>% print()
+      str_c("setresolu: ", as.character(setresolu)) %>% print()
+    }
+  }
+  ### change labels to A, B, C
+  integratedSamples@active.ident = integratedSamples@active.ident %>% 
+    plyr::mapvalues(from = c(0:15), to = c("A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P"))
+  
+  # get count data
+  dfRes = data.frame(clusterRes = integratedSamples@active.ident, batch = integratedSamples$batch, condition = integratedSamples$condition) %>% 
+    tibble::rownames_to_column("cellID")
+  if(Kprep == K){
+    Res = list(integratedSamples = integratedSamples, dfRes = dfRes, trueLabels = slt_origLabels, numb_sim = numb_sim, prop_sim = prop_sim)
+    return(Res)
+  } else {
+    return(NA)
+  }
 }
