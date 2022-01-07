@@ -11,6 +11,8 @@ library(tidyverse)
 
 ## Splatter
 
+Following codes generate the cell pools we used.
+
 ```{r, eval=FALSE}
 mnnCT7_seurat <- readRDS("/storage/holab/Nelson/mnnCT7.rds")
 count_mnnCT7 = mnnCT7_seurat@assays$RNA@counts

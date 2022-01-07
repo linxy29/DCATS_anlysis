@@ -41,7 +41,7 @@ concentration = 70 # indicate how simulated proportion far away from true, the l
 rep1 = 2
 rep2 = 3
 #rep2 = 4
-simulation_times = 20
+simulation_times = 50
 simulation_size = 50
 sample_size1 = 1000
 sample_size2 = 2000
@@ -210,7 +210,7 @@ for (sim in 1:simulation_times) {
     }
   simulationDF_list[[sim]] = simulationDF
 }
-#save(simulationDF_list, phiDF, file = "D:/Data/DCATS/simulation/toy_simulation.RData")
+#save(simulationDF_list, phiDF, file = "D:/Data/DCATS/simulation/toy_simulation50.RData")
 ```
 
 ```{r}
@@ -336,10 +336,10 @@ cluster_num = 8  # numbers of clusters
 concentration = 100 # indicate how simulated proportion far away from true, the larger the closer
 setresolu = 0.7
 rep1 = 2
-rep2 = 2
+rep2 = 3
 simulation_times = 30
-sample_size1 = 1500
-sample_size2 = 2500
+sample_size1 = 3000
+sample_size2 = 3000
 cell_pool = "splatter"  # cell pool used, can be selected from ("SPAR", "splatter", "realWorld")
 more_negative = ""
 ```
@@ -628,7 +628,7 @@ cluster level
 ```{r}
 file_name = str_c("D:/Data/DCATS/simulation/replicates", as.character(rep1), "&", as.character(rep2), "_K", as.character(cluster_num), "_con", as.character(concentration), "_", cell_pool, more_negative, sample_size1, "&", sample_size2, "para.RData")
 load(file_name)
-methods = colnames(oper[[2]]$clusterDF)[colnames(oper[[2]]$clusterDF) %>% str_detect("_pvals")] %>% str_remove("_pvals")
+methods = colnames(oper[[1]]$clusterDF)[colnames(oper[[1]]$clusterDF) %>% str_detect("_pvals")] %>% str_remove("_pvals")
 methods = c(methods, "milo")
 numb_mthd = length(methods)
 mcc = rep(NA, numb_mthd)
@@ -676,7 +676,7 @@ for (i in 3:(dim(clusterRes)[2]-1)){
   F1[i-2] = 2*TP/(2*TP+FP+FN)
 }
 res = data.frame(methods = methods, mcc = mcc, auc = auc, prauc = prauc, sensitivity = sensitivity, specificity = specificity, precision = precision, F1 = F1) %>% 
-  arrange(desc(prauc)) %>% 
+  arrange(desc(auc)) %>% 
   #filter(methods == "wtoPhi_fullK" | methods == "diffcyt" | methods == "speckle" | methods == "fisher" | methods == "scDC")
 print(res)
 ```

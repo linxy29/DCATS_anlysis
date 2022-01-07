@@ -15,6 +15,8 @@ library(tidymodels)
 library(diffcyt)
 library(scdney)
 library(Matrix)
+library(miloR)
+library(SingleCellExperiment)
 ```
 
 ```{r}
@@ -81,7 +83,10 @@ exp7DF = seuratObj@reductions$pca@cell.embeddings %>%
   tibble::rownames_to_column("cell") %>% 
   separate(cell, c("batch", "barcode", "condition", "clusterRes"), sep = "_") %>% 
   dplyr::select(-barcode)
-
+seuratObj[['batch']] = exp7DF$batch
+seuratObj[['condition']] = exp7DF$condition
+seuratObj[['clusterRes']] = exp7DF$clusterRes
+Idents(seuratObj) = 'condition'
 ## check whether there is duplicate ID -> No with cellID, Yes with only barcode
 #exp7 %>% group_by(cell) %>% summarise(n = n()) %>% filter(n != 1)
 ```
@@ -126,14 +131,8 @@ designM = data.frame(condition = c(rep("g1", nrow(Haber2017$count_ctrl)), rep("g
 betabin_null = eachPhi(countM, designM)
 wtoPhi_emSVM = eachPhi(countM, designM, similarity_mat = Haber2017$svm_mat, n_samples = NULL)
 estPhi = getPhi(countM, designM)
-avrgPhi = getPhi2(countM, designM)$avrgPhi
-adjPhi = getPhi2(countM, designM)$adjPhiV
-estPhi_null = dcats_GLM(countM, designM, phi = rep(estPhi, ncol(countM)))
-estPhi_emSVM = dcats_GLM(countM, designM, similarity_mat = Haber2017$svm_mat, n_samples = NULL, phi = rep(estPhi, ncol(countM)))
-avrgPhi_null = dcats_GLM(countM, designM, phi = rep(avrgPhi, ncol(countM)))
-avrgPhi_emSVM = dcats_GLM(countM, designM, similarity_mat = Haber2017$svm_mat, n_samples = NULL, phi = rep(avrgPhi, ncol(countM)))
-adjPhi_null = dcats_GLM(countM, designM, phi = adjPhi)
-adjPhi_emSVM = dcats_GLM(countM, designM, similarity_mat = Haber2017$svm_mat, n_samples = NULL, phi = adjPhi)
+estPhi_null = dcats_GLM(countM, designM, fix_phi = estPhi)
+estPhi_emSVM = dcats_GLM(countM, designM, similarity_mat = Haber2017$svm_mat, fix_phi = estPhi)
 ## Fisher's exact test
 fisher_pvals = getFisher(as.matrix(Haber2017$count_ctrl), as.matrix(Haber2017$count_Hpoly3))
 ## speckle
@@ -160,6 +159,23 @@ plot(colSums(Haber2017$count_ctrl)+colSums(Haber2017$count_Hpoly3), wtoPhi_emSVM
 abline(h = phi, col = 'red')
 ```
 
+## Milo
+
+```{r}
+testObj = subset(x = seuratObj, idents = c("Control", "Hpoly.Day3"))
+Idents(testObj) = 'clusterRes'
+miloRes = getMilo(testObj)$da_results %>% 
+  filter(ident_fraction > 0.8) %>%
+    mutate(direct = ifelse( logFC > 0  & SpatialFDR < 0.1, "milo_more", "neutral"),
+           direct = ifelse( logFC < 0  & SpatialFDR < 0.1, "milo_less", direct)) %>% 
+    group_by(ident, direct) %>% 
+    summarise(n = n()) %>% 
+    pivot_wider(names_from = direct, values_from = n) %>% 
+    replace(is.na(.), 0)%>% 
+    dplyr::rename(cluster = ident)
+  if ("milo_less" %!in% colnames(miloRes)) {miloRes$milo_less = rep(0, nrow(miloRes))}
+  if ("milo_more" %!in% colnames(miloRes)) {miloRes$milo_more = rep(0, nrow(miloRes))}
+```
 
 ```{r}
 ## results
@@ -168,10 +184,6 @@ all_resC3 = data.frame(cluster = rownames(betabin_null$LRT_pvals), truth = c(rep
          wtoPhi_emSVM_pvals = as.vector(wtoPhi_emSVM$LRT_pvals),
          estPhi_null_pvals = as.vector(estPhi_null$LRT_pvals),
          estPhi_emSVM_pvals = as.vector(estPhi_emSVM$LRT_pvals),
-         avrgPhi_null_pvals = as.vector(avrgPhi_null$LRT_pvals),
-         avrgPhi_emSVM_pvals = as.vector(avrgPhi_emSVM$LRT_pvals),
-         adjPhi_null_pvals = as.vector(adjPhi_null$LRT_pvals),
-         adjPhi_emSVM_pvals = as.vector(adjPhi_emSVM$LRT_pvals),
          fisher_pvals = fisher_pvals,
          scDC_pvals = scDCRes$p.value) %>%
   merge(speckleRes, by = "cluster") %>% 
@@ -189,19 +201,6 @@ all_resC3 = data.frame(cluster = rownames(betabin_null$LRT_pvals), truth = c(rep
   mutate(estPhi_emSVM_Res = ifelse(estPhi_emSVM_pvals < 0.01, "***", "n.s."),
          estPhi_emSVM_Res = ifelse(0.01<estPhi_emSVM_pvals&estPhi_emSVM_pvals<0.05, "**", estPhi_emSVM_Res),
          estPhi_emSVM_Res = ifelse(0.05<estPhi_emSVM_pvals&estPhi_emSVM_pvals<0.1, "*", estPhi_emSVM_Res)) %>%
-  #dplyr::select(truth, estPhi_emSVM_Res, estPhi_emSVM_pvals)
-  mutate(avrgPhi_null_Res = ifelse(avrgPhi_null_pvals < 0.01, "***", "n.s."),
-         avrgPhi_null_Res = ifelse(0.01<avrgPhi_null_pvals&avrgPhi_null_pvals<0.05, "**", avrgPhi_null_Res),
-         avrgPhi_null_Res = ifelse(0.05<avrgPhi_null_pvals&avrgPhi_null_pvals<0.1, "*", avrgPhi_null_Res)) %>%
-  mutate(avrgPhi_emSVM_Res = ifelse(avrgPhi_emSVM_pvals < 0.01, "***", "n.s."),
-         avrgPhi_emSVM_Res = ifelse(0.01<avrgPhi_emSVM_pvals&avrgPhi_emSVM_pvals<0.05, "**", avrgPhi_emSVM_Res),
-         avrgPhi_emSVM_Res = ifelse(0.05<avrgPhi_emSVM_pvals&avrgPhi_emSVM_pvals<0.1, "*", avrgPhi_emSVM_Res)) %>%
-  mutate(adjPhi_null_Res = ifelse(adjPhi_null_pvals < 0.01, "***", "n.s."),
-         adjPhi_null_Res = ifelse(0.01<adjPhi_null_pvals&adjPhi_null_pvals<0.05, "**", adjPhi_null_Res),
-         adjPhi_null_Res = ifelse(0.05<adjPhi_null_pvals&adjPhi_null_pvals<0.1, "*", adjPhi_null_Res)) %>%
-  mutate(adjPhi_emSVM_Res = ifelse(adjPhi_emSVM_pvals < 0.01, "***", "n.s."),
-         adjPhi_emSVM_Res = ifelse(0.01<adjPhi_emSVM_pvals&adjPhi_emSVM_pvals<0.05, "**", adjPhi_emSVM_Res),
-         adjPhi_emSVM_Res = ifelse(0.05<adjPhi_emSVM_pvals&adjPhi_emSVM_pvals<0.1, "*", adjPhi_emSVM_Res)) %>%
   mutate(fisher_Res = ifelse(fisher_pvals < 0.01, "***", "n.s."),
          fisher_Res = ifelse(0.01<fisher_pvals&fisher_pvals<0.05, "**", fisher_Res),
          fisher_Res = ifelse(0.05<fisher_pvals&fisher_pvals<0.1, "*", fisher_Res)) %>%
@@ -212,7 +211,8 @@ all_resC3 = data.frame(cluster = rownames(betabin_null$LRT_pvals), truth = c(rep
   #dplyr::select(truth, scDC_Res, scDC_pvals)
   mutate(speckle_Res = ifelse(speckle_pvals < 0.01, "***", "n.s."),
          speckle_Res = ifelse(0.01<speckle_pvals&speckle_pvals<0.05, "**", speckle_Res),
-         speckle_Res = ifelse(0.05<speckle_pvals&speckle_pvals<0.1, "*", speckle_Res))
+         speckle_Res = ifelse(0.05<speckle_pvals&speckle_pvals<0.1, "*", speckle_Res)) %>% 
+  merge(miloRes, by = "cluster")
 
 
 all_resC3 %>% 
@@ -248,16 +248,10 @@ designM = data.frame(condition = c(rep("g1", nrow(Haber2017$count_ctrl)), rep("g
 #betabin_null = dcats_GLM(countM, designM)
 #wtoPhi_emSVM = dcats_GLM(countM, designM, similarity_mat = Haber2017$svm_mat, n_samples = NULL)
 betabin_null = eachPhi(countM, designM)
-wtoPhi_emSVM = eachPhi(countM, designM, similarity_mat = Haber2017$svm_mat, n_samples = NULL)
+wtoPhi_emSVM = eachPhi(countM, designM, similarity_mat = Haber2017$svm_mat)
 estPhi = getPhi(countM, designM)
-avrgPhi = getPhi2(countM, designM)$avrgPhi
-adjPhi = getPhi2(countM, designM)$adjPhiV
-estPhi_null = dcats_GLM(countM, designM, phi = rep(estPhi, ncol(countM)))
-estPhi_emSVM = dcats_GLM(countM, designM, similarity_mat = Haber2017$svm_mat, n_samples = NULL, phi = rep(estPhi, ncol(countM)))
-avrgPhi_null = dcats_GLM(countM, designM, phi = rep(avrgPhi, ncol(countM)))
-avrgPhi_emSVM = dcats_GLM(countM, designM, similarity_mat = Haber2017$svm_mat, n_samples = NULL, phi = rep(avrgPhi, ncol(countM)))
-adjPhi_null = dcats_GLM(countM, designM, phi = adjPhi)
-adjPhi_emSVM = dcats_GLM(countM, designM, similarity_mat = Haber2017$svm_mat, n_samples = NULL, phi = adjPhi)
+estPhi_null = dcats_GLM(countM, designM, fix_phi = estPhi)
+estPhi_emSVM = dcats_GLM(countM, designM, similarity_mat = Haber2017$svm_mat, fix_phi = estPhi)
 ## Fisher's exact test
 fisher_pvals = getFisher(as.matrix(Haber2017$count_ctrl), as.matrix(Haber2017$count_Hpoly10))
 ## speckle
@@ -285,16 +279,29 @@ abline(h = phi, col = 'red')
 ```
 
 ```{r}
+set.seed(123)
+testObj = subset(x = seuratObj, idents = c("Control", "Hpoly.Day10"))
+Idents(testObj) = 'clusterRes'
+miloRes = getMilo(testObj)$da_results %>% 
+  filter(ident_fraction > 0.8) %>%
+    mutate(direct = ifelse( logFC > 0  & SpatialFDR < 0.1, "milo_more", "neutral"),
+           direct = ifelse( logFC < 0  & SpatialFDR < 0.1, "milo_less", direct)) %>% 
+    group_by(ident, direct) %>% 
+    summarise(n = n()) %>% 
+    pivot_wider(names_from = direct, values_from = n) %>% 
+    replace(is.na(.), 0)%>% 
+    dplyr::rename(cluster = ident)
+  if ("milo_less" %!in% colnames(miloRes)) {miloRes$milo_less = rep(0, nrow(miloRes))}
+  if ("milo_more" %!in% colnames(miloRes)) {miloRes$milo_more = rep(0, nrow(miloRes))}
+```
+
+```{r}
 ## results
 all_resC10 = data.frame(cluster = rownames(betabin_null$LRT_pvals), truth = c("N","P","N","P","N","N","P","P")) %>% 
   mutate(betabin_null_pvals = as.vector(betabin_null$LRT_pvals),
          wtoPhi_emSVM_pvals = as.vector(wtoPhi_emSVM$LRT_pvals),
          estPhi_null_pvals = as.vector(estPhi_null$LRT_pvals),
          estPhi_emSVM_pvals = as.vector(estPhi_emSVM$LRT_pvals),
-         avrgPhi_null_pvals = as.vector(avrgPhi_null$LRT_pvals),
-         avrgPhi_emSVM_pvals = as.vector(avrgPhi_emSVM$LRT_pvals),
-         adjPhi_null_pvals = as.vector(adjPhi_null$LRT_pvals),
-         adjPhi_emSVM_pvals = as.vector(adjPhi_emSVM$LRT_pvals),
          fisher_pvals = fisher_pvals,
          scDC_pvals = scDCRes$p.value) %>%
   merge(speckleRes, by = "cluster") %>% 
@@ -312,19 +319,6 @@ all_resC10 = data.frame(cluster = rownames(betabin_null$LRT_pvals), truth = c("N
   mutate(estPhi_emSVM_Res = ifelse(estPhi_emSVM_pvals < 0.01, "***", "n.s."),
          estPhi_emSVM_Res = ifelse(0.01<estPhi_emSVM_pvals&estPhi_emSVM_pvals<0.05, "**", estPhi_emSVM_Res),
          estPhi_emSVM_Res = ifelse(0.05<estPhi_emSVM_pvals&estPhi_emSVM_pvals<0.1, "*", estPhi_emSVM_Res)) %>%
-  #dplyr::select(truth, estPhi_emSVM_Res, estPhi_emSVM_pvals)
-  mutate(avrgPhi_null_Res = ifelse(avrgPhi_null_pvals < 0.01, "***", "n.s."),
-         avrgPhi_null_Res = ifelse(0.01<avrgPhi_null_pvals&avrgPhi_null_pvals<0.05, "**", avrgPhi_null_Res),
-         avrgPhi_null_Res = ifelse(0.05<avrgPhi_null_pvals&avrgPhi_null_pvals<0.1, "*", avrgPhi_null_Res)) %>%
-  mutate(avrgPhi_emSVM_Res = ifelse(avrgPhi_emSVM_pvals < 0.01, "***", "n.s."),
-         avrgPhi_emSVM_Res = ifelse(0.01<avrgPhi_emSVM_pvals&avrgPhi_emSVM_pvals<0.05, "**", avrgPhi_emSVM_Res),
-         avrgPhi_emSVM_Res = ifelse(0.05<avrgPhi_emSVM_pvals&avrgPhi_emSVM_pvals<0.1, "*", avrgPhi_emSVM_Res)) %>%
-  mutate(adjPhi_null_Res = ifelse(adjPhi_null_pvals < 0.01, "***", "n.s."),
-         adjPhi_null_Res = ifelse(0.01<adjPhi_null_pvals&adjPhi_null_pvals<0.05, "**", adjPhi_null_Res),
-         adjPhi_null_Res = ifelse(0.05<adjPhi_null_pvals&adjPhi_null_pvals<0.1, "*", adjPhi_null_Res)) %>%
-  mutate(adjPhi_emSVM_Res = ifelse(adjPhi_emSVM_pvals < 0.01, "***", "n.s."),
-         adjPhi_emSVM_Res = ifelse(0.01<adjPhi_emSVM_pvals&adjPhi_emSVM_pvals<0.05, "**", adjPhi_emSVM_Res),
-         adjPhi_emSVM_Res = ifelse(0.05<adjPhi_emSVM_pvals&adjPhi_emSVM_pvals<0.1, "*", adjPhi_emSVM_Res)) %>%
   mutate(fisher_Res = ifelse(fisher_pvals < 0.01, "***", "n.s."),
          fisher_Res = ifelse(0.01<fisher_pvals&fisher_pvals<0.05, "**", fisher_Res),
          fisher_Res = ifelse(0.05<fisher_pvals&fisher_pvals<0.1, "*", fisher_Res)) %>%
@@ -335,7 +329,8 @@ all_resC10 = data.frame(cluster = rownames(betabin_null$LRT_pvals), truth = c("N
   #dplyr::select(truth, scDC_Res, scDC_pvals)
   mutate(speckle_Res = ifelse(speckle_pvals < 0.01, "***", "n.s."),
          speckle_Res = ifelse(0.01<speckle_pvals&speckle_pvals<0.05, "**", speckle_Res),
-         speckle_Res = ifelse(0.05<speckle_pvals&speckle_pvals<0.1, "*", speckle_Res))
+         speckle_Res = ifelse(0.05<speckle_pvals&speckle_pvals<0.1, "*", speckle_Res)) %>% 
+  merge(miloRes, by = "cluster")
 
 
 all_resC10 %>% 
@@ -371,16 +366,10 @@ designM = data.frame(condition = c(rep("g1", nrow(Haber2017$count_ctrl)), rep("g
 #betabin_null = dcats_GLM(countM, designM)
 #wtoPhi_emSVM = dcats_GLM(countM, designM, similarity_mat = Haber2017$svm_mat, n_samples = NULL)
 betabin_null = eachPhi(countM, designM)
-wtoPhi_emSVM = eachPhi(countM, designM, similarity_mat = Haber2017$svm_mat, n_samples = NULL)
+wtoPhi_emSVM = eachPhi(countM, designM, similarity_mat = Haber2017$svm_mat)
 estPhi = getPhi(countM, designM)
-avrgPhi = getPhi2(countM, designM)$avrgPhi
-adjPhi = getPhi2(countM, designM)$adjPhiV
-estPhi_null = dcats_GLM(countM, designM, phi = rep(estPhi, ncol(countM)))
-estPhi_emSVM = dcats_GLM(countM, designM, similarity_mat = Haber2017$svm_mat, n_samples = NULL, phi = rep(estPhi, ncol(countM)))
-avrgPhi_null = dcats_GLM(countM, designM, phi = rep(avrgPhi, ncol(countM)))
-avrgPhi_emSVM = dcats_GLM(countM, designM, similarity_mat = Haber2017$svm_mat, n_samples = NULL, phi = rep(avrgPhi, ncol(countM)))
-adjPhi_null = dcats_GLM(countM, designM, phi = adjPhi)
-adjPhi_emSVM = dcats_GLM(countM, designM, similarity_mat = Haber2017$svm_mat, n_samples = NULL, phi = adjPhi)
+estPhi_null = dcats_GLM(countM, designM, fix_phi = estPhi)
+estPhi_emSVM = dcats_GLM(countM, designM, similarity_mat = Haber2017$svm_mat, fix_phi = estPhi)
 ## Fisher's exact test
 fisher_pvals = getFisher(as.matrix(Haber2017$count_ctrl), as.matrix(Haber2017$count_Salma))
 ## speckle
@@ -410,16 +399,29 @@ abline(h = phi, col = 'red')
 ```
 
 ```{r}
+set.seed(123)
+testObj = subset(x = seuratObj, idents = c("Control", "Salmonella"))
+Idents(testObj) = 'clusterRes'
+miloRes = getMilo(testObj)$da_results %>% 
+  filter(ident_fraction > 0.8) %>%
+    mutate(direct = ifelse( logFC > 0  & SpatialFDR < 0.1, "milo_more", "neutral"),
+           direct = ifelse( logFC < 0  & SpatialFDR < 0.1, "milo_less", direct)) %>% 
+    group_by(ident, direct) %>% 
+    summarise(n = n()) %>% 
+    pivot_wider(names_from = direct, values_from = n) %>% 
+    replace(is.na(.), 0)%>% 
+    dplyr::rename(cluster = ident)
+  if ("milo_less" %!in% colnames(miloRes)) {miloRes$milo_less = rep(0, nrow(miloRes))}
+  if ("milo_more" %!in% colnames(miloRes)) {miloRes$milo_more = rep(0, nrow(miloRes))}
+```
+
+```{r}
 ## results
 all_resCS = data.frame(cluster = rownames(betabin_null$LRT_pvals), truth = c("N","P","N","N","P","P","P","N")) %>% 
    mutate(betabin_null_pvals = as.vector(betabin_null$LRT_pvals),
          wtoPhi_emSVM_pvals = as.vector(wtoPhi_emSVM$LRT_pvals),
          estPhi_null_pvals = as.vector(estPhi_null$LRT_pvals),
          estPhi_emSVM_pvals = as.vector(estPhi_emSVM$LRT_pvals),
-         avrgPhi_null_pvals = as.vector(avrgPhi_null$LRT_pvals),
-         avrgPhi_emSVM_pvals = as.vector(avrgPhi_emSVM$LRT_pvals),
-         adjPhi_null_pvals = as.vector(adjPhi_null$LRT_pvals),
-         adjPhi_emSVM_pvals = as.vector(adjPhi_emSVM$LRT_pvals),
          fisher_pvals = fisher_pvals,
          scDC_pvals = scDCRes$p.value) %>%
   merge(speckleRes, by = "cluster") %>% 
@@ -437,19 +439,6 @@ all_resCS = data.frame(cluster = rownames(betabin_null$LRT_pvals), truth = c("N"
   mutate(estPhi_emSVM_Res = ifelse(estPhi_emSVM_pvals < 0.01, "***", "n.s."),
          estPhi_emSVM_Res = ifelse(0.01<estPhi_emSVM_pvals&estPhi_emSVM_pvals<0.05, "**", estPhi_emSVM_Res),
          estPhi_emSVM_Res = ifelse(0.05<estPhi_emSVM_pvals&estPhi_emSVM_pvals<0.1, "*", estPhi_emSVM_Res)) %>%
-  #dplyr::select(truth, estPhi_emSVM_Res, estPhi_emSVM_pvals)
-  mutate(avrgPhi_null_Res = ifelse(avrgPhi_null_pvals < 0.01, "***", "n.s."),
-         avrgPhi_null_Res = ifelse(0.01<avrgPhi_null_pvals&avrgPhi_null_pvals<0.05, "**", avrgPhi_null_Res),
-         avrgPhi_null_Res = ifelse(0.05<avrgPhi_null_pvals&avrgPhi_null_pvals<0.1, "*", avrgPhi_null_Res)) %>%
-  mutate(avrgPhi_emSVM_Res = ifelse(avrgPhi_emSVM_pvals < 0.01, "***", "n.s."),
-         avrgPhi_emSVM_Res = ifelse(0.01<avrgPhi_emSVM_pvals&avrgPhi_emSVM_pvals<0.05, "**", avrgPhi_emSVM_Res),
-         avrgPhi_emSVM_Res = ifelse(0.05<avrgPhi_emSVM_pvals&avrgPhi_emSVM_pvals<0.1, "*", avrgPhi_emSVM_Res)) %>%
-  mutate(adjPhi_null_Res = ifelse(adjPhi_null_pvals < 0.01, "***", "n.s."),
-         adjPhi_null_Res = ifelse(0.01<adjPhi_null_pvals&adjPhi_null_pvals<0.05, "**", adjPhi_null_Res),
-         adjPhi_null_Res = ifelse(0.05<adjPhi_null_pvals&adjPhi_null_pvals<0.1, "*", adjPhi_null_Res)) %>%
-  mutate(adjPhi_emSVM_Res = ifelse(adjPhi_emSVM_pvals < 0.01, "***", "n.s."),
-         adjPhi_emSVM_Res = ifelse(0.01<adjPhi_emSVM_pvals&adjPhi_emSVM_pvals<0.05, "**", adjPhi_emSVM_Res),
-         adjPhi_emSVM_Res = ifelse(0.05<adjPhi_emSVM_pvals&adjPhi_emSVM_pvals<0.1, "*", adjPhi_emSVM_Res)) %>%
   mutate(fisher_Res = ifelse(fisher_pvals < 0.01, "***", "n.s."),
          fisher_Res = ifelse(0.01<fisher_pvals&fisher_pvals<0.05, "**", fisher_Res),
          fisher_Res = ifelse(0.05<fisher_pvals&fisher_pvals<0.1, "*", fisher_Res)) %>%
@@ -460,7 +449,8 @@ all_resCS = data.frame(cluster = rownames(betabin_null$LRT_pvals), truth = c("N"
   #dplyr::select(truth, scDC_Res, scDC_pvals)
   mutate(speckle_Res = ifelse(speckle_pvals < 0.01, "***", "n.s."),
          speckle_Res = ifelse(0.01<speckle_pvals&speckle_pvals<0.05, "**", speckle_Res),
-         speckle_Res = ifelse(0.05<speckle_pvals&speckle_pvals<0.1, "*", speckle_Res))
+         speckle_Res = ifelse(0.05<speckle_pvals&speckle_pvals<0.1, "*", speckle_Res)) %>% 
+  merge(miloRes, by = "cluster")
 
 
 all_resCS %>% 
@@ -553,13 +543,19 @@ head(exp6_repInfo)
 ```{r}
 exp6DF_mul = seurat_intg@reductions$pca@cell.embeddings %>% 
   as.data.frame() %>% 
-  tibble::rownames_to_column("cell") %>% 
-  mutate(cell = str_replace(cell, "_[12]", "")) %>% 
+  tibble::rownames_to_column("cells") %>% 
+  mutate(cell = str_replace(cells, "_[12]", "")) %>% 
   merge(exp6_clusterInfo) %>% 
   merge(exp6_repInfo) %>% 
   mutate(batch = str_c(condition, batch)) %>% 
   dplyr::select(-cell, -cluster, -multiplets, -tsne1, -tsne2, -ind)
 
+testObj = subset(x = seurat_intg, cells = exp6DF_mul$cells)
+testObj[['condition']] = exp6DF_mul$condition
+testObj[['batch']] = exp6DF_mul$batch
+testObj[['clusterRes']] = exp6DF_mul$clusterRes
+Idents(testObj) = 'clusterRes'
+exp6DF_mul = exp6DF_mul %>% dplyr::select(-cells)
 head(exp6DF_mul)
 ```
 
@@ -586,16 +582,10 @@ data("Kang2017")
 countM = rbind(Kang2017$count_ctrl, Kang2017$count_stim) %>% as.matrix()
 designM = data.frame(condition = c(rep("g1", nrow(Kang2017$count_ctrl)), rep("g2", nrow(Kang2017$count_stim))))
 betabin_null = eachPhi(countM, designM)
-wtoPhi_emSVM = eachPhi(countM, designM, similarity_mat = Haber2017$svm_mat, n_samples = NULL)
+wtoPhi_emSVM = eachPhi(countM, designM, similarity_mat = Haber2017$svm_mat)
 estPhi = getPhi(countM, designM)
-avrgPhi = getPhi2(countM, designM)$avrgPhi
-adjPhi = getPhi2(countM, designM)$adjPhiV
-estPhi_null = dcats_GLM(countM, designM, phi = rep(estPhi, ncol(countM)))
-estPhi_emSVM = dcats_GLM(countM, designM, similarity_mat = Haber2017$svm_mat, n_samples = NULL, phi = rep(estPhi, ncol(countM)))
-avrgPhi_null = dcats_GLM(countM, designM, phi = rep(avrgPhi, ncol(countM)))
-avrgPhi_emSVM = dcats_GLM(countM, designM, similarity_mat = Haber2017$svm_mat, n_samples = NULL, phi = rep(avrgPhi, ncol(countM)))
-adjPhi_null = dcats_GLM(countM, designM, phi = adjPhi)
-adjPhi_emSVM = dcats_GLM(countM, designM, similarity_mat = Haber2017$svm_mat, n_samples = NULL, phi = adjPhi)
+estPhi_null = dcats_GLM(countM, designM, fix_phi = estPhi)
+estPhi_emSVM = dcats_GLM(countM, designM, similarity_mat = Haber2017$svm_mat, fix_phi = estPhi)
 ## Fisher's exact test
 fisher_pvals = getFisher(as.matrix(Kang2017$count_ctrl), as.matrix(Kang2017$count_stim))
 ## speckle
@@ -606,10 +596,25 @@ speckleRes = speckle::propeller(clusters = exp6DF_mul$clusterRes, sample = exp6D
 ## scDC
 cluster_num = dim(Kang2017$count_ctrl)[2]
 res_scDC <- scDC_noClustering(cellTypes = exp6DF_mul$clusterRes, exp6DF_mul$batch, calCI = TRUE, calCI_method = c("percentile", "BCa", "multinom"),nboot = 1000, verbose = FALSE)
-res_GLM <- scdney::fitGLM(res_scDC, c(rep("cond1",dim(Kang2017$count_ctrl)[1]*cluster_num),rep("cond2",dim(Kang2017$count_stim)[1]*cluster_num)), pairwise = FALSE, fixed_only = TRUE, verbose = FALSE)
+res_GLM <- fitGLM(res_scDC, c(rep("cond1",dim(Kang2017$count_ctrl)[1]*cluster_num),rep("cond2",dim(Kang2017$count_stim)[1]*cluster_num)), pairwise = FALSE, fixed_only = TRUE, verbose = FALSE)
 scDCRes_temp = summary(res_GLM$pool_res_fixed)
 scDCRes = scDCRes_temp[c(cluster_num+1,(dim(scDCRes_temp)[1]-cluster_num+2):dim(scDCRes_temp)[1]),]
 ```
+
+```{r}
+miloRes = getMilo(testObj)$da_results %>% 
+  filter(ident_fraction > 0.8) %>%
+    mutate(direct = ifelse( logFC > 0  & SpatialFDR < 0.1, "milo_more", "neutral"),
+           direct = ifelse( logFC < 0  & SpatialFDR < 0.1, "milo_less", direct)) %>% 
+    group_by(ident, direct) %>% 
+    summarise(n = n()) %>% 
+    pivot_wider(names_from = direct, values_from = n) %>% 
+    replace(is.na(.), 0) %>% 
+    dplyr::rename(cluster = ident)
+  if ("milo_less" %!in% colnames(miloRes)) {miloRes$milo_less = rep(0, nrow(miloRes))}
+  if ("milo_more" %!in% colnames(miloRes)) {miloRes$milo_more = rep(0, nrow(miloRes))}
+```
+
 
 ```{r}
 ## results
@@ -618,10 +623,6 @@ all_res = data.frame(cluster = rownames(betabin_null$LRT_pvals), truth = rep("N"
          wtoPhi_emSVM_pvals = as.vector(wtoPhi_emSVM$LRT_pvals),
          estPhi_null_pvals = as.vector(estPhi_null$LRT_pvals),
          estPhi_emSVM_pvals = as.vector(estPhi_emSVM$LRT_pvals),
-         avrgPhi_null_pvals = as.vector(avrgPhi_null$LRT_pvals),
-         avrgPhi_emSVM_pvals = as.vector(avrgPhi_emSVM$LRT_pvals),
-         adjPhi_null_pvals = as.vector(adjPhi_null$LRT_pvals),
-         adjPhi_emSVM_pvals = as.vector(adjPhi_emSVM$LRT_pvals),
          fisher_pvals = fisher_pvals,
          scDC_pvals = scDCRes$p.value) %>%
   merge(speckleRes, by = "cluster") %>% 
@@ -639,19 +640,6 @@ all_res = data.frame(cluster = rownames(betabin_null$LRT_pvals), truth = rep("N"
   mutate(estPhi_emSVM_Res = ifelse(estPhi_emSVM_pvals < 0.01, "***", "n.s."),
          estPhi_emSVM_Res = ifelse(0.01<estPhi_emSVM_pvals&estPhi_emSVM_pvals<0.05, "**", estPhi_emSVM_Res),
          estPhi_emSVM_Res = ifelse(0.05<estPhi_emSVM_pvals&estPhi_emSVM_pvals<0.1, "*", estPhi_emSVM_Res)) %>%
-  #dplyr::select(truth, estPhi_emSVM_Res, estPhi_emSVM_pvals)
-  mutate(avrgPhi_null_Res = ifelse(avrgPhi_null_pvals < 0.01, "***", "n.s."),
-         avrgPhi_null_Res = ifelse(0.01<avrgPhi_null_pvals&avrgPhi_null_pvals<0.05, "**", avrgPhi_null_Res),
-         avrgPhi_null_Res = ifelse(0.05<avrgPhi_null_pvals&avrgPhi_null_pvals<0.1, "*", avrgPhi_null_Res)) %>%
-  mutate(avrgPhi_emSVM_Res = ifelse(avrgPhi_emSVM_pvals < 0.01, "***", "n.s."),
-         avrgPhi_emSVM_Res = ifelse(0.01<avrgPhi_emSVM_pvals&avrgPhi_emSVM_pvals<0.05, "**", avrgPhi_emSVM_Res),
-         avrgPhi_emSVM_Res = ifelse(0.05<avrgPhi_emSVM_pvals&avrgPhi_emSVM_pvals<0.1, "*", avrgPhi_emSVM_Res)) %>%
-  mutate(adjPhi_null_Res = ifelse(adjPhi_null_pvals < 0.01, "***", "n.s."),
-         adjPhi_null_Res = ifelse(0.01<adjPhi_null_pvals&adjPhi_null_pvals<0.05, "**", adjPhi_null_Res),
-         adjPhi_null_Res = ifelse(0.05<adjPhi_null_pvals&adjPhi_null_pvals<0.1, "*", adjPhi_null_Res)) %>%
-  mutate(adjPhi_emSVM_Res = ifelse(adjPhi_emSVM_pvals < 0.01, "***", "n.s."),
-         adjPhi_emSVM_Res = ifelse(0.01<adjPhi_emSVM_pvals&adjPhi_emSVM_pvals<0.05, "**", adjPhi_emSVM_Res),
-         adjPhi_emSVM_Res = ifelse(0.05<adjPhi_emSVM_pvals&adjPhi_emSVM_pvals<0.1, "*", adjPhi_emSVM_Res)) %>%
   mutate(fisher_Res = ifelse(fisher_pvals < 0.01, "***", "n.s."),
          fisher_Res = ifelse(0.01<fisher_pvals&fisher_pvals<0.05, "**", fisher_Res),
          fisher_Res = ifelse(0.05<fisher_pvals&fisher_pvals<0.1, "*", fisher_Res)) %>%
@@ -662,7 +650,8 @@ all_res = data.frame(cluster = rownames(betabin_null$LRT_pvals), truth = rep("N"
   #dplyr::select(truth, scDC_Res, scDC_pvals)
   mutate(speckle_Res = ifelse(speckle_pvals < 0.01, "***", "n.s."),
          speckle_Res = ifelse(0.01<speckle_pvals&speckle_pvals<0.05, "**", speckle_Res),
-         speckle_Res = ifelse(0.05<speckle_pvals&speckle_pvals<0.1, "*", speckle_Res))
+         speckle_Res = ifelse(0.05<speckle_pvals&speckle_pvals<0.1, "*", speckle_Res)) %>% 
+  merge(miloRes, by = "cluster")
 
 
 all_res %>% 
