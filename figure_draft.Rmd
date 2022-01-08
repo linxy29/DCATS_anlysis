@@ -33,21 +33,6 @@ options(future.globals.maxSize = 20000 * 1024^2) # 20G memory
 
 ```{r}
 theme_set(theme_classic()+
-    theme(panel.border = element_blank(),
-          legend.key = element_blank(),
-          axis.ticks = element_blank(),
-          panel.grid = element_blank(),
-          panel.grid.minor = element_blank(), 
-          panel.grid.major = element_blank(),
-          panel.background = element_blank(),
-          legend.background = element_blank(),
-          plot.background = element_rect(fill = "transparent",colour = NA))+
-      theme(axis.text=element_text(size=12),
-        axis.title=element_text(size=14)))
-```
-
-```{r}
-theme_set(theme_classic()+
             theme(panel.border = element_blank(),
           legend.key = element_blank(),
           axis.ticks = element_blank(),
@@ -160,7 +145,7 @@ evaluationDF %>%
   ggplot(aes(x = condition, y = value, color = method)) + geom_boxplot() + facet_grid(.~statistics) +
   ylab("Value") +
     theme(axis.title.x = element_blank())
-ggsave("./plot/supFig1A2.png", bg = "transparent")
+ggsave("./plot/sim1_statistics.png", bg = "transparent")
 ```
 
 ```{r}
@@ -210,7 +195,7 @@ supA4 = phiDF %>%
   xlab("estPhi (no BC)") +
   ylab("estPhi (with BC)")
 (supA1 + supA2)/(supA3 + supA4)
-ggsave("./plot/supFig1A3.png", bg = "transparent", width = 8, height = 5)
+ggsave("./plot/sim1_phi.png", bg = "transparent", width = 8, height = 5)
 ```
 
 ## Figure B
@@ -219,8 +204,8 @@ ggsave("./plot/supFig1A3.png", bg = "transparent", width = 8, height = 5)
 
 ```{r}
 ## cluster number = 8
-filenames = list.files("D:/Data/DCATS/simulation", full.names = TRUE)
-filenames = filenames[grep("K8_con100_splatter1500&2500para.RData", filenames)]
+filenames = list.files("D:/Data/DCATS/simulation/replicates", full.names = TRUE)
+#filenames = filenames[grep("_K8_con100_splatter3000&3000", filenames)]
 filenames
 ```
 
@@ -229,7 +214,7 @@ res_all = data.frame()
 
 for (file in filenames) {
   load(file)
-  methods = colnames(oper[[2]]$clusterDF)[colnames(oper[[2]]$clusterDF) %>% str_detect("_pvals")] %>% str_remove("_pvals")
+  methods = colnames(oper[[1]]$clusterDF)[colnames(oper[[1]]$clusterDF) %>% str_detect("_pvals")] %>% str_remove("_pvals")
   methods = c(methods, "milo")
   numb_mthd = length(methods)
   mcc = rep(NA, numb_mthd)
@@ -396,7 +381,7 @@ res_all %>%
 
 #### nhoods level
 
-```{r}
+```{r, eval=FALSE}
 nhoodsRes_all = data.frame()
 
 for (file in filenames) {
@@ -422,8 +407,8 @@ for (file in filenames) {
   for (i in 1:length(select_col)){
     pred = nhoodRes[,select_col[i]]
     auc[i] = getROC(truth[!is.na(pred)], pred[!is.na(pred)])$auc
-    if (i == 1) {pred_res = ifelse(pred < 0.05, "P", "N")}
-    else {pred_res = ifelse(pred < 0.05, "P", "N")}
+    if (i == 1) {pred_res = ifelse(pred < 0.10, "P", "N")}
+    else {pred_res = ifelse(pred < 0.10, "P", "N")}
     TP <- sum(pred_res[!is.na(pred_res)]=="P"&truth[!is.na(pred_res)]=="P")
     TN <- sum(pred_res[!is.na(pred_res)]=="N"&truth[!is.na(pred_res)]=="N")
     FP <- sum(pred_res[!is.na(pred_res)]=="P"&truth[!is.na(pred_res)]=="N")
@@ -480,7 +465,7 @@ nhoodsH1_mcc = nhoodsRes_all %>%
   ggplot(aes(replicates, method)) +
     geom_tile(aes(fill = mcc)) + 
     geom_text(aes(label = ifelse(is.na(mcc), "N.A.", as.character(round(mcc, 3))))) +
-    scale_fill_gradient(low = "white", high = "red", limits = c(0,0.4)) +
+    scale_fill_gradient(low = "white", high = "red", limits = c(0,0.5)) +
   xlab("# of Replicates") +
   theme(axis.title.y = element_blank(),
         axis.text.y = element_blank(),
@@ -494,7 +479,7 @@ nhoodsH1_sensitivity = nhoodsRes_all %>%
   ggplot(aes(replicates, method)) +
     geom_tile(aes(fill = sensitivity)) + 
     geom_text(aes(label = round(sensitivity, 3))) +
-    scale_fill_gradient(low = "white", high = "red", limits = c(0,0.4)) +
+    scale_fill_gradient(low = "white", high = "red", limits = c(0,0.6)) +
   xlab("# of Replicates")
 
 nhoodsH1_specificity = nhoodsRes_all %>% 
@@ -504,13 +489,13 @@ nhoodsH1_specificity = nhoodsRes_all %>%
   ggplot(aes(replicates, method)) +
     geom_tile(aes(fill = specificity)) + 
     geom_text(aes(label = round(specificity, 3))) +
-    scale_fill_gradient(low = "white", high = "red", limits = c(0.9,1)) +
+    scale_fill_gradient(low = "white", high = "red", limits = c(0.8,1)) +
   xlab("# of Replicates") +
   theme(axis.title.y = element_blank(),
         axis.text.y = element_blank())
 
 nhoodsH1_auc + nhoodsH1_mcc + nhoodsH1_sensitivity + nhoodsH1_specificity
-ggsave("./plot/supFig1B4.png", bg = "transparent", width = 10, height = 6)
+ggsave("./plot/sim2_nhood1.png", bg = "transparent", width = 10, height = 6)
 ```
 
 
@@ -715,7 +700,7 @@ res_all %>%
 
 #### nhoods level
 
-```{r}
+```{r, eval=FALSE}
 nhoodsRes_all = data.frame()
 
 for (file in filenames) {
@@ -741,8 +726,8 @@ for (file in filenames) {
   for (i in 1:length(select_col)){
     pred = nhoodRes[,select_col[i]]
     auc[i] = getROC(truth[!is.na(pred)], pred[!is.na(pred)])$auc
-    if (i == 1) {pred_res = ifelse(pred < 0.05, "P", "N")}
-    else {pred_res = ifelse(pred < 0.05, "P", "N")}
+    if (i == 1) {pred_res = ifelse(pred < 0.1, "P", "N")}
+    else {pred_res = ifelse(pred < 0.1, "P", "N")}
     TP <- sum(pred_res[!is.na(pred_res)]=="P"&truth[!is.na(pred_res)]=="P")
     TN <- sum(pred_res[!is.na(pred_res)]=="N"&truth[!is.na(pred_res)]=="N")
     FP <- sum(pred_res[!is.na(pred_res)]=="P"&truth[!is.na(pred_res)]=="N")
@@ -796,7 +781,7 @@ nhoodsH1_auc = nhoodsRes_all %>%
     geom_tile(aes(fill = auc)) + 
     geom_text(aes(label = round(auc, 3))) +
     scale_fill_gradient(low = "white", high = "red", limits = c(0.6,0.8)) +
-  xlab("# of Replicates") +
+  xlab("# of Cell Types") +
   theme(axis.title.x = element_blank(),
         axis.text.x = element_blank())
 
@@ -806,7 +791,7 @@ nhoodsH1_mcc = nhoodsRes_all %>%
     geom_tile(aes(fill = mcc)) + 
     geom_text(aes(label = ifelse(is.na(mcc), "N.A.", as.character(round(mcc, 3))))) +
     scale_fill_gradient(low = "white", high = "red", limits = c(0,0.4)) +
-  xlab("# of Replicates") +
+  xlab("# of Cell Types") +
   theme(axis.title.y = element_blank(),
         axis.text.y = element_blank(),
         axis.title.x = element_blank(),
@@ -817,21 +802,21 @@ nhoodsH1_sensitivity = nhoodsRes_all %>%
   ggplot(aes(clustersN, method)) +
     geom_tile(aes(fill = sensitivity)) + 
     geom_text(aes(label = round(sensitivity, 3))) +
-    scale_fill_gradient(low = "white", high = "red", limits = c(0,0.4)) +
-  xlab("# of Replicates")
+    scale_fill_gradient(low = "white", high = "red", limits = c(0,0.5)) +
+  xlab("# of Cell Types")
 
 nhoodsH1_specificity = nhoodsRes_all %>% 
   dplyr::select(method, specificity, clustersN) %>% 
   ggplot(aes(clustersN, method)) +
     geom_tile(aes(fill = specificity)) + 
     geom_text(aes(label = round(specificity, 3))) +
-    scale_fill_gradient(low = "white", high = "red", limits = c(0.9,1)) +
-  xlab("# of Replicates") +
+    scale_fill_gradient(low = "white", high = "red", limits = c(0.8,1)) +
+  xlab("# of Cell Types") +
   theme(axis.title.y = element_blank(),
         axis.text.y = element_blank())
 
 nhoodsH1_auc + nhoodsH1_mcc + nhoodsH1_sensitivity + nhoodsH1_specificity
-ggsave("./plot/supFig1B5.png", bg = "transparent", width = 10, height = 6)
+ggsave("./plot/sim2_nhood2.png", bg = "transparent", width = 10, height = 6)
 ```
 
 
@@ -839,7 +824,7 @@ ggsave("./plot/supFig1B5.png", bg = "transparent", width = 10, height = 6)
 main_p1 + main_p3
 ggsave("./plot/Fig1_B.png", bg = "transparent", width = 10, height = 5)
 p1+p3
-ggsave("./plot/supFig1B1.png", bg = "transparent", width = 10, height = 5)
+ggsave("./plot/sim2_auc.png", bg = "transparent", width = 10, height = 5)
 p2+p4
 ggsave("./plot/supFig1B2.png", bg = "transparent", width = 10, height = 5)
 pH1+pH2
@@ -898,7 +883,7 @@ for (file in fileL) {
   for (i in 4:(3+numb_mthd)) {
     pred = simulationDF[,i]
     if (colnames(simulationDF)[i] == "milo_pct") {
-      pred_res = ifelse(simulationDF$milo_diff > 2, "P", "N")
+      pred_res = ifelse(simulationDF$milo_diff > 0, "P", "N")
       auc[i-3] = getROC(simulationDF$truth, 1-pred)$auc
       prauc[i-3] = getPRC(simulationDF$truth, 1-pred)$prauc}
     else {
@@ -929,17 +914,17 @@ res_all
 
 ```{r}
 p1B2 = res_all %>% 
-  dplyr::select(method, prauc, factor) %>% 
-  pivot_wider(names_from = factor, values_from = prauc) %>% 
-  pivot_longer(condition:gender, names_to = "factor", values_to = "prauc") %>% 
+  dplyr::select(method, auc, factor) %>% 
+  pivot_wider(names_from = factor, values_from = auc) %>% 
+  pivot_longer(condition:gender, names_to = "factor", values_to = "auc") %>% 
   filter(method %in% c("speckle", "diffcyt", "fisher", "scDC", "estPhi_emK", "milo")) %>%
   mutate(method = ifelse(method == "fisher", "Fisher", method),
          method = ifelse(method == "estPhi_emK", "DCATS", method)) %>% 
-  mutate(method = factor(method, level = c("scDC", "milo", "speckle", "diffcyt", "Fisher", "DCATS")),
+  mutate(method = factor(method, level = c("milo", "scDC", "speckle", "diffcyt", "Fisher", "DCATS")),
          factor = factor(factor, level = c("condition", "age", "gender"))) %>% 
   ggplot(aes(factor, method)) +
-    geom_tile(aes(fill = prauc)) + 
-    geom_text(aes(label = ifelse(is.na(prauc), "N.A.", as.character(round(prauc, 3))))) +
+    geom_tile(aes(fill = auc)) + 
+    geom_text(aes(label = ifelse(is.na(auc), "N.A.", as.character(round(auc, 3))))) +
     scale_fill_gradient(low = "white", high = "red", limits = c(0.3,0.9))+
   xlab("Covariates")
 p1B2
@@ -948,16 +933,16 @@ ggsave("./plot/Fig1_C.png", bg = "transparent")
 
 ```{r}
 p1B2_sup = res_all %>% 
-  dplyr::select(method, prauc, factor) %>% 
-  pivot_wider(names_from = factor, values_from = prauc) %>% 
-  pivot_longer(condition:gender, names_to = "factor", values_to = "prauc") %>% 
+  dplyr::select(method, auc, factor) %>% 
+  pivot_wider(names_from = factor, values_from = auc) %>% 
+  pivot_longer(condition:gender, names_to = "factor", values_to = "auc") %>% 
   filter(method %in% c("speckle", "diffcyt", "fisher", "scDC", "betabin_null", "estPhi_null", "wtoPhi_emK", "estPhi_emK", "milo")) %>%
   mutate(method = ifelse(method == "fisher", "Fisher", method)) %>% 
-  mutate(method = factor(method, level = c("scDC", "milo", "speckle", "diffcyt", "Fisher", "estPhi_null", "estPhi_emK", "betabin_null", "wtoPhi_emK")),
+  mutate(method = factor(method, level = c("milo", "scDC", "speckle", "diffcyt", "Fisher", "estPhi_null", "estPhi_emK", "betabin_null", "wtoPhi_emK")),
          factor = factor(factor, level = c("condition", "age", "gender"))) %>% 
   ggplot(aes(factor, method)) +
-    geom_tile(aes(fill = prauc)) + 
-    geom_text(aes(label = ifelse(is.na(prauc), "N.A.", as.character(round(prauc, 3))))) +
+    geom_tile(aes(fill = auc)) + 
+    geom_text(aes(label = ifelse(is.na(auc), "N.A.", as.character(round(auc, 3))))) +
     scale_fill_gradient(low = "white", high = "red", limits = c(0.3,0.9))+
   xlab("Covariates")
 p1B2_sup
@@ -971,7 +956,7 @@ p1B2_sup2 = res_all %>%
   pivot_longer(condition:gender, names_to = "factor", values_to = "mcc") %>% 
   filter(method %in% c("speckle", "diffcyt", "fisher", "scDC", "betabin_null", "estPhi_null", "wtoPhi_emK", "estPhi_emK", "milo")) %>%
   mutate(method = ifelse(method == "fisher", "Fisher", method)) %>% 
-  mutate(method = factor(method, level = c("scDC", "milo", "speckle", "diffcyt", "Fisher", "estPhi_null", "estPhi_emK", "betabin_null", "wtoPhi_emK")),
+  mutate(method = factor(method, level = c("milo", "scDC", "speckle", "diffcyt", "Fisher", "estPhi_null", "estPhi_emK", "betabin_null", "wtoPhi_emK")),
          factor = factor(factor, level = c("condition", "age", "gender"))) %>% 
   ggplot(aes(factor, method)) +
     geom_tile(aes(fill = mcc)) + 
@@ -989,7 +974,7 @@ p1B2_sup3 = res_all %>%
   pivot_longer(condition:gender, names_to = "factor", values_to = "F1") %>% 
   filter(method %in% c("speckle", "diffcyt", "fisher", "scDC", "betabin_null", "estPhi_null", "wtoPhi_emK", "estPhi_emK", "milo")) %>%
   mutate(method = ifelse(method == "fisher", "Fisher", method)) %>% 
-  mutate(method = factor(method, level = c("scDC", "milo", "speckle", "diffcyt", "Fisher", "estPhi_null", "estPhi_emK", "betabin_null", "wtoPhi_emK")),
+  mutate(method = factor(method, level = c("milo", "scDC", "speckle", "diffcyt", "Fisher", "estPhi_null", "estPhi_emK", "betabin_null", "wtoPhi_emK")),
          factor = factor(factor, level = c("condition", "age", "gender"))) %>% 
   ggplot(aes(factor, method)) +
     geom_tile(aes(fill = F1)) + 
@@ -1085,37 +1070,68 @@ ggsave("./plot/Fig1_C1.png", width = 8, height = 4)
 
 ```{r}
 load("D:/Data/DCATS/real_world/Haber2017_res.RData")
+
 all_resC3 %>% 
+  mutate(milo_pct = ifelse(milo_more > milo_less, (milo_more-milo_less)/(milo_more+milo_less+neutral), (milo_less-milo_more)/(milo_more+milo_less+neutral))) %>% 
+  dplyr::select(cluster, truth, contains('_pvals'), milo_pct) %>% 
+  mutate_if(is.numeric, round, 3) %>% 
+  mutate(treatment = "Hpoly.Day3") %>% 
+  rename_with(~ gsub('_pvals', '', .x)) %>% 
+  knitr::kable()
+all_resC10 %>% 
+  mutate(milo_pct = ifelse(milo_more > milo_less, (milo_more-milo_less)/(milo_more+milo_less+neutral), (milo_less-milo_more)/(milo_more+milo_less+neutral))) %>% 
+  dplyr::select(cluster, truth, contains('_pvals'), milo_pct) %>% 
+  mutate_if(is.numeric, round, 3) %>% 
+  mutate(treatment = "Hpoly.Day10") %>% 
+  rename_with(~ gsub('_pvals', '', .x)) %>% 
+  knitr::kable()
+all_resCS %>% 
+  mutate(milo_pct = ifelse(milo_more > milo_less, (milo_more-milo_less)/(milo_more+milo_less+neutral), (milo_less-milo_more)/(milo_more+milo_less+neutral))) %>% 
+  dplyr::select(cluster, truth, contains('_pvals'), milo_pct) %>% 
+  mutate_if(is.numeric, round, 3) %>% 
+  mutate(treatment = "Salmonella") %>% 
+  rename_with(~ gsub('_pvals', '', .x)) %>% 
+  knitr::kable()
+```
+
+```{r}
+all_resC3 %>% 
+  mutate(milo_pct = ifelse(milo_more > milo_less, (milo_more-milo_less)/(milo_more+milo_less+neutral), (milo_less-milo_more)/(milo_more+milo_less+neutral)),
+         milo_Res = ifelse(milo_pct > 0.2, "P", "N")) %>% 
   dplyr::select(cluster, truth, contains('_Res')) %>% 
   dplyr::rename(origin = truth) %>% 
-  pivot_longer(origin:speckle_Res, names_to = "method", values_to = "res") %>% 
+  pivot_longer(origin:milo_Res, names_to = "method", values_to = "res") %>% 
   pivot_wider(names_from = cluster, values_from = res) %>% 
   mutate(method = str_remove(method, "_Res")) %>% 
-  filter(method %in% c("origin", "estPhi_emSVM", "fisher", "scDC", "speckle")) %>% 
+  filter(method %in% c("origin", "estPhi_emSVM", "fisher", "scDC", "speckle", "milo")) %>% 
   mutate(method = ifelse(method == "estPhi_emSVM", "DCATS", method)) %>% 
   column_to_rownames("method") %>% 
   dplyr::select(Tuft, Endocrine, Enterocyte.Progenitor, Stem, Goblet, TA.Early, Enterocyte, TA) %>% 
   knitr::kable()
 
 all_resC10 %>% 
+  mutate(milo_pct = ifelse(milo_more > milo_less, (milo_more-milo_less)/(milo_more+milo_less+neutral), (milo_less-milo_more)/(milo_more+milo_less+neutral)),
+         milo_Res = ifelse(milo_pct > 0.2, "P", "N")) %>% 
   dplyr::select(cluster, truth, contains('_Res')) %>% 
   dplyr::rename(origin = truth) %>% 
-  pivot_longer(origin:speckle_Res, names_to = "method", values_to = "res") %>% 
+  pivot_longer(origin:milo_Res, names_to = "method", values_to = "res") %>% 
   pivot_wider(names_from = cluster, values_from = res) %>% 
   mutate(method = str_remove(method, "_Res")) %>% 
-  filter(method %in% c("origin", "estPhi_emSVM", "fisher", "scDC", "speckle")) %>% 
+  filter(method %in% c("origin", "estPhi_emSVM", "fisher", "scDC", "speckle", "milo")) %>% 
   mutate(method = ifelse(method == "estPhi_emSVM", "DCATS", method)) %>% 
   column_to_rownames("method") %>% 
   dplyr::select(Tuft, TA.Early, Goblet, Enterocyte, Enterocyte.Progenitor, Endocrine, Stem, TA) %>% 
   knitr::kable()
 
 all_resCS %>% 
+  mutate(milo_pct = ifelse(milo_more > milo_less, (milo_more-milo_less)/(milo_more+milo_less+neutral), (milo_less-milo_more)/(milo_more+milo_less+neutral)),
+         milo_Res = ifelse(milo_pct > 0.2, "P", "N")) %>% 
   dplyr::select(cluster, truth, contains('_Res')) %>% 
   dplyr::rename(origin = truth) %>% 
-  pivot_longer(origin:speckle_Res, names_to = "method", values_to = "res") %>% 
+  pivot_longer(origin:milo_Res, names_to = "method", values_to = "res") %>% 
   pivot_wider(names_from = cluster, values_from = res) %>% 
   mutate(method = str_remove(method, "_Res")) %>% 
-  filter(method %in% c("origin", "estPhi_emSVM", "fisher", "scDC", "speckle")) %>% 
+  filter(method %in% c("origin", "estPhi_emSVM", "fisher", "scDC", "speckle", "milo")) %>% 
   mutate(method = ifelse(method == "estPhi_emSVM", "DCATS", method)) %>% 
   column_to_rownames("method") %>% 
   dplyr::select(Enterocyte, Stem, TA, TA.Early, Enterocyte.Progenitor, Tuft, Goblet, Endocrine) %>% 
@@ -1186,12 +1202,25 @@ pA4 = exp6DF %>%
 ```{r}
 load("D:/Data/DCATS/real_world/Kang2017_res.RData")
 all_res %>% 
+  mutate(milo_pct = ifelse(milo_more > milo_less, (milo_more-milo_less)/(milo_more+milo_less+neutral), (milo_less-milo_more)/(milo_more+milo_less+neutral))) %>% 
+  dplyr::select(cluster, truth, contains('_pvals'), milo_pct) %>% 
+  mutate_if(is.numeric, round, 3) %>% 
+  rename_with(~ gsub('_pvals', '', .x)) %>% 
+  knitr::kable()
+  
+```
+
+
+```{r}
+all_res %>% 
+  mutate(milo_pct = ifelse(milo_more > milo_less, (milo_more-milo_less)/(milo_more+milo_less+neutral), (milo_less-milo_more)/(milo_more+milo_less+neutral)),
+         milo_Res = ifelse(milo_pct > 0.2, "P", "N")) %>% 
   dplyr::select(cluster, truth, contains('_Res')) %>% 
   dplyr::rename(origin = truth) %>% 
-  pivot_longer(origin:speckle_Res, names_to = "method", values_to = "res") %>% 
+  pivot_longer(origin:milo_Res, names_to = "method", values_to = "res") %>% 
   pivot_wider(names_from = cluster, values_from = res) %>% 
   mutate(method = str_remove(method, "_Res")) %>% 
-  filter(method %in% c("origin", "estPhi_emSVM", "fisher", "scDC", "speckle")) %>% 
+  filter(method %in% c("origin", "estPhi_emSVM", "fisher", "scDC", "speckle", "milo")) %>% 
   mutate(method = ifelse(method == "estPhi_emSVM", "DCATS", method)) %>% 
   column_to_rownames("method") %>% 
   knitr::kable()
@@ -1213,12 +1242,12 @@ designM_sub = Ren2021$designM %>%
   filter(state == "control" | state == "mild/moderate_progression")
 countM_sub = Ren2021$countM[rownames(designM_sub),]
 
-simil_mat = create_simMat(dim(countM_sub)[2], confuse_rate=0.1)
+simil_mat = create_simMat(dim(countM_sub)[2], confuse_rate=0.10)
 betabin_null = dcats_GLM(countM_sub, designM_sub, base_model = 'FULL')
-wtoPhi_emU = dcats_GLM(countM_sub, designM_sub, similarity_mat = simil_mat, n_samples = NULL, base_model = 'FULL')
+wtoPhi_emU = dcats_GLM(countM_sub, designM_sub, similarity_mat = simil_mat, base_model = 'FULL', pseudo_count = 1)
 phi = getPhi(countM_sub, designM_sub)
 estPhi_null = dcats_GLM(countM_sub, designM_sub, fix_phi = phi, base_model = 'FULL')
-estPhi_emU = dcats_GLM(countM_sub, designM_sub, similarity_mat = simil_mat, n_samples = NULL, fix_phi = phi, base_model = 'FULL')
+estPhi_emU = dcats_GLM(countM_sub, designM_sub, similarity_mat = simil_mat, fix_phi = phi, base_model = 'FULL', pseudo_count = 1)
 
 stat.test1 = data.frame(group1 = "control", group2 = "mild/moderate (progression)", p = estPhi_emU$LRT_pvals[,4]) %>% 
   rownames_to_column("clusterRes")
@@ -1236,10 +1265,10 @@ countM_sub = Ren2021$countM[rownames(designM_sub),]
 
 simil_mat = create_simMat(dim(countM_sub)[2], confuse_rate=0.1)
 betabin_null = dcats_GLM(countM_sub, designM_sub, base_model = 'FULL')
-wtoPhi_emU = dcats_GLM(countM_sub, designM_sub, similarity_mat = simil_mat, n_samples = NULL, base_model = 'FULL')
+wtoPhi_emU = dcats_GLM(countM_sub, designM_sub, similarity_mat = simil_mat, base_model = 'FULL', pseudo_count = 1)
 phi = getPhi(countM_sub, designM_sub)
 estPhi_null = dcats_GLM(countM_sub, designM_sub, fix_phi = phi, base_model = 'FULL')
-estPhi_emU = dcats_GLM(countM_sub, designM_sub, similarity_mat = simil_mat, n_samples = NULL, fix_phi = phi, base_model = 'FULL')
+estPhi_emU = dcats_GLM(countM_sub, designM_sub, similarity_mat = simil_mat, fix_phi = phi, base_model = 'FULL', pseudo_count = 1)
 
 stat.test2 = data.frame(group1 = "control", group2 = "severe/critical (progression)", p = estPhi_emU$LRT_pvals[,4]) %>% 
   rownames_to_column("clusterRes")
@@ -1267,10 +1296,10 @@ countM_sub = Ren2021$countM[rownames(designM_sub),]
 
 simil_mat = create_simMat(dim(countM_sub)[2], confuse_rate=0.1)
 betabin_null = dcats_GLM(countM_sub, designM_sub, base_model = 'FULL')
-wtoPhi_emU = dcats_GLM(countM_sub, designM_sub, similarity_mat = simil_mat, n_samples = NULL, base_model = 'FULL')
+wtoPhi_emU = dcats_GLM(countM_sub, designM_sub, similarity_mat = simil_mat, base_model = 'FULL', pseudo_count = 1)
 phi = getPhi(countM_sub, designM_sub)
 estPhi_null = dcats_GLM(countM_sub, designM_sub, fix_phi = phi, base_model = 'FULL')
-estPhi_emU = dcats_GLM(countM_sub, designM_sub, similarity_mat = simil_mat, n_samples = NULL, fix_phi = phi, base_model = 'FULL')
+estPhi_emU = dcats_GLM(countM_sub, designM_sub, similarity_mat = simil_mat, fix_phi = phi, base_model = 'FULL', pseudo_count = 1)
 betabin_null$LRT_pvals < 0.05
 wtoPhi_emU$LRT_pvals < 0.05
 estPhi_null$LRT_pvals < 0.05
@@ -1291,10 +1320,10 @@ countM_sub = Ren2021$countM[rownames(designM_sub),]
 
 simil_mat = create_simMat(dim(countM_sub)[2], confuse_rate=0.1)
 betabin_null = dcats_GLM(countM_sub, designM_sub, base_model = 'FULL')
-wtoPhi_emU = dcats_GLM(countM_sub, designM_sub, similarity_mat = simil_mat, n_samples = NULL, base_model = 'FULL')
+wtoPhi_emU = dcats_GLM(countM_sub, designM_sub, similarity_mat = simil_mat, base_model = 'FULL', pseudo_count = 1)
 phi = getPhi(countM_sub, designM_sub)
 estPhi_null = dcats_GLM(countM_sub, designM_sub, fix_phi = phi, base_model = 'FULL')
-estPhi_emU = dcats_GLM(countM_sub, designM_sub, similarity_mat = simil_mat, n_samples = NULL, fix_phi = phi, base_model = 'FULL')
+estPhi_emU = dcats_GLM(countM_sub, designM_sub, similarity_mat = simil_mat, fix_phi = phi, base_model = 'FULL', pseudo_count = 1)
 betabin_null$LRT_pvals < 0.05
 wtoPhi_emU$LRT_pvals < 0.05
 estPhi_null$LRT_pvals < 0.05
@@ -1360,7 +1389,7 @@ stat.test = stat.test1 %>% rbind(stat.test2) %>% rbind(stat.test3) %>% rbind(sta
          clusterRes = ifelse(clusterRes=="Mega", "Megakaryocytes", clusterRes),
          clusterRes = ifelse(clusterRes=="Macro", "Macrophages", clusterRes),
          clusterRes = ifelse(clusterRes=="Neu", "Neutrophils", clusterRes)) %>% 
-  mutate(color = ifelse(!((clusterRes == "CD8+ T cells"&group1 == "control"&group2 == "mild/moderate (progression)") | (clusterRes == "Monocytes"&group1 == "mild/moderate (convalescence)"&group2 == "mild/moderate (progression)")), "y1", "y2"))
+  mutate(color = ifelse(!((clusterRes == "CD8+ T cells"&group1 == "control"&group2 == "mild/moderate (progression)") | (clusterRes == "Monocytes"&group1 == "mild/moderate (convalescence)"&group2 == "mild/moderate (progression)") | (clusterRes == "B cells"&group1 == "control"&group2 == "mild/moderate (progression)") | (clusterRes == "B cells"&group1 == "mild/moderate (convalescence)"&group2 == "mild/moderate (progression)")), "y1", "y2"))
 
 ```
 
