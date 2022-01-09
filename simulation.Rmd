@@ -332,10 +332,10 @@ library(SingleCellExperiment)
 ```
 
 ```{r}
-cluster_num = 8  # numbers of clusters
+cluster_num = 12  # numbers of clusters
 concentration = 100 # indicate how simulated proportion far away from true, the larger the closer
 setresolu = 0.7
-rep1 = 2
+rep1 = 3
 rep2 = 3
 simulation_times = 30
 sample_size1 = 3000
