@@ -706,18 +706,6 @@ countM = Ren2021_cell %>%
   column_to_rownames("sample_id") %>% 
   replace(is.na(.), 0) %>% 
   as.matrix()
-
-countM = Ren2021_cell %>% 
-  filter(sample_id %in% pbmc_sampleL) %>% 
-  mutate(major_type == ifelse(major_type == "Mono"&contains(celltype, "CD14"), "CD14Mono", major_type))
-  group_by(sample_id, major_type) %>% 
-  summarise(n = n()) %>% 
-  pivot_wider(names_from = major_type, values_from = n) %>% 
-  arrange(sample_id) %>% 
-  filter(sample_id != 'S-M032') %>% 
-  column_to_rownames("sample_id") %>% 
-  replace(is.na(.), 0) %>% 
-  as.matrix()
 ```
 
 ```{r}
