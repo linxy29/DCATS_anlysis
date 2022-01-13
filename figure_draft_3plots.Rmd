@@ -1284,7 +1284,7 @@ Test between different groups
 
 control vs mild/moderate_progression
 
-```{r}
+```{r, eval=FALSE, warning=FALSE}
 designM_sub = Ren2021$designM %>% 
   filter(state == "control" | state == "mild/moderate_progression")
 countM_sub = Ren2021$countM[rownames(designM_sub),]
@@ -1305,7 +1305,7 @@ estPhi_emU$LRT_pvals
 
 control vs severe/critical_progression
 
-```{r}
+```{r, eval=FALSE, warning=FALSE}
 designM_sub = Ren2021$designM %>% 
   filter(state == "control" | state == "severe/critical_progression")
 countM_sub = Ren2021$countM[rownames(designM_sub),]
@@ -1323,7 +1323,7 @@ stat.test2 = data.frame(group1 = "control", group2 = "severe/critical (progressi
 
 mild/moderate_convalescence vs mild/moderate_progression
 
-```{r}
+```{r, eval=FALSE, warning=FALSE}
 designM_sub = Ren2021$designM %>% 
   filter(state == "mild/moderate_convalescence" | state == "mild/moderate_progression")
 countM_sub = Ren2021$countM[rownames(designM_sub),]
@@ -1347,7 +1347,7 @@ stat.test3
 
 severe/critical_convalescence vs severe/critical_progression
 
-```{r}
+```{r, eval=FALSE, warning=FALSE}
 designM_sub = Ren2021$designM %>% 
   filter(state == "severe/critical_convalescence" | state == "severe/critical_progression")
 countM_sub = Ren2021$countM[rownames(designM_sub),]
@@ -1428,6 +1428,7 @@ save(stat.test, file = "./data/real_world/Ren2021.RData")
 ```
 
 ```{r}
+load("./data/real_world/Ren2021.RData")
 pB1 = ggplot(data = Ren2021_plotDF[Ren2021_plotDF$clusterRes %in% c("CD8+ T cells", "Monocytes", "CD4+T cells", "B cells", "Megakaryocytes", "Plasma"),], aes(x = state, y = proportion)) +
     geom_boxplot(aes(color = state)) +
     theme(axis.title.x=element_blank(),
@@ -1460,7 +1461,7 @@ library(ggprism)
 #p2 + add_pvalue(stat.testp2, tip.length = 0.002)
 
 pB1 + add_pvalue(stat.testp1, tip.length = 0.015, step.increase = 0.03, colour = "color") + scale_color_manual(values=c("#F8766D", "#A3A500", "#00BF7D", "#00B0F6", "#E76BF3", "black", "red"))
-ggsave("./plot/Ren_main.png")
+ggsave("./plot/Ren_main.png", height = 8, width = 10)
 ```
 
 ### UMAP plot
