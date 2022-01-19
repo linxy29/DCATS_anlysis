@@ -13,7 +13,7 @@ knitr::opts_chunk$set(fig.width=12, fig.height=7)
 ```
 
 ```{r,message=FALSE,warning=FALSE}
-library(splatter)
+#library(splatter)
 library(Seurat)
 library(speckle)
 library(DCATS)
@@ -51,7 +51,32 @@ theme_set(theme_classic()+
 ### Figure 1 - B
 
 ```{r}
-load("D:/Data/DCATS/simulation/toy_simulation.RData")
+load("/storage/holab/linxy/DCATS/simulation/toy_simulation.RData")
+prop_cond1M = numb_cond1M[2:nrow(numb_cond1M),]/2000
+prop_cond2M = numb_cond2M[2:nrow(numb_cond2M),]/2000
+prop_cond1BCM = numb_cond1BCM[2:nrow(numb_cond1BCM),]/2000
+prop_cond2BCM = numb_cond2BCM[2:nrow(numb_cond2BCM),]/2000
+cond1DF = rbind(prop_cond1M, prop_cond1BCM, prop_cond2M, prop_cond2BCM) %>% as.data.frame() %>% 
+  mutate(state = c(rep("no Bias Correction", nrow(numb_cond1M)-1), rep("with Bias Correction", nrow(numb_cond1BCM)-1), rep("no Bias Correction", nrow(numb_cond2M)-1), rep("with Bias Correction", nrow(numb_cond2BCM)-1)),
+         cond = c(rep("Condition 1", nrow(numb_cond1M) + nrow(numb_cond1BCM) -2), rep("Condition 2", nrow(numb_cond2M) + nrow(numb_cond2BCM) -2)))
+colnames(cond1DF) = c("A", "B", "C", "state", "cond")
+```
+
+```{r}
+sim_prop = cond1DF %>% 
+  pivot_longer(A:C, names_to = "cellType", values_to = "proportion") %>% 
+  ggplot(aes(cellType, proportion)) + 
+  geom_boxplot(aes(col = cellType)) +
+  facet_grid(cond~state) + 
+  theme(legend.position = "none") +
+  xlab("Cell type")
+sim_prop
+ggsave("./plot/sim1_proportion.png", bg = "transparent")
+```
+
+### Figure 1 - C
+
+```{r}
 evaluationDF = data.frame()
 len = length(simulationDF_list)
 #for (j in 1:8){
@@ -102,6 +127,7 @@ sim1_main = evaluationDF %>%
   ggplot(aes(x = condition, y = auc, color = method)) + geom_boxplot() +
   scale_color_manual(values=c("#F8766D", "#00BFC4")) +
   theme(axis.title.x = element_blank()) + 
+  theme(legend.position = "top") +
   ylab("AUC") +
   scale_x_discrete(labels=c("null" = "no Bias Correction", "withBC" = "with Bias Correction")) 
 sim1_main
@@ -170,8 +196,10 @@ ggsave("./plot/sim1_phi.png", bg = "transparent", width = 8, height = 5)
 ```
 
 ```{r}
-sim1_main + sim1_main
-ggsave("./plot/Fig1.png", bg = "transparent", width = 12, height = 4)
+sim_prop + sim1_main
+ggsave("./plot/Fig1.png", bg = "transparent", width = 12, height = 6)
+sim1_main + sim1_main + sim1_main
+ggsave("./plot/Fig1_2.png", bg = "transparent", width = 12, height = 4)
 ```
 
 ## Figure 2
@@ -181,7 +209,8 @@ ggsave("./plot/Fig1.png", bg = "transparent", width = 12, height = 4)
 The Distribution of cell pool
 
 ```{r}
-load("D:/Data/DCATS/cells_pool8_splatter.RData")
+#load("D:/Data/DCATS/cells_pool8_splatter.RData")
+load("/storage/holab/linxy/DCATS/cells_pool8_splatter.RData")
 ```
 
 ```{r}
@@ -199,7 +228,8 @@ p1 = DimPlot(seuratObj, reduction = "umap", group.by = "orig.ident") + theme(leg
 ```
 
 ```{r}
-load("D:/Data/DCATS/cells_pool10_splatter.RData")
+#load("D:/Data/DCATS/cells_pool10_splatter.RData")
+load("/storage/holab/linxy/DCATS/cells_pool10_splatter.RData")
 ```
 
 ```{r}
@@ -217,7 +247,8 @@ p2 = DimPlot(seuratObj, reduction = "umap", group.by = "orig.ident") + theme(leg
 ```
 
 ```{r}
-load("D:/Data/DCATS/cells_pool12_splatter.RData")
+#load("D:/Data/DCATS/cells_pool12_splatter.RData")
+load("/storage/holab/linxy/DCATS/cells_pool12_splatter.RData")
 ```
 
 ```{r}
@@ -239,13 +270,61 @@ p1 + p2 + p3
 ggsave("./plot/sim2_cellpool.png", bg = "transparent", width = 10, height = 4)
 ```
 
+```{r}
+load("/storage/holab/linxy/DCATS/simulation/replicates/replicates3&3_K8_con100_splatter3000&3000para.RData")
+```
+
+Draw the proportion of different cell types and ROC curves
+
+```{r}
+clusterRes = data.frame()
+seurat_count = data_frame()
+for (idx in 1:length(oper)){
+    if (!is.na(oper[[idx]])) {
+      clusterRes = rbind(clusterRes, oper[[idx]]$clusterDF)
+      oper[[idx]]$seurat_count$cond1 = oper[[idx]]$seurat_count$cond1 %>% 
+        mutate(condition = "Condition 1")
+      oper[[idx]]$seurat_count$cond2 = oper[[idx]]$seurat_count$cond2 %>% 
+        mutate(condition = "Condition 2")
+      seurat_count = rbind(seurat_count, oper[[idx]]$seurat_count$cond1)
+      seurat_count = rbind(seurat_count, oper[[idx]]$seurat_count$cond2)}
+    }
+```
+
+```{r}
+sim2_prop = seurat_count %>% 
+  pivot_longer(H:B, names_to = "cellType", values_to = "count") %>% 
+  mutate(proportion = count/3000) %>% 
+  ggplot(aes(cellType, proportion)) +
+  geom_boxplot(aes(col = condition)) +
+  theme(legend.position = "top") + 
+  xlab("Cell type")
+sim2_prop
+```
+
+```{r}
+clusterRes = clusterRes %>% 
+    mutate(milo_main = ifelse(milo_less > milo_more, milo_less, milo_more),
+           milo_pct = milo_main/(milo_less + neutral + milo_more),
+           milo_diff = abs(milo_less - milo_more)) %>% 
+    dplyr::select(-milo_less, -milo_more, - neutral, -milo_main)
+
+rocobj_dcats = roc(clusterRes$truth, clusterRes$estPhi_emK_pvals)
+rocobj_fisher = roc(clusterRes$truth, clusterRes$fisher_pvals)
+rocobj_scDC = roc(clusterRes$truth, clusterRes$scDC_pvals)
+rocobj_speckle = roc(clusterRes$truth, clusterRes$speckle_pvals)
+rocobj_diffcyt = roc(clusterRes$truth, clusterRes$diffcyt_pvals)
+rocobj_milo = roc(clusterRes$truth, clusterRes$milo_pct)
+```
+
 ### Figure 2-B
 
 #### Different numbers of replicates
 
 ```{r}
 ## cluster number = 8
-filenames = list.files("D:/Data/DCATS/simulation/replicates", full.names = TRUE)
+#filenames = list.files("D:/Data/DCATS/simulation/replicates", full.names = TRUE)
+filenames = list.files("/storage/holab/linxy/DCATS/simulation/replicates", full.names = TRUE)
 #filenames = filenames[grep("_K8_con100_splatter3000&3000", filenames)]
 filenames
 ```
@@ -319,6 +398,18 @@ res_all %>%
          F1 = round(F1, 3))
 ```
 
+```{r}
+sim2_auc = ggroc(list(DCATS=rocobj_dcats, Fisher=rocobj_fisher, diffcyt=rocobj_diffcyt, speckle=rocobj_speckle, scDC=rocobj_scDC, milo=rocobj_milo))+
+  geom_point(aes(x=0.958, y=0.725), colour="black", shape = 4) +
+  geom_point(aes(x=0.925, y=0.733), colour="black", shape = 4) +
+  geom_point(aes(x=0.967, y=0.675), colour="black", shape = 4) +
+  geom_point(aes(x=0.742, y=0.642), colour="black", shape = 4) +
+  geom_point(aes(x=0.383, y=0.950), colour="black", shape = 4) +
+  geom_point(aes(x=0.333, y=0.950), colour="black", shape = 4) +
+  labs(color='method')
+sim2_auc
+```
+
 ```{r, warning=FALSE, eval=FALSE}
 sim2_mainAUC1 = res_all %>% 
   filter(method %in% c("speckle", "diffcyt", "fisher", "scDC", "estPhi_emK", "milo")) %>%
@@ -365,7 +456,8 @@ sim2_mainHM1 = res_all %>%
   ggplot(aes(replicates, method)) +
     geom_tile(aes(fill = value_order)) + 
     geom_text(aes(label = round(value, 3))) +
-    scale_fill_gradient(low = "red", high = "white", limits = c(1,6)) +
+  scale_fill_distiller(palette = "RdYIBu") +
+    #scale_fill_gradient(low = "red", high = "white", limits = c(1,6)) +
   xlab("# of Replicates") +
   theme(axis.title.y = element_blank()) +
   theme(legend.position = "none") +
@@ -562,7 +654,8 @@ ggsave("./plot/sim2_nhood1.png", bg = "transparent", width = 10, height = 6)
 
 ```{r}
 ## replicates number 3&3
-filenames = list.files("D:/Data/DCATS/simulation/clusterN", full.names = TRUE)
+filenames = list.files("/storage/holab/linxy/DCATS/simulation/clusterN", full.names = TRUE)
+#filenames = list.files("D:/Data/DCATS/simulation/clusterN", full.names = TRUE)
 #filenames = filenames[grep("_K8_con100_splatter3000&3000", filenames)]
 filenames
 ```
@@ -686,7 +779,8 @@ sim2_mainHM2 = res_all %>%
   ggplot(aes(clustersN, method)) +
     geom_tile(aes(fill = value_order)) + 
     geom_text(aes(label = round(value, 3))) +
-    scale_fill_gradient(low = "red", high = "white", limits = c(1,6)) +
+  scale_fill_distiller(palette = "RdYIBu") +
+    #scale_fill_gradient(low = "red", high = "white", limits = c(1,6)) +
   xlab("# of cell types") +
   theme(axis.title.y = element_blank(),
         axis.text.y = element_blank()) +
@@ -718,7 +812,7 @@ sim2_statistics_clustersN
 ```
 
 ```{r}
-sim2_statistics_replicates + theme(legend.position = "none") + sim2_statistics_clustersN + theme(legend.position = "bottom")
+sim2_statistics_replicates + theme(legend.position = "none") + sim2_statistics_clustersN
 ggsave("./plot/sim2_statistics.png", bg = "transparent", height = 10, width = 14)
 ```
 
@@ -896,7 +990,8 @@ ggsave("./plot/sim2_nhood2.png", bg = "transparent", width = 10, height = 6)
 ### Figure 2 - C
 
 ```{r}
-load("D:/Data/DCATS/simulation/replicates10&10_K8_con100_splatter1500&2500_para.RData")
+#load("D:/Data/DCATS/simulation/replicates10&10_K8_con100_splatter1500&2500_para.RData")
+load("/storage/holab/linxy/DCATS/simulation/replicates10&10_K8_con100_splatter1500&2500_para.RData")
 conditionRes = data.frame()
 genderRes = data.frame()
 ageRes = data.frame()
@@ -1041,7 +1136,7 @@ ggsave("./plot/sim3_f1.png", bg = "transparent")
 ```
 
 ```{r}
-(p1 + p2 + p3)/((sim2_mainHM1 + sim2_mainHM2) + theme(legend.position="bottom") + sim3_main)
+(p1 + sim2_prop + sim2_auc + theme(legend.position="top"))/((sim2_mainHM1 + sim2_mainHM2) + theme(legend.position="bottom") + sim3_main + theme(legend.position="bottom"))
 ggsave("./plot/Fig2.png", bg = "transparent", height = 9, width = 12)
 ```
 

@@ -4,7 +4,7 @@ output: html_document
 ---
 
 ```{r,message=FALSE,warning=FALSE}
-library(splatter)
+#library(splatter)
 library(Seurat)
 library(speckle)
 library(DCATS)
@@ -43,7 +43,7 @@ rep2 = 3
 #rep2 = 4
 simulation_times = 50
 simulation_size = 50
-sample_size1 = 1000
+sample_size1 = 2000
 sample_size2 = 2000
 
 probC1 = c(1/3, 1/3, 1/3)  # True proportions
@@ -58,12 +58,16 @@ Try used the complete version of dcats without fixed phi
 ```{r}
 set.seed(123)
 
+numb_cond1M = matrix(ncol = 3)
+numb_cond2M = matrix(ncol = 3)
+numb_cond1BCM = matrix(ncol = 3)
+numb_cond2BCM = matrix(ncol = 3)
 simulationDF_list = vector(mode = "list", length = simulation_times)
 phiDF = data.frame()
 for (sim in 1:simulation_times) {
   simulationDF = data.frame()
   for (simsim in 1:simulation_size){
-    print(str_c("sim: ", as.character(sim), "simsim: ", as.character(simsim)))
+    print(str_c("sim: ", as.character(sim), ", simsim: ", as.character(simsim)))
     ## create confusion matrix that is not uniformly distributed
     simil_mat = matrix(c(1, 0, 0, 0, 0.7, 0.3, 0, 0.3, 0.7), ncol = 3)
     
@@ -75,6 +79,8 @@ for (sim in 1:simulation_times) {
     sim_dat <- DCATS::simulator_base(totals1, totals2, diri_s1, diri_s2, simil_mat)
     numb_cond1 = as.matrix(sim_dat$numb_cond1)
     numb_cond2 = as.matrix(sim_dat$numb_cond2)
+    numb_cond1M = rbind(numb_cond1M, numb_cond1)
+    numb_cond2M = rbind(numb_cond2M, numb_cond2)
     
     ## Test part 1
     ### DCATS
@@ -102,7 +108,8 @@ for (sim in 1:simulation_times) {
     for (i in seq_len(nrow(numb_cond2))) {
       numb_cond2BC[i, ] <- sum(numb_cond2[i, ]) * multinom_EM(numb_cond2[i, ], simil_mat, verbose = FALSE)$mu
       numb_cond2BC[i, ] = ceiling(numb_cond2BC[i, ])}
-    
+    numb_cond1BCM = rbind(numb_cond1BCM, numb_cond1BC)
+    numb_cond2BCM = rbind(numb_cond2BCM, numb_cond2BC)
     
     ### DCATS
     countBC_mat = rbind(numb_cond1BC, numb_cond2BC)
@@ -140,7 +147,8 @@ for (sim in 1:simulation_times) {
     }
   simulationDF_list[[sim]] = simulationDF
 }
-#save(simulationDF_list, phiDF, file = "D:/Data/DCATS/simulation/toy_simulation50.RData")
+#save(simulationDF_list, phiDF, numb_cond1M, numb_cond2M, numb_cond1BCM, numb_cond2BCM, file = "D:/Data/DCATS/simulation/toy_simulation0117.RData")
+save(simulationDF_list, phiDF, numb_cond1M, numb_cond2M, numb_cond1BCM, numb_cond2BCM, file = "/storage/holab/linxy/DCATS/simulation/toy_simulation0117.RData")
 ```
 
 ```{r}
@@ -693,7 +701,8 @@ prop_cond1 = rep(8,8)
 prop_cond2 = c(6, 6, 10, 10, 8, 8, 8, 8)
 #prop_gender = rep(c(-1, 1, 1, -1), 2)
 prop_gender = rep(c(-2, 2, 0, 0), 2)
-prop_age = c(-0.05, rep(0, 2), 0.05, 0.05, rep(0, 2), -0.05)
+#prop_age = c(-0.05, rep(0, 2), 0.05, 0.05, rep(0, 2), -0.05)
+prop_age = rep(c(-0.05, 0.05, 0, 0), 2)
 cond_mat = matrix(c(rep(prop_cond1, 10), rep(prop_cond2, 10)), nrow = 8) %>% t()
 gender_mat = matrix(as.numeric(as.factor(gender))-1, ncol = 1) %*% prop_gender
 age_mat = matrix(age-15, ncol = 1) %*% prop_age
@@ -717,8 +726,8 @@ cluster_num = 8  # numbers of clusters
 concentration = 100 # indicate how simulated proportion far away from true, the larger the closer
 setresolu = 0.6
 simulation_times = 30
-sample_size1 = 1500
-sample_size2 = 2500
+sample_size1 = 3000
+sample_size2 = 3000
 cell_pool = "splatter"  # cell pool used, can be selected from ("SPAR", "splatter", "realWorld")
 more_negative = ""
 truthRes = c(rep("P", 4), rep("N", 4))
@@ -732,7 +741,7 @@ options(future.globals.maxSize = 15000 * 1024^2)
 
 ```{r}
 if (cell_pool == "splatter"){
-  load(str_c("D:/Data/DCATS/cells_pool", as.character(cluster_num), "_splatter.RData"))
+  load(str_c("/storage/holab/linxy/DCATS/cells_pool", as.character(cluster_num), "_splatter.RData"))
   #load(str_c("D:/Data/DCATS/cells_pool", as.character(cluster_num), "_splatter_test.RData"))
 } else if (cell_pool == "SPAR") {
     load(str_c("D:/Data/DCATS/cells_pool", as.character(cluster_num), "_SPARSim.RData"))
@@ -792,7 +801,7 @@ cl <- makeCluster(8) #not to overload your computer
 registerDoParallel(cl)
 startTime = Sys.time()
 set.seed(1)
-oper <- foreach(sim = 1:simulation_times, .packages=c("tidyverse", "Seurat", "DCATS", "speckle", "diffcyt", "scdney", "tidymodels", "miloR", "SingleCellExperiment"), .verbose = TRUE) %dopar% {
+oper <- foreach(sim = 1:simulation_times, .packages=c("tidyverse", "Seurat", "DCATS", "speckle", "diffcyt", "scDC", "tidymodels", "miloR", "SingleCellExperiment"), .verbose = TRUE) %dopar% {
   result <- multiResultClass()  # where to save output
   timeL = rep(NA, 8) # DCATS w/wto similarity matrix, fisher, speckle, diffcyt, scDC
   ## simulation
@@ -964,8 +973,8 @@ foreachtime = Sys.time() - startTime
 ```
 
 ```{r}
-#file_name = str_c("D:/Data/DCATS/simulation/replicates", as.character(rep1), "&", as.character(rep2), "_K", as.character(cluster_num), "_con", as.character(concentration), "_", cell_pool, more_negative, sample_size1, "&", sample_size2, "_test.RData")
-file_name = str_c("D:/Data/DCATS/simulation/replicates10&10_K", as.character(cluster_num), "_con", as.character(concentration), "_", cell_pool, more_negative, sample_size1, "&", sample_size2, "_para.RData")
+#file_name = str_c("D:/Data/DCATS/simulation/replicates10&10_K", as.character(cluster_num), "_con", as.character(concentration), "_", cell_pool, more_negative, sample_size1, "&", sample_size2, "_para.RData")
+file_name = str_c("/storage/holab/linxy/DCATS/simulation/replicates10&10_K", as.character(cluster_num), "_con", as.character(concentration), "_", cell_pool, more_negative, sample_size1, "&", sample_size2, "_para.RData")
 save(oper, file = file_name)
 ```
 
