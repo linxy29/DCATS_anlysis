@@ -262,8 +262,8 @@ library(ggplot2)
 library(tidyverse)
 library(diffcyt)
 library(MCMCpack)
-library(scdney)
-#library(scDC)
+#library(scdney)
+library(scDC)
 library(tidymodels)  ## for DCATS
 library(miloR)
 library(SingleCellExperiment)
@@ -699,7 +699,6 @@ design_mat = data.frame(condition, gender, age)
 ## proportion contribution
 prop_cond1 = rep(8,8)
 prop_cond2 = c(6, 6, 10, 10, 8, 8, 8, 8)
-#prop_gender = rep(c(-1, 1, 1, -1), 2)
 prop_gender = rep(c(-2, 2, 0, 0), 2)
 #prop_age = c(-0.05, rep(0, 2), 0.05, 0.05, rep(0, 2), -0.05)
 prop_age = rep(c(-0.05, 0.05, 0, 0), 2)
@@ -708,6 +707,7 @@ gender_mat = matrix(as.numeric(as.factor(gender))-1, ncol = 1) %*% prop_gender
 age_mat = matrix(age-15, ncol = 1) %*% prop_age
 add_mat = cond_mat + gender_mat + age_mat
 prop_mat = add_mat/rowSums(add_mat)
+prop_mat
 ```
 
 ```{r, eval=FALSE}
@@ -796,7 +796,7 @@ unregister_dopar <- function() {
 
 ```{r}
 #setup parallel backend to use many processors
-cores=detectCores()
+#cores=detectCores()
 cl <- makeCluster(8) #not to overload your computer
 registerDoParallel(cl)
 startTime = Sys.time()
@@ -952,7 +952,7 @@ oper <- foreach(sim = 1:simulation_times, .packages=c("tidyverse", "Seurat", "DC
                estPhi_emK_pvals = as.vector(estPhi_emK$LRT_pvals[,2]))
       result$genderDF = genderDF
       
-      ageDF = data.frame(cluster = colnames(numb_cond1[,order2]), truth = c("P", "N", "N", "P", "P", "N", "N", "P")) %>%
+      ageDF = data.frame(cluster = colnames(numb_cond1[,order2]), truth = rep(c("P", "P", "N", "N"), 2)) %>%
         arrange(cluster) %>% 
         mutate(betabin_null_pvals = as.vector(betabin_null$LRT_pvals[,3]),
                estPhi_null_pvals = as.vector(estPhi_null$LRT_pvals[,3]),
@@ -967,7 +967,7 @@ oper <- foreach(sim = 1:simulation_times, .packages=c("tidyverse", "Seurat", "DC
       result$ageDF = ageDF
       result$time = timeL
   return(result)
-}
+      }
 stopCluster(cl) 
 foreachtime = Sys.time() - startTime
 ```

@@ -990,8 +990,8 @@ ggsave("./plot/sim2_nhood2.png", bg = "transparent", width = 10, height = 6)
 ### Figure 2 - C
 
 ```{r}
-#load("D:/Data/DCATS/simulation/replicates10&10_K8_con100_splatter1500&2500_para.RData")
-load("/storage/holab/linxy/DCATS/simulation/replicates10&10_K8_con100_splatter1500&2500_para.RData")
+#load("/storage/holab/linxy/DCATS/simulation/replicates10&10_K8_con100_splatter1500&2500_para.RData")
+load("/storage/holab/linxy/DCATS/simulation/replicates10&10_K8_con100_splatter3000&3000_para.RData")
 conditionRes = data.frame()
 genderRes = data.frame()
 ageRes = data.frame()
@@ -1058,7 +1058,7 @@ for (file in fileL) {
     F1[i-3] = 2*TP/(2*TP+FP+FN)
     }
   res = data.frame(method = methods, mcc = mcc, auc = auc, prauc = prauc, sensitivity = sensitivity, specificity = specificity, precision = precision, F1 = F1) %>% 
-    arrange(desc(prauc)) %>% 
+    arrange(desc(auc)) %>% 
     mutate(factor = unique(simulationDF$factor))
   res_all = rbind(res_all, res)}
 res_all
