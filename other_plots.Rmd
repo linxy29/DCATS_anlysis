@@ -1,0 +1,64 @@
+---
+title: "other plots"
+author: "Xinyi Lin"
+date: "1/20/2022"
+output: html_document
+---
+
+```{r,message=FALSE,warning=FALSE}
+#library(splatter)
+library(Seurat)
+library(speckle)
+library(DCATS)
+library(ggplot2)
+library(tidyverse)
+library(MCMCpack)
+library(pROC)
+library(patchwork)
+library(ggpubr)
+```
+
+```{r}
+source("functionsV2.r")
+options(future.globals.maxSize = 20000 * 1024^2) # 20G memory
+```
+
+```{r}
+theme_set(theme_classic()+
+            theme(panel.border = element_blank(),
+          legend.key = element_blank(),
+          axis.ticks = element_blank(),
+          panel.grid = element_blank(),
+          panel.grid.minor = element_blank(), 
+          panel.grid.major = element_blank(),
+          panel.background = element_blank(),
+          legend.background = element_blank(),
+          plot.background = element_rect(fill = "transparent",colour = NA)) + 
+            theme(axis.text=element_text(size=12), axis.title=element_text(size=13))+
+            theme(legend.title = element_text(size=13), #change legend title font size
+                  legend.text = element_text(size=10)))
+```
+
+```{r}
+load("/storage/holab/linxy/DCATS/simulation/toy_simulation.RData")
+prop_cond1M = numb_cond1M[2:nrow(numb_cond1M),]/2000
+prop_cond2M = numb_cond2M[2:nrow(numb_cond2M),]/2000
+prop_cond1BCM = numb_cond1BCM[2:nrow(numb_cond1BCM),]/2000
+prop_cond2BCM = numb_cond2BCM[2:nrow(numb_cond2BCM),]/2000
+cond1DF = rbind(prop_cond1M, prop_cond1BCM, prop_cond2M, prop_cond2BCM) %>% as.data.frame() %>% 
+  mutate(state = c(rep("no Bias Correction", nrow(numb_cond1M)-1), rep("with Bias Correction", nrow(numb_cond1BCM)-1), rep("no Bias Correction", nrow(numb_cond2M)-1), rep("with Bias Correction", nrow(numb_cond2BCM)-1)),
+         cond = c(rep("Condition 1", nrow(numb_cond1M) + nrow(numb_cond1BCM) -2), rep("Condition 2", nrow(numb_cond2M) + nrow(numb_cond2BCM) -2)))
+colnames(cond1DF) = c("A", "B", "C", "state", "cond")
+```
+
+```{r}
+sim_prop = cond1DF %>% 
+  pivot_longer(A:C, names_to = "cellType", values_to = "proportion") %>% 
+  ggplot(aes(cellType, proportion)) + 
+  geom_boxplot(aes(col = cellType)) +
+  facet_grid(cond~state) + 
+  theme(legend.position = "none") +
+  xlab("Cell type")
+sim_prop
+ggsave("./plot/sim1_proportion.png", bg = "transparent")
+```
