@@ -288,7 +288,8 @@ for (idx in 1:length(oper)){
         mutate(condition = "Condition 2")
       seurat_count = rbind(seurat_count, oper[[idx]]$seurat_count$cond1)
       seurat_count = rbind(seurat_count, oper[[idx]]$seurat_count$cond2)}
-    }
+}
+colnames(seurat_count) = c("A", "B", "C", "D", "E", "F", "G", "H", "condition")
 ```
 
 ```{r}
@@ -451,8 +452,8 @@ sim2_mainHM1 = res_all %>%
   dplyr::select(method, auc, mcc, replicates) %>% 
   pivot_longer(auc:mcc, names_to = "statistics", values_to = "value") %>% 
   group_by(replicates, statistics) %>% 
-  mutate(value_order = 7-order(order(value))) %>% 
-  mutate(value_order = ifelse(method == "DCATS"&replicates == "4&4", 1, value_order)) %>%
+  mutate(order_pre = rank(round(value, 3)),
+         value_order = 7-ceiling(rank(order_pre))) %>% 
   ggplot(aes(replicates, method)) +
     geom_tile(aes(fill = value_order)) + 
     geom_text(aes(label = round(value, 3))) +
@@ -475,7 +476,8 @@ sim2_statistics_replicates = res_all %>%
   dplyr::select(method, auc, prauc, mcc, F1, replicates) %>% 
   pivot_longer(auc:F1, names_to = "statistics", values_to = "value") %>% 
   group_by(replicates, statistics) %>% 
-  mutate(value_order = 10-order(order(value))) %>% 
+  mutate(order_pre = rank(round(value, 3)),
+         value_order = 10-ceiling(rank(order_pre))) %>% 
   ggplot(aes(replicates, method)) +
     geom_tile(aes(fill = value_order)) + 
     geom_text(aes(label = round(value, 3))) +
@@ -775,7 +777,8 @@ sim2_mainHM2 = res_all %>%
   dplyr::select(method, auc, mcc, clustersN) %>% 
   pivot_longer(auc:mcc, names_to = "statistics", values_to = "value") %>% 
   group_by(clustersN, statistics) %>% 
-  mutate(value_order = 7-order(order(value))) %>% 
+  mutate(order_pre = rank(round(value, 3)),
+         value_order = 7-ceiling(rank(order_pre))) %>% 
   ggplot(aes(clustersN, method)) +
     geom_tile(aes(fill = value_order)) + 
     geom_text(aes(label = round(value, 3))) +
@@ -798,7 +801,8 @@ sim2_statistics_clustersN = res_all %>%
   dplyr::select(method, auc, prauc, mcc, F1, clustersN) %>% 
   pivot_longer(auc:F1, names_to = "statistics", values_to = "value") %>% 
   group_by(clustersN, statistics) %>% 
-  mutate(value_order = 10-order(order(value))) %>% 
+  mutate(order_pre = rank(round(value, 3)),
+         value_order = 10-ceiling(rank(order_pre))) %>% 
   ggplot(aes(clustersN, method)) +
     geom_tile(aes(fill = value_order)) + 
     geom_text(aes(label = round(value, 3))) +
