@@ -294,7 +294,7 @@ colnames(seurat_count) = c("A", "B", "C", "D", "E", "F", "G", "H", "condition")
 
 ```{r}
 sim2_prop = seurat_count %>% 
-  pivot_longer(H:B, names_to = "cellType", values_to = "count") %>% 
+  pivot_longer(A:H, names_to = "cellType", values_to = "count") %>% 
   mutate(proportion = count/3000) %>% 
   ggplot(aes(cellType, proportion)) +
   geom_boxplot(aes(col = condition)) +
@@ -562,7 +562,7 @@ save(nhoodsRes_all, file = "D:/Data/DCATS/simulation/nhoodsRes_all_replicates.RD
 ```
 
 ```{r}
-load("D:/Data/DCATS/simulation/nhoodsRes_all_replicates.RData")
+load("/storage/holab/linxy/DCATS/simulation/nhoodsRes_all_replicates.RData")
 nhoodsRes_all %>% 
   arrange(replicates, desc(auc)) %>% 
   dplyr::select(method, mcc, auc, sensitivity, specificity, F1, replicates) %>% 
@@ -900,7 +900,7 @@ save(nhoodsRes_all, file = "D:/Data/DCATS/simulation/nhoodsRes_all_clustersN.RDa
 ```
 
 ```{r}
-load("D:/Data/DCATS/simulation/nhoodsRes_all_clustersN.RData")
+load("/storage/holab/linxy/DCATS/simulation/nhoodsRes_all_clustersN.RData")
 nhoodsRes_all %>% 
   arrange(clustersN, desc(auc)) %>% 
   dplyr::select(method, mcc, auc, sensitivity, specificity, F1, clustersN) %>% 

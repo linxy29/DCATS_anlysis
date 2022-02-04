@@ -270,9 +270,9 @@ library(SingleCellExperiment)
 ```
 
 ```{r}
-cluster_num = 12  # numbers of clusters
+cluster_num = 8  # numbers of clusters
 concentration = 100 # indicate how simulated proportion far away from true, the larger the closer
-setresolu = 0.7
+setresolu = 0.6
 rep1 = 3
 rep2 = 3
 simulation_times = 30
@@ -309,7 +309,7 @@ options(future.globals.maxSize = 15000 * 1024^2)
 ```{r}
 if (cell_pool == "splatter"){
   #load(str_c("D:/#Data/DCATS/cells_pool", as.character(cluster_num), "_splatter.RData"))
-  load(str_c("D:/Data/DCATS/cells_pool", as.character(cluster_num), "_splatter.RData"))
+  load(str_c("/storage/holab/linxy/DCATS/cells_pool", as.character(cluster_num), "_splatter.RData"))
 } else if (cell_pool == "SPAR") {
     load(str_c("D:/Data/DCATS/cells_pool", as.character(cluster_num), "_SPARSim.RData"))
   
@@ -375,7 +375,7 @@ oper <- foreach(sim = 1:simulation_times, .packages=c("tidyverse", "Seurat", "DC
   if (is.na(simulation)[1] == TRUE){
     return(NA)
   }
-  result$true_count = c(cond1 = simulation$numb_cond1, cond2 = simulation$numb_cond2)
+  result$true_count = rbind(cond1 = simulation$numb_cond1, cond2 = simulation$numb_cond2)
   ## data convert
   numb_cond1 = simulation$dfRes %>% 
     filter(condition == "Cond1") %>%
