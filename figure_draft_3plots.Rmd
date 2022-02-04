@@ -69,7 +69,7 @@ sim_prop = cond1DF %>%
   geom_boxplot(aes(col = cellType)) +
   facet_grid(cond~state) + 
   theme(legend.position = "none") +
-  xlab("Cell type")
+  xlab("cell type")
 sim_prop
 ggsave("./plot/sim1_proportion.png", bg = "transparent")
 ```
@@ -420,7 +420,7 @@ sim2_mainAUC1 = res_all %>%
   ggplot(aes(x = replicates, y = auc, color = method, group = method)) + 
   geom_point(shape = 0) +
   geom_line()+
-  xlab("# of Replicates") +
+  xlab("# of replicates") +
   theme(legend.position = "none") + 
   ylab("AUC")
 sim2_mainAUC1
@@ -1082,7 +1082,7 @@ sim3_main = res_all %>%
     geom_tile(aes(fill = auc)) + 
     geom_text(aes(label = ifelse(is.na(auc), "N.A.", as.character(round(auc, 3))))) +
     scale_fill_gradient(low = "white", high = "red", limits = c(0.3,0.9))+
-  xlab("Covariates") +
+  xlab("covariates") +
   theme(axis.title.y = element_blank())
 sim3_main
 ggsave("./plot/sim3_main.png", bg = "transparent")
