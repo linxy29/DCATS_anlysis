@@ -51,19 +51,23 @@ theme_set(theme_classic()+
 ### Figure 1 - B
 
 ```{r}
-load("/storage/holab/linxy/DCATS/simulation/toy_simulation.RData")
+load("/storage/holab/linxy/DCATS/simulation/toy_simulation0209.RData")
 prop_cond1M = numb_cond1M[2:nrow(numb_cond1M),]/2000
 prop_cond2M = numb_cond2M[2:nrow(numb_cond2M),]/2000
 prop_cond1BCM = numb_cond1BCM[2:nrow(numb_cond1BCM),]/2000
 prop_cond2BCM = numb_cond2BCM[2:nrow(numb_cond2BCM),]/2000
-cond1DF = rbind(prop_cond1M, prop_cond1BCM, prop_cond2M, prop_cond2BCM) %>% as.data.frame() %>% 
-  mutate(state = c(rep("no Bias Correction", nrow(numb_cond1M)-1), rep("with Bias Correction", nrow(numb_cond1BCM)-1), rep("no Bias Correction", nrow(numb_cond2M)-1), rep("with Bias Correction", nrow(numb_cond2BCM)-1)),
-         cond = c(rep("Condition 1", nrow(numb_cond1M) + nrow(numb_cond1BCM) -2), rep("Condition 2", nrow(numb_cond2M) + nrow(numb_cond2BCM) -2)))
+prop_true1M = true_cond1M[2:nrow(true_cond1M),]/2000
+prop_true2M = true_cond2M[2:nrow(true_cond2M),]/2000
+cond1DF = rbind(prop_cond1M, prop_cond1BCM, prop_cond2M, prop_cond2BCM, prop_true1M, prop_true2M) %>% as.data.frame() %>% 
+  mutate(state = c(rep("with Misclassification", nrow(numb_cond1M)-1), rep("with Bias Correction", nrow(numb_cond1BCM)-1), rep("with Misclassification", nrow(numb_cond2M)-1), rep("with Bias Correction", nrow(numb_cond2BCM)-1), rep("no Misclassification", nrow(prop_true1M) + nrow(prop_true2M))),
+         cond = c(rep("Condition 1", nrow(numb_cond1M) + nrow(numb_cond1BCM) -2), rep("Condition 2", nrow(numb_cond2M) + nrow(numb_cond2BCM) -2), rep("Condition 1", nrow(prop_true1M)), rep("Condition 2", nrow(prop_true2M)))) %>% 
+  mutate(state = factor(state, levels = c("no Misclassification", "with Misclassification", "with Bias Correction")))
 colnames(cond1DF) = c("A", "B", "C", "state", "cond")
 ```
 
 ```{r}
 sim_prop = cond1DF %>% 
+  filter(state != "with Bias Correction") %>% 
   pivot_longer(A:C, names_to = "cellType", values_to = "proportion") %>% 
   ggplot(aes(cellType, proportion)) + 
   geom_boxplot(aes(col = cellType)) +
@@ -71,6 +75,16 @@ sim_prop = cond1DF %>%
   theme(legend.position = "none") +
   xlab("cell type")
 sim_prop
+```
+
+```{r}
+cond1DF %>% 
+  pivot_longer(A:C, names_to = "cellType", values_to = "proportion") %>% 
+  ggplot(aes(cellType, proportion)) + 
+  geom_boxplot(aes(col = cellType)) +
+  facet_grid(cond~state) + 
+  theme(legend.position = "none") +
+  xlab("cell type")
 ggsave("./plot/sim1_proportion.png", bg = "transparent")
 ```
 

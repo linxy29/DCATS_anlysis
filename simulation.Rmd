@@ -62,6 +62,8 @@ numb_cond1M = matrix(ncol = 3)
 numb_cond2M = matrix(ncol = 3)
 numb_cond1BCM = matrix(ncol = 3)
 numb_cond2BCM = matrix(ncol = 3)
+true_cond1M = matrix(ncol = 3)
+true_cond2M = matrix(ncol = 3)
 simulationDF_list = vector(mode = "list", length = simulation_times)
 phiDF = data.frame()
 for (sim in 1:simulation_times) {
@@ -81,6 +83,8 @@ for (sim in 1:simulation_times) {
     numb_cond2 = as.matrix(sim_dat$numb_cond2)
     numb_cond1M = rbind(numb_cond1M, numb_cond1)
     numb_cond2M = rbind(numb_cond2M, numb_cond2)
+    true_cond1M = rbind(true_cond1M, as.matrix(sim_dat$true_cond1))
+    true_cond2M = rbind(true_cond2M, as.matrix(sim_dat$true_cond2))
     
     ## Test part 1
     ### DCATS
@@ -148,7 +152,7 @@ for (sim in 1:simulation_times) {
   simulationDF_list[[sim]] = simulationDF
 }
 #save(simulationDF_list, phiDF, numb_cond1M, numb_cond2M, numb_cond1BCM, numb_cond2BCM, file = "D:/Data/DCATS/simulation/toy_simulation0117.RData")
-save(simulationDF_list, phiDF, numb_cond1M, numb_cond2M, numb_cond1BCM, numb_cond2BCM, file = "/storage/holab/linxy/DCATS/simulation/toy_simulation0117.RData")
+save(simulationDF_list, phiDF, numb_cond1M, numb_cond2M, numb_cond1BCM, numb_cond2BCM, true_cond1M, true_cond2M, file = "/storage/holab/linxy/DCATS/simulation/toy_simulation0209.RData")
 ```
 
 ```{r}
@@ -367,7 +371,7 @@ cl <- makeCluster(8) #not to overload your computer
 registerDoParallel(cl)
 startTime = Sys.time()
 set.seed(1)
-oper <- foreach(sim = 1:simulation_times, .packages=c("tidyverse", "Seurat", "DCATS", "speckle", "diffcyt", "scdney", "tidymodels", "miloR", "SingleCellExperiment"), .verbose = TRUE) %dopar% {
+oper <- foreach(sim = 1:simulation_times, .packages=c("tidyverse", "Seurat", "DCATS", "speckle", "diffcyt", "scDC", "tidymodels", "miloR", "SingleCellExperiment"), .verbose = TRUE) %dopar% {
   result <- multiResultClass()  # where to save output
   timeL = rep(NA, 8) # DCATS w/wto similarity matrix, fisher, speckle, diffcyt, scDC
   ## simulation
@@ -557,7 +561,8 @@ foreachtime = Sys.time() - startTime
 ```
 
 ```{r}
-file_name = str_c("D:/Data/DCATS/simulation/replicates", as.character(rep1), "&", as.character(rep2), "_K", as.character(cluster_num), "_con", as.character(concentration), "_", cell_pool, more_negative, sample_size1, "&", sample_size2, "para.RData")
+#file_name = str_c("D:/Data/DCATS/simulation/replicates", as.character(rep1), "&", as.character(rep2), "_K", as.character(cluster_num), "_con", as.character(concentration), "_", cell_pool, more_negative, sample_size1, "&", sample_size2, "para.RData")
+file_name = str_c("/storage/holab/linxy/DCATS/simulation/replicates", as.character(rep1), "&", as.character(rep2), "_K", as.character(cluster_num), "_con", as.character(concentration), "_", cell_pool, more_negative, sample_size1, "&", sample_size2, "para.RData")
 save(oper, file = file_name)
 ```
 
