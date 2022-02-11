@@ -562,7 +562,7 @@ foreachtime = Sys.time() - startTime
 
 ```{r}
 #file_name = str_c("D:/Data/DCATS/simulation/replicates", as.character(rep1), "&", as.character(rep2), "_K", as.character(cluster_num), "_con", as.character(concentration), "_", cell_pool, more_negative, sample_size1, "&", sample_size2, "para.RData")
-file_name = str_c("/storage/holab/linxy/DCATS/simulation/replicates", as.character(rep1), "&", as.character(rep2), "_K", as.character(cluster_num), "_con", as.character(concentration), "_", cell_pool, more_negative, sample_size1, "&", sample_size2, "para.RData")
+file_name = str_c("/storage/holab/linxy/DCATS/simulation/replicates", as.character(rep1), "&", as.character(rep2), "_K", as.character(cluster_num), "_con", as.character(concentration), "_", cell_pool, more_negative, sample_size1, "&", sample_size2, "para0210.RData")
 save(oper, file = file_name)
 ```
 
