@@ -277,8 +277,8 @@ library(SingleCellExperiment)
 cluster_num = 8  # numbers of clusters
 concentration = 100 # indicate how simulated proportion far away from true, the larger the closer
 setresolu = 0.6
-rep1 = 3
-rep2 = 3
+rep1 = 2
+rep2 = 2
 simulation_times = 30
 sample_size1 = 3000
 sample_size2 = 3000
@@ -289,8 +289,10 @@ more_negative = ""
 ```{r}
 if(cluster_num == 8){
   probC1 = c(rep(0.1, 6), 0.2, 0.2)  # True proportions
-  probC2 = c(rep(0.1, 3), 0.05, 0.15, 0.2, 0.2, 0.1)
-  truthRes = c(rep("N", 3), rep("P", 3), "N", "P")
+  #probC2 = c(rep(0.1, 3), 0.05, 0.15, 0.2, 0.2, 0.1)
+  #truthRes = c(rep("N", 3), rep("P", 3), "N", "P")
+  probC2 = c(0.05, 0.15, rep(0.1, 3), 0.2, 0.2, 0.1)
+  truthRes = c("P", "P", "N", "N", "N", "P", "N", "P")
 } else if (cluster_num == 10){
   probC1 = c(rep(0.1, 5), 0.05, 0.05, 0.05, 0.2, 0.15)  # True proportions
   probC2 = c(rep(0.1, 10))
@@ -321,6 +323,8 @@ if (cell_pool == "splatter"){
     load(str_c("D:/Data/DCATS/cells_pool", as.character(cluster_num), "_realWorld.RData"))
 }
 ```
+
+## Use foreach for simulation
 
 ```{r}
 library(foreach)
@@ -562,9 +566,79 @@ foreachtime = Sys.time() - startTime
 
 ```{r}
 #file_name = str_c("D:/Data/DCATS/simulation/replicates", as.character(rep1), "&", as.character(rep2), "_K", as.character(cluster_num), "_con", as.character(concentration), "_", cell_pool, more_negative, sample_size1, "&", sample_size2, "para.RData")
-file_name = str_c("/storage/holab/linxy/DCATS/simulation/replicates", as.character(rep1), "&", as.character(rep2), "_K", as.character(cluster_num), "_con", as.character(concentration), "_", cell_pool, more_negative, sample_size1, "&", sample_size2, "para0210.RData")
+file_name = str_c("/storage/holab/linxy/DCATS/simulation/replicates/replicates", as.character(rep1), "&", as.character(rep2), "_K", as.character(cluster_num), "_con", as.character(concentration), "_", cell_pool, more_negative, sample_size1, "&", sample_size2, "para.RData")
 save(oper, file = file_name)
 ```
+
+## Use for loop for simulation
+
+```{r}
+set.seed(1)
+true_countDF = data.frame()
+seurat_countDF = data.frame()
+knn_matrixL = list()
+true_matrixL = list()
+svm_matrixL = list()
+for (idx in 1:simulation_times) {
+  timeL = rep(NA, 8) # DCATS w/wto similarity matrix, fisher, speckle, diffcyt, scDC
+  ## simulation
+  simulation = simulator_noInt(totals1 = runif(rep1, sample_size1, sample_size2), totals2 = runif(rep2, sample_size1, sample_size2), probC1, probC2, setresolu, sim_mat)
+  if (is.na(simulation)[1] == TRUE){
+    next
+  }
+  true_count = rbind(cond1 = simulation$numb_cond1, cond2 = simulation$numb_cond2) %>% as.data.frame() %>% mutate(sim = idx)
+  true_countDF = rbind(true_countDF, true_count)
+  numb_cond1 = simulation$dfRes %>% 
+    filter(condition == "Cond1") %>%
+    group_by(clusterRes, batch) %>% 
+    summarise(n = n()) %>% 
+    pivot_wider(names_from = "clusterRes", values_from = "n") %>% 
+    column_to_rownames(var = "batch")
+  numb_cond2 = simulation$dfRes %>% 
+    filter(condition == "Cond2") %>%
+    group_by(clusterRes, batch) %>% 
+    summarise(n = n()) %>% 
+    pivot_wider(names_from = "clusterRes", values_from = "n") %>% 
+    column_to_rownames(var = "batch")
+  numb_cond1[is.na(numb_cond1)] <- 0
+  numb_cond2[is.na(numb_cond2)] <- 0
+  conf.mat <- table(simulation$trueLabels, Idents(simulation$integratedSamples))
+  true.conf <- conf.mat/rowSums(conf.mat)
+  library(clue)
+  order2 = as.vector(solve_LSAP(true.conf, maximum = TRUE))
+  L_sum1 = colSums(numb_cond1)
+  L_sum2 = colSums(numb_cond2)
+  decider = sum(L_sum1 > 10)+sum(L_sum2 > 10)
+  if (decider != cluster_num*2){
+    next
+  } # if one cluster has least than 10 cells in one condition, then won't continue
+  seurat_count = rbind(numb_cond1[,order2], numb_cond2[,order2]) %>% mutate(sim = idx)
+  seurat_countDF = rbind(seurat_countDF, seurat_count)
+  ## Get matrices
+  ### KNN matrix
+  graphs = simulation$integratedSamples@graphs$RNA_snn
+  labels = Idents(simulation$integratedSamples)
+  knn_mat = knn_simMat(graphs, labels)
+  order1 = colnames(numb_cond1)
+  simil_matK = knn_mat[order1, order1]
+  knn_matrixL[[idx]] = simil_matK
+  ### True matrix
+  simil_matT = true.conf[,order2]
+  true_matrixL[[idx]] = simil_matT
+  ### Uniform matrix
+  simil_matU = create_simMat(cluster_num, confuse_rate=0.1)
+  ### svm&rf
+  mlDF = simulation$integratedSamples@reductions$pca@cell.embeddings %>% 
+    as.data.frame() %>% 
+    tibble::rownames_to_column("cellID") %>% 
+    merge(simulation$dfRes, by = "cellID") %>% 
+    dplyr::select(-cellID)
+  set.seed(123)
+  simil_matSVM = svm_simMat(mlDF)
+  result$svm_matrix = simil_matSVM
+}
+```
+
 
 cluster level
 

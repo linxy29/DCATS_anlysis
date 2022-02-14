@@ -285,7 +285,7 @@ ggsave("./plot/sim2_cellpool.png", bg = "transparent", width = 10, height = 4)
 ```
 
 ```{r}
-load("/storage/holab/linxy/DCATS/simulation/replicates/replicates3&3_K8_con100_splatter3000&3000para.RData")
+load("/storage/holab/linxy/DCATS/simulation/replicates/replicates3&3_K8_con100_splatter3000&3000para0210.RData")
 ```
 
 Draw the proportion of different cell types and ROC curves
@@ -293,6 +293,7 @@ Draw the proportion of different cell types and ROC curves
 ```{r}
 clusterRes = data.frame()
 seurat_count = data_frame()
+true_count = data.frame()
 for (idx in 1:length(oper)){
     if (!is.na(oper[[idx]])) {
       clusterRes = rbind(clusterRes, oper[[idx]]$clusterDF)
@@ -301,9 +302,24 @@ for (idx in 1:length(oper)){
       oper[[idx]]$seurat_count$cond2 = oper[[idx]]$seurat_count$cond2 %>% 
         mutate(condition = "Condition 2")
       seurat_count = rbind(seurat_count, oper[[idx]]$seurat_count$cond1)
-      seurat_count = rbind(seurat_count, oper[[idx]]$seurat_count$cond2)}
+      seurat_count = rbind(seurat_count, oper[[idx]]$seurat_count$cond2)
+      oper[[idx]]$true_count = oper[[idx]]$true_count %>% as.data.frame() %>% mutate(condition = c(rep("Condition 1", 3), rep("Condition 2", 3)))
+      true_count = rbind(true_count, oper[[idx]]$true_count)
+      }
 }
 colnames(seurat_count) = c("A", "B", "C", "D", "E", "F", "G", "H", "condition")
+colnames(true_count) = c("A", "B", "C", "D", "E", "F", "G", "H", "condition")
+```
+
+```{r}
+sim2_prop = true_count %>% 
+  pivot_longer(A:H, names_to = "cellType", values_to = "count") %>% 
+  mutate(proportion = count/3000) %>% 
+  ggplot(aes(cellType, proportion)) +
+  geom_boxplot(aes(col = condition)) +
+  theme(legend.position = "top") + 
+  xlab("Cell type")
+sim2_prop
 ```
 
 ```{r}
