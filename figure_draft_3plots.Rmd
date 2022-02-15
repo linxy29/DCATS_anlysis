@@ -285,7 +285,7 @@ ggsave("./plot/sim2_cellpool.png", bg = "transparent", width = 10, height = 4)
 ```
 
 ```{r}
-load("/storage/holab/linxy/DCATS/simulation/replicates/replicates3&3_K8_con100_splatter3000&3000para0210.RData")
+load("/storage/holab/linxy/DCATS/simulation/clusterN/replicates3&3_K10_con100_splatter3000&3000para.RData")
 ```
 
 Draw the proportion of different cell types and ROC curves
@@ -303,17 +303,17 @@ for (idx in 1:length(oper)){
         mutate(condition = "Condition 2")
       seurat_count = rbind(seurat_count, oper[[idx]]$seurat_count$cond1)
       seurat_count = rbind(seurat_count, oper[[idx]]$seurat_count$cond2)
-      oper[[idx]]$true_count = oper[[idx]]$true_count %>% as.data.frame() %>% mutate(condition = c(rep("Condition 1", 3), rep("Condition 2", 3)))
+      oper[[idx]]$true_count = oper[[idx]]$true_count %>% matrix(ncol = 10) %>% as.data.frame() %>% mutate(condition = c(rep("Condition 1", 3), rep("Condition 2", 3)))
       true_count = rbind(true_count, oper[[idx]]$true_count)
       }
 }
-colnames(seurat_count) = c("A", "B", "C", "D", "E", "F", "G", "H", "condition")
-colnames(true_count) = c("A", "B", "C", "D", "E", "F", "G", "H", "condition")
+colnames(seurat_count) = c("N1", "N2", "N3", "N4", "N5", "P1", "P2", "P3", "P4", "P5", "condition")
+colnames(true_count) = c("N1", "N2", "N3", "N4", "N5", "P1", "P2", "P3", "P4", "P5", "condition")
 ```
 
 ```{r}
 sim2_prop = true_count %>% 
-  pivot_longer(A:H, names_to = "cellType", values_to = "count") %>% 
+  pivot_longer(N1:P5, names_to = "cellType", values_to = "count") %>% 
   mutate(proportion = count/3000) %>% 
   ggplot(aes(cellType, proportion)) +
   geom_boxplot(aes(col = condition)) +
@@ -324,7 +324,7 @@ sim2_prop
 
 ```{r}
 sim2_prop = seurat_count %>% 
-  pivot_longer(A:H, names_to = "cellType", values_to = "count") %>% 
+  pivot_longer(N1:P5, names_to = "cellType", values_to = "count") %>% 
   mutate(proportion = count/3000) %>% 
   ggplot(aes(cellType, proportion)) +
   geom_boxplot(aes(col = condition)) +
@@ -431,12 +431,12 @@ res_all %>%
 
 ```{r}
 sim2_auc = ggroc(list(DCATS=rocobj_dcats, Fisher=rocobj_fisher, diffcyt=rocobj_diffcyt, speckle=rocobj_speckle, scDC=rocobj_scDC, milo=rocobj_milo))+
-  geom_point(aes(x=0.958, y=0.725), colour="black", shape = 4) +
-  geom_point(aes(x=0.925, y=0.733), colour="black", shape = 4) +
-  geom_point(aes(x=0.967, y=0.675), colour="black", shape = 4) +
-  geom_point(aes(x=0.742, y=0.642), colour="black", shape = 4) +
-  geom_point(aes(x=0.383, y=0.950), colour="black", shape = 4) +
-  geom_point(aes(x=0.333, y=0.950), colour="black", shape = 4) +
+  geom_point(aes(x=0.858, y=0.658), colour="black", shape = 4) +
+  geom_point(aes(x=0.892, y=0.517), colour="black", shape = 4) +
+  geom_point(aes(x=0.917, y=0.517), colour="black", shape = 4) +
+  geom_point(aes(x=0.775, y=0.525), colour="black", shape = 4) +
+  geom_point(aes(x=0.258, y=0.892), colour="black", shape = 4) +
+  geom_point(aes(x=0.258, y=0.792), colour="black", shape = 4) +
   labs(color='method')
 sim2_auc
 ```
@@ -588,7 +588,7 @@ for (file in filenames) {
     mutate(replicates = str_extract(file, "\\d&\\d"))
   nhoodsRes_all = rbind(nhoodsRes_all, res)
 }
-save(nhoodsRes_all, file = "D:/Data/DCATS/simulation/nhoodsRes_all_replicates.RData")
+#save(nhoodsRes_all, file = "D:/Data/DCATS/simulation/nhoodsRes_all_replicates.RData")
 ```
 
 ```{r}
