@@ -659,7 +659,7 @@ nhoodsH1_precision = nhoodsRes_all %>%
   dplyr::select(method, precision, replicates) %>% 
   ggplot(aes(replicates, method)) +
     geom_tile(aes(fill = precision)) + 
-    geom_text(aes(label = round(precision, 3))) +
+    geom_text(aes(label = ifelse(is.na(precision), "N.A.", as.character(round(precision, 3))))) +
     scale_fill_gradient(low = "white", high = "red", limits = c(0.7,1)) +
   xlab("# of Replicates") +
   theme(axis.title.y = element_blank(),
