@@ -324,14 +324,13 @@ ggsave("./plot/sim2_trueCount_dist.png", bg = "transparent", width = 10, height 
 ```
 
 ```{r}
-sim2_prop = seurat_count %>% 
+seurat_count %>% 
   pivot_longer(P1:P4, names_to = "cellType", values_to = "count") %>% 
   mutate(proportion = count/3000) %>% 
   ggplot(aes(cellType, proportion)) +
   geom_boxplot(aes(col = condition)) +
   theme(legend.position = "top") + 
   xlab("Cell type")
-sim2_prop
 ggsave("./plot/sim2_seuratCount_dist.png", bg = "transparent", width = 10, height = 4)
 ```
 
@@ -928,7 +927,7 @@ nhoodsRes_all = nhoodsRes_all %>%
          clustersN = str_remove(clustersN, "K"),
          clustersN = factor(clustersN, levels = c("8", "10", "12")))
 
-save(nhoodsRes_all, file = "D:/Data/DCATS/simulation/nhoodsRes_all_clustersN.RData")
+save(nhoodsRes_all, file = "/storage/holab/linxy/DCATS/simulation/nhoodsRes_all_clustersN.RData")
 ```
 
 ```{r}
