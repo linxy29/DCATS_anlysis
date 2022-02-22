@@ -51,7 +51,7 @@ theme_set(theme_classic()+
 ### Figure 1 - B
 
 ```{r}
-load("/storage/holab/linxy/DCATS/simulation/toy_simulation0209.RData")
+load("/storage/holab/linxy/DCATS/simulation/toy_simulation.RData")
 prop_cond1M = numb_cond1M[2:nrow(numb_cond1M),]/2000
 prop_cond2M = numb_cond2M[2:nrow(numb_cond2M),]/2000
 prop_cond1BCM = numb_cond1BCM[2:nrow(numb_cond1BCM),]/2000
@@ -285,7 +285,7 @@ ggsave("./plot/sim2_cellpool.png", bg = "transparent", width = 10, height = 4)
 ```
 
 ```{r}
-load("/storage/holab/linxy/DCATS/simulation/clusterN/replicates3&3_K10_con100_splatter3000&3000para.RData")
+load("/storage/holab/linxy/DCATS/simulation/current/replicates3&3_K8_con100_splatter3000&3000para.RData")
 ```
 
 Draw the proportion of different cell types and ROC curves
@@ -303,34 +303,36 @@ for (idx in 1:length(oper)){
         mutate(condition = "Condition 2")
       seurat_count = rbind(seurat_count, oper[[idx]]$seurat_count$cond1)
       seurat_count = rbind(seurat_count, oper[[idx]]$seurat_count$cond2)
-      oper[[idx]]$true_count = oper[[idx]]$true_count %>% matrix(ncol = 10) %>% as.data.frame() %>% mutate(condition = c(rep("Condition 1", 3), rep("Condition 2", 3)))
+      oper[[idx]]$true_count = oper[[idx]]$true_count %>% as.data.frame() %>% mutate(condition = c(rep("Condition 1", 3), rep("Condition 2", 3)))
       true_count = rbind(true_count, oper[[idx]]$true_count)
       }
 }
-colnames(seurat_count) = c("N1", "N2", "N3", "N4", "N5", "P1", "P2", "P3", "P4", "P5", "condition")
-colnames(true_count) = c("N1", "N2", "N3", "N4", "N5", "P1", "P2", "P3", "P4", "P5", "condition")
+colnames(seurat_count) = c("P1", "P2", "N1", "N2", "N3", "P3", "N4", "P4", "condition")
+colnames(true_count) = c("P1", "P2", "N1", "N2", "N3", "P3", "N4", "P4", "condition")
 ```
 
 ```{r}
 sim2_prop = true_count %>% 
-  pivot_longer(N1:P5, names_to = "cellType", values_to = "count") %>% 
+  pivot_longer(P1:P4, names_to = "cellType", values_to = "count") %>% 
   mutate(proportion = count/3000) %>% 
   ggplot(aes(cellType, proportion)) +
   geom_boxplot(aes(col = condition)) +
   theme(legend.position = "top") + 
   xlab("Cell type")
 sim2_prop
+ggsave("./plot/sim2_trueCount_dist.png", bg = "transparent", width = 10, height = 4)
 ```
 
 ```{r}
 sim2_prop = seurat_count %>% 
-  pivot_longer(N1:P5, names_to = "cellType", values_to = "count") %>% 
+  pivot_longer(P1:P4, names_to = "cellType", values_to = "count") %>% 
   mutate(proportion = count/3000) %>% 
   ggplot(aes(cellType, proportion)) +
   geom_boxplot(aes(col = condition)) +
   theme(legend.position = "top") + 
   xlab("Cell type")
 sim2_prop
+ggsave("./plot/sim2_seuratCount_dist.png", bg = "transparent", width = 10, height = 4)
 ```
 
 ```{r}
@@ -355,8 +357,8 @@ rocobj_milo = roc(clusterRes$truth, clusterRes$milo_pct)
 ```{r}
 ## cluster number = 8
 #filenames = list.files("D:/Data/DCATS/simulation/replicates", full.names = TRUE)
-filenames = list.files("/storage/holab/linxy/DCATS/simulation/replicates", full.names = TRUE)
-#filenames = filenames[grep("_K8_con100_splatter3000&3000", filenames)]
+filenames = list.files("/storage/holab/linxy/DCATS/simulation/current", full.names = TRUE)
+filenames = filenames[grep("_K8_con100_splatter3000&3000para", filenames)]
 filenames
 ```
 
@@ -420,7 +422,7 @@ for (file in filenames) {
 
 res_all %>% 
   filter(method %in% c("estPhi_null", "estPhi_emK", "estPhi_emU", "fisher", "speckle", "diffcyt", "betabin_null", "wtoPhi_emK", "scDC", "milo")) %>% 
-  arrange(replicates, desc(prauc)) %>% 
+  arrange(replicates, desc(auc)) %>% 
   dplyr::select(method, mcc, auc, sensitivity, specificity, F1, replicates) %>% 
   mutate(mcc = round(mcc, 3),
          auc = round(auc, 3),
@@ -431,12 +433,12 @@ res_all %>%
 
 ```{r}
 sim2_auc = ggroc(list(DCATS=rocobj_dcats, Fisher=rocobj_fisher, diffcyt=rocobj_diffcyt, speckle=rocobj_speckle, scDC=rocobj_scDC, milo=rocobj_milo))+
-  geom_point(aes(x=0.858, y=0.658), colour="black", shape = 4) +
-  geom_point(aes(x=0.892, y=0.517), colour="black", shape = 4) +
-  geom_point(aes(x=0.917, y=0.517), colour="black", shape = 4) +
-  geom_point(aes(x=0.775, y=0.525), colour="black", shape = 4) +
-  geom_point(aes(x=0.258, y=0.892), colour="black", shape = 4) +
-  geom_point(aes(x=0.258, y=0.792), colour="black", shape = 4) +
+  geom_point(aes(x=0.926, y=0.685), colour="black", shape = 4) +
+  geom_point(aes(x=0.954, y=0.509), colour="black", shape = 4) +
+  geom_point(aes(x=0.944, y=0.509), colour="black", shape = 4) +
+  geom_point(aes(x=0.250, y=0.972), colour="black", shape = 4) +
+  geom_point(aes(x=0.750, y=0.630), colour="black", shape = 4) +
+  geom_point(aes(x=0.333, y=0.861), colour="black", shape = 4) +
   labs(color='method')
 sim2_auc
 ```
@@ -588,7 +590,7 @@ for (file in filenames) {
     mutate(replicates = str_extract(file, "\\d&\\d"))
   nhoodsRes_all = rbind(nhoodsRes_all, res)
 }
-#save(nhoodsRes_all, file = "D:/Data/DCATS/simulation/nhoodsRes_all_replicates.RData")
+save(nhoodsRes_all, file = "/storage/holab/linxy/DCATS/simulation/nhoodsRes_all_replicates.RData")
 ```
 
 ```{r}
@@ -686,9 +688,9 @@ ggsave("./plot/sim2_nhood1.png", bg = "transparent", width = 10, height = 6)
 
 ```{r}
 ## replicates number 3&3
-filenames = list.files("/storage/holab/linxy/DCATS/simulation/clusterN", full.names = TRUE)
+filenames = list.files("/storage/holab/linxy/DCATS/simulation/current", full.names = TRUE)
 #filenames = list.files("D:/Data/DCATS/simulation/clusterN", full.names = TRUE)
-#filenames = filenames[grep("_K8_con100_splatter3000&3000", filenames)]
+filenames = filenames[grep("replicates3&3", filenames)]
 filenames
 ```
 
@@ -697,7 +699,7 @@ res_all = data.frame()
 
 for (file in filenames) {
   load(file)
-  methods = colnames(oper[[2]]$clusterDF)[colnames(oper[[2]]$clusterDF) %>% str_detect("_pvals")] %>% str_remove("_pvals")
+  methods = colnames(oper[[1]]$clusterDF)[colnames(oper[[1]]$clusterDF) %>% str_detect("_pvals")] %>% str_remove("_pvals")
   methods = c(methods, "milo")
   numb_mthd = length(methods)
   mcc = rep(NA, numb_mthd)

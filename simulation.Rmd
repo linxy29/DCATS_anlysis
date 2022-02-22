@@ -294,13 +294,19 @@ if(cluster_num == 8){
   probC2 = c(0.05, 0.15, rep(0.1, 3), 0.2, 0.2, 0.1)
   truthRes = c("P", "P", "N", "N", "N", "P", "N", "P")
 } else if (cluster_num == 10){
-  probC1 = c(rep(0.1, 5), 0.05, 0.05, 0.05, 0.2, 0.15)  # True proportions
+  probC1 = c(0.05, 0.05, rep(0.1, 5), 0.05, 0.2, 0.15)  # True proportions
   probC2 = c(rep(0.1, 10))
-  truthRes = c(rep("N", 5), rep("P", 5))
+  truthRes = c("P", "P", rep("N", 5), rep("P", 3))
 } else if (cluster_num == 12){
+  #probC1 = c(rep(0.1, 3), 0.05, 0.05, 0.05, 0.15, 0.1, 0.05, 0.05, 0.1, 0.1)  # True proportions
   probC1 = c(rep(0.1, 4), 0.05, 0.05, 0.05, 0.15, 0.05, 0.05, 0.1, 0.1)  # True proportions
   probC2 = c(rep(0.1, 8), rep(0.05, 4))
+  #truthRes = c(rep("N", 3), rep("P", 4), "N", "N", "N", "P", "P")
   truthRes = c(rep("N", 4), rep("P", 4), "N", "N", "P", "P")
+} else if (cluster_num == 6){
+  probC1 = c(0.1, 0.1, 0.15, 0.15, 0.25, 0.25)  # True proportions
+  probC2 = c(0.1, 0.15, 0.15, 0.2, 0.15, 0.25)
+  truthRes = c("N", "P", "N", "P", "P", "N")
 } else {
   print("Not pre-set clutser number")
 }
@@ -326,7 +332,7 @@ if (cell_pool == "splatter"){
 
 ## Use foreach for simulation
 
-```{r}
+```{r, eval=FALSE}
 library(foreach)
 library(doParallel)
 
@@ -368,7 +374,7 @@ unregister_dopar <- function() {
 #oper2 <- oper[[1]]$result2
 ```
 
-```{r}
+```{r, eval=FALSE}
 #setup parallel backend to use many processors
 cores=detectCores()
 cl <- makeCluster(8) #not to overload your computer
@@ -564,11 +570,102 @@ stopCluster(cl)
 foreachtime = Sys.time() - startTime
 ```
 
-```{r}
+```{r, eval=FALSE}
 #file_name = str_c("D:/Data/DCATS/simulation/replicates", as.character(rep1), "&", as.character(rep2), "_K", as.character(cluster_num), "_con", as.character(concentration), "_", cell_pool, more_negative, sample_size1, "&", sample_size2, "para.RData")
-file_name = str_c("/storage/holab/linxy/DCATS/simulation/replicates/replicates", as.character(rep1), "&", as.character(rep2), "_K", as.character(cluster_num), "_con", as.character(concentration), "_", cell_pool, more_negative, sample_size1, "&", sample_size2, "para.RData")
+file_name = str_c("/storage/holab/linxy/DCATS/simulation/replicates", as.character(rep1), "&", as.character(rep2), "_K", as.character(cluster_num), "_con", as.character(concentration), "_", cell_pool, more_negative, sample_size1, "&", sample_size2, "para.RData")
 save(oper, file = file_name)
 ```
+
+```{r}
+clusterRes = data.frame()
+seurat_count = data_frame()
+true_count = data.frame()
+for (idx in 1:length(oper)){
+    if (!is.na(oper[[idx]])) {
+      clusterRes = rbind(clusterRes, oper[[idx]]$clusterDF)
+      oper[[idx]]$seurat_count$cond1 = oper[[idx]]$seurat_count$cond1 %>% 
+        mutate(condition = "Condition 1")
+      oper[[idx]]$seurat_count$cond2 = oper[[idx]]$seurat_count$cond2 %>% 
+        mutate(condition = "Condition 2")
+      seurat_count = rbind(seurat_count, oper[[idx]]$seurat_count$cond1)
+      seurat_count = rbind(seurat_count, oper[[idx]]$seurat_count$cond2)
+      oper[[idx]]$true_count = oper[[idx]]$true_count %>% as.data.frame() %>% mutate(condition = c(rep("Condition 1", rep1), rep("Condition 2", rep2)))
+      true_count = rbind(true_count, oper[[idx]]$true_count)
+      }
+}
+colnames(seurat_count) = c("P1", "P2", "N1", "N2", "N3", "P3", "N4", "P4", "condition")
+colnames(true_count) = c("P1", "P2", "N1", "N2", "N3", "P3", "N4", "P4", "condition")
+```
+
+```{r}
+sim2_prop = true_count %>% 
+  pivot_longer(P1:P4, names_to = "cellType", values_to = "count") %>% 
+  mutate(proportion = count/3000) %>% 
+  ggplot(aes(cellType, proportion)) +
+  geom_boxplot(aes(col = condition)) +
+  theme(legend.position = "top") + 
+  xlab("Cell type")
+sim2_prop
+```
+
+```{r}
+sim2_prop = seurat_count %>% 
+  pivot_longer(P1:P4, names_to = "cellType", values_to = "count") %>% 
+  mutate(proportion = count/3000) %>% 
+  ggplot(aes(cellType, proportion)) +
+  geom_boxplot(aes(col = condition)) +
+  theme(legend.position = "top") + 
+  xlab("Cell type")
+sim2_prop
+```
+
+```{r}
+clusterRes = clusterRes %>% 
+    mutate(milo_main = ifelse(milo_less > milo_more, milo_less, milo_more),
+           milo_pct = milo_main/(milo_less + neutral + milo_more),
+           milo_diff = abs(milo_less - milo_more)) %>% 
+    dplyr::select(-milo_less, -milo_more, - neutral, -milo_main)
+methods = colnames(oper[[1]]$clusterDF)[colnames(oper[[1]]$clusterDF) %>% str_detect("_pvals")] %>% str_remove("_pvals")
+  methods = c(methods, "milo")
+  numb_mthd = length(methods)
+  mcc = rep(NA, numb_mthd)
+  auc = rep(NA, numb_mthd)
+  prauc = rep(NA, numb_mthd)
+  sensitivity = rep(NA, numb_mthd)
+  specificity = rep(NA, numb_mthd)
+  precision = rep(NA, numb_mthd)
+  F1 = rep(NA, numb_mthd)
+
+  truth = clusterRes$truth
+  for (i in 3:(dim(clusterRes)[2]-1)){
+    pred = clusterRes[,i]
+    if (colnames(clusterRes)[i] == "milo_pct") {
+      pred_res = ifelse(clusterRes$milo_diff > 0, "P", "N")
+      auc[i-2] = getROC(clusterRes$truth, 1-pred)$auc
+      prauc[i-2] = getPRC(clusterRes$truth, 1-pred)$prauc}
+    else {
+      pred_res = ifelse(pred < 0.1, "P", "N")
+      auc[i-2] = getROC(clusterRes$truth, pred)$auc
+      prauc[i-2] = getPRC(clusterRes$truth, pred)$prauc}
+    TP <- sum(pred_res=="P"&truth=="P")
+    TN <- sum(pred_res=="N"&truth=="N")
+    FP <- sum(pred_res=="P"&truth=="N")
+    FN <- sum(pred_res=="N"&truth=="P")
+    truthN = TN + FP
+    truthP = FN + TP
+    predP = TP + FP
+    predN = FN + TN
+    sensitivity[i-2] = TP/truthP
+    specificity[i-2] = TN/truthN
+    precision[i-2] = TP/predP
+    #mcc[i-2] = sqrt(sensitivity[i]*specificity[i]*precision[i]*(TN/(TN+FN))) - sqrt((1-sensitivity[i])*(1-specificity[i])*(FN/predN)*(FP/predP))
+    mcc[i-2] = (TP*TN-FP*FN)/sqrt(predP*truthP*truthN*predN)
+    F1[i-2] = 2*TP/(2*TP+FP+FN)
+    }
+  data.frame(method = methods, mcc = mcc, auc = auc, prauc = prauc, sensitivity = sensitivity, specificity = specificity, precision = precision, F1 = F1) %>% 
+    arrange(desc(auc))
+```
+
 
 ## Use for loop for simulation
 
@@ -579,7 +676,12 @@ seurat_countDF = data.frame()
 knn_matrixL = list()
 true_matrixL = list()
 svm_matrixL = list()
+clusterRes = data.frame()
+nhood_countL = list()
+nhoodRes = data.frame()
+timeDF = data.frame()
 for (idx in 1:simulation_times) {
+  print(str_c("idx: ", as.character(idx)))
   timeL = rep(NA, 8) # DCATS w/wto similarity matrix, fisher, speckle, diffcyt, scDC
   ## simulation
   simulation = simulator_noInt(totals1 = runif(rep1, sample_size1, sample_size2), totals2 = runif(rep2, sample_size1, sample_size2), probC1, probC2, setresolu, sim_mat)
@@ -635,10 +737,167 @@ for (idx in 1:simulation_times) {
     dplyr::select(-cellID)
   set.seed(123)
   simil_matSVM = svm_simMat(mlDF)
-  result$svm_matrix = simil_matSVM
+  svm_matrixL[[idx]] = simil_matSVM
+  
+  ## Test
+  ### DCATS---betabinLRT
+  sim_count = rbind(numb_cond1, numb_cond2) %>% as.matrix()
+  sim_design = data.frame(condition = c(rep("g1", rep1), rep("g2", rep2)))
+  t1start = Sys.time()
+  betabin_null = dcats_GLM(sim_count, sim_design)
+  timeL[1] = Sys.time() - t1start
+  ###  DCATS---betabinLRT with Bias correction from similarity matrix
+  phi = getPhi(sim_count, sim_design)
+  t2start = Sys.time()
+  estPhi_null = dcats_GLM(sim_count, sim_design, fix_phi = phi)
+  timeL[2] = Sys.time() - t2start
+  ## KNN
+  wtoPhi_emK = dcats_GLM(sim_count, sim_design, simil_matK)
+  t3start = Sys.time()
+  estPhi_emK = dcats_GLM(sim_count, sim_design, simil_matK, fix_phi = phi)
+  timeL[3] = Sys.time() - t3start
+  ## Uniform
+  wtoPhi_emU = dcats_GLM(sim_count, sim_design, simil_matU)
+  estPhi_emU = dcats_GLM(sim_count, sim_design, simil_matU, fix_phi = phi)
+  ## True
+  wtoPhi_emT = dcats_GLM(sim_count, sim_design, simil_matT)
+  estPhi_emT = dcats_GLM(sim_count, sim_design, simil_matT, fix_phi = phi)
+  ## svm
+  wtoPhi_emSVM = dcats_GLM(sim_count, sim_design, simil_matSVM)
+  estPhi_emSVM = dcats_GLM(sim_count, sim_design, simil_matSVM, fix_phi = phi)
+      
+  ## Fisher's exact test
+  t4start = Sys.time()
+  fisher_pvals = getFisher(as.matrix(numb_cond1), as.matrix(numb_cond2))
+  timeL[4] = Sys.time() - t4start
+  ## speckle
+  t5start = Sys.time()
+  speckleRes = propeller(clusters = simulation$dfRes$clusterRes, sample = simulation$dfRes$batch, group = simulation$dfRes$condition) %>% 
+    dplyr::rename(cluster = BaselineProp.clusters, speckle_pvals = FDR) %>%
+    dplyr::select(cluster, speckle_pvals)
+  timeL[5] = Sys.time() - t5start
+  speckleRes = propeller(clusters = simulation$dfRes$clusterRes, sample = simulation$dfRes$batch, group = simulation$dfRes$condition) %>% 
+    dplyr::rename(cluster = BaselineProp.clusters, speckle_pvals = FDR) %>%
+    dplyr::select(cluster, speckle_pvals)
+  ## diffcyt
+  t6start = Sys.time()
+  diffcytP = getDiffcyt(numb_cond1, numb_cond2, simulation$dfRes)
+  timeL[6] = Sys.time() - t6start
+  ## scDC
+  t7start = Sys.time()
+  res_scDC <- scDC_noClustering(cellTypes = simulation$dfRes$clusterRes, simulation$dfRes$batch, calCI = TRUE, calCI_method = c("percentile", "BCa", "multinom"),nboot = 1000, verbose = FALSE)
+  res_GLM <- fitGLM(res_scDC, c(rep("cond1",rep1*cluster_num),rep("cond2",rep2*cluster_num)), pairwise = FALSE, fixed_only = TRUE, verbose = FALSE)
+  timeL[7] = Sys.time() - t7start
+  scDCRes_temp = summary(res_GLM$pool_res_fixed)
+  scDCRes = scDCRes_temp[c(cluster_num+1,(dim(scDCRes_temp)[1]-cluster_num+2):dim(scDCRes_temp)[1]),]
+  ## milo
+  t8start = Sys.time()
+  milo_res = getMilo(simulation$integratedSamples)
+  timeL[8] = Sys.time() - t8start
+  miloDF_temp = milo_res$da_results %>% 
+    filter(ident_fraction > 0.8) %>%
+    mutate(direct = ifelse( logFC > 0  & SpatialFDR < 0.1, "milo_more", "neutral"),
+           direct = ifelse( logFC < 0  & SpatialFDR < 0.1, "milo_less", direct)) %>% 
+    group_by(ident, direct) %>% 
+    summarise(n = n()) %>% 
+    pivot_wider(names_from = direct, values_from = n) %>% 
+    replace(is.na(.), 0) %>% 
+    dplyr::rename(cluster = ident)
+  if ("milo_less" %!in% colnames(miloDF_temp)) {miloDF_temp$milo_less = rep(0, nrow(miloDF_temp))}
+  if ("milo_more" %!in% colnames(miloDF_temp)) {miloDF_temp$milo_more = rep(0, nrow(miloDF_temp))}
+  miloDF = miloDF_temp %>% 
+    dplyr::select(cluster, milo_less, neutral, milo_more)
+  ## results
+  cluster_map = data.frame(cluster = colnames(numb_cond1[,order2]), truth = truthRes) %>% 
+    arrange(cluster)
+  clusterDF = cluster_map %>% 
+    mutate(betabin_null_pvals = as.vector(betabin_null$LRT_pvals),
+           estPhi_null_pvals = as.vector(estPhi_null$LRT_pvals),
+           wtoPhi_emSVM_pvals = as.vector(wtoPhi_emSVM$LRT_pvals),
+           estPhi_emSVM_pvals = as.vector(estPhi_emSVM$LRT_pvals),
+           wtoPhi_emT_pvals = as.vector(wtoPhi_emT$LRT_pvals),
+           estPhi_emT_pvals = as.vector(estPhi_emT$LRT_pvals),
+           wtoPhi_emU_pvals = as.vector(wtoPhi_emU$LRT_pvals),
+           estPhi_emU_pvals = as.vector(estPhi_emU$LRT_pvals),
+           wtoPhi_emK_pvals = as.vector(wtoPhi_emK$LRT_pvals),
+           estPhi_emK_pvals = as.vector(estPhi_emK$LRT_pvals),
+           fisher_pvals = fisher_pvals,
+           scDC_pvals = scDCRes$p.value) %>%
+    merge(speckleRes, by = "cluster") %>% 
+    merge(diffcytP, by = "cluster") %>% 
+    left_join(miloDF, by = "cluster") %>% 
+    replace(is.na(.), 0)
+  clusterRes = rbind(clusterRes, clusterDF)
+  
+  ## subset data
+  posCluster = clusterDF %>% filter(truth == "P") %>% .$cluster
+  subsetSamples = subset(simulation$integratedSamples, cells = names(milo_res$nhoodsID))
+  subsetSamples = AddMetaData(object = subsetSamples, metadata = milo_res$nhoodsID[Cells(subsetSamples)], col.name = 'nhoods')
+  ### Uniform matrix
+  simil_matU = create_simMat(nrow(milo_res$da_results), confuse_rate=0.15)
+  ## Test
+  ### DCATS---betabinLRT
+  sim_count = milo_res$counts %>% as.matrix() %>% t()
+  nhood_countL[[idx]] = sim_count
+  sim_design = data.frame(condition = c(rep("g1", rep1), rep("g2", rep2)))
+  betabin_null = dcats_GLM(sim_count, sim_design)
+  ###  DCATS---betabinLRT with Bias correction from similarity matrix
+  phi = getPhi(sim_count[,sample(1:ncol(sim_count), 20)], sim_design)
+  estPhi_null = dcats_GLM(sim_count, sim_design, fix_phi = phi)
+  wtoPhi_emU = dcats_GLM(sim_count, sim_design, similarity_mat = simil_matU)
+  estPhi_emU = dcats_GLM(sim_count, sim_design, similarity_mat = simil_matU, fix_phi = phi)
+  ## Fisher's exact test
+  fisher_pvals = getFisher(sim_count[1:rep1,], sim_count[(rep1+1):(rep1+rep2),])
+  ## speckle
+  speckleRes = propeller(clusters = subsetSamples$nhoods, sample = subsetSamples$batch, group = subsetSamples$condition) %>%
+    dplyr::rename(Nhood = BaselineProp.clusters, speckle_pvals = FDR) %>%
+    dplyr::select(Nhood, speckle_pvals)
+  
+  nhoodDF = milo_res$da_results %>% 
+    mutate(truth = ifelse(ident %in% posCluster, "P", "N"),
+           betabin_null_pvals = as.vector(betabin_null$LRT_pvals),
+           estPhi_null_pvals = as.vector(estPhi_null$LRT_pvals),
+           wtoPhi_emU_pvals = as.vector(wtoPhi_emU$LRT_pvals),
+           estPhi_emU_pvals = as.vector(estPhi_emU$LRT_pvals),
+           fisher_pvals = fisher_pvals,
+           Nhood = str_c("hoods", Nhood)) %>%
+    merge(speckleRes, by = "Nhood")
+  nhoodRes = rbind(nhoodRes, nhoodDF)
+  timeDF = rbind(timeDF, timeL)
 }
 ```
 
+```{r}
+#file_name = str_c("D:/Data/DCATS/simulation/replicates", as.character(rep1), "&", as.character(rep2), "_K", as.character(cluster_num), "_con", as.character(concentration), "_", cell_pool, more_negative, sample_size1, "&", sample_size2, "para.RData")
+file_name = str_c("/storage/holab/linxy/DCATS/simulation/replicates", as.character(rep1), "&", as.character(rep2), "_K", as.character(cluster_num), "_con", as.character(concentration), "_", cell_pool, more_negative, sample_size1, "&", sample_size2, ".RData")
+save(true_countDF, seurat_countDF, knn_matrixL, true_matrixL, svm_matrixL, clusterRes, nhood_countL, nhoodRes, timeDF, file = file_name)
+```
+
+```{r}
+colnames(true_countDF) = c("P1", "P2", "N1", "N2", "N3", "P3", "N4", "P4", "sim")
+true_countDF %>% 
+  group_by(sim) %>% 
+  mutate(condition = c(rep("Condition 1", rep1), rep("Condition 2", rep2))) %>% 
+  pivot_longer(P1:P4, names_to = "cellType", values_to = "count") %>% 
+  mutate(proportion = count/3000) %>% 
+  ggplot(aes(cellType, proportion)) +
+  geom_boxplot(aes(col = condition)) +
+  theme(legend.position = "top") + 
+  xlab("Cell type")
+```
+
+```{r}
+colnames(seurat_countDF) = c("P1", "P2", "N1", "N2", "N3", "P3", "N4", "P4", "sim")
+seurat_countDF %>% 
+  group_by(sim) %>% 
+  mutate(condition = c(rep("Condition 1", rep1), rep("Condition 2", rep2))) %>% 
+  pivot_longer(P1:P4, names_to = "cellType", values_to = "count") %>% 
+  mutate(proportion = count/3000) %>% 
+  ggplot(aes(cellType, proportion)) +
+  geom_boxplot(aes(col = condition)) +
+  theme(legend.position = "top") + 
+  xlab("Cell type")
+```
 
 cluster level
 
@@ -646,6 +905,7 @@ cluster level
 file_name = str_c("D:/Data/DCATS/simulation/replicates", as.character(rep1), "&", as.character(rep2), "_K", as.character(cluster_num), "_con", as.character(concentration), "_", cell_pool, more_negative, sample_size1, "&", sample_size2, "para.RData")
 load(file_name)
 methods = colnames(oper[[1]]$clusterDF)[colnames(oper[[1]]$clusterDF) %>% str_detect("_pvals")] %>% str_remove("_pvals")
+#methods = colnames(clusterRes)[colnames(clusterRes) %>% str_detect("_pvals")] %>% str_remove("_pvals")
 methods = c(methods, "milo")
 numb_mthd = length(methods)
 mcc = rep(NA, numb_mthd)
@@ -766,6 +1026,7 @@ nhoodDF_res = nhoodDF %>%
   mutate()
 nhoodDF_res
 ```
+
 
 ## Simulation with covariate
 
