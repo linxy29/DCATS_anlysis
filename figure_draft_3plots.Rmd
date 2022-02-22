@@ -59,15 +59,15 @@ prop_cond2BCM = numb_cond2BCM[2:nrow(numb_cond2BCM),]/2000
 prop_true1M = true_cond1M[2:nrow(true_cond1M),]/2000
 prop_true2M = true_cond2M[2:nrow(true_cond2M),]/2000
 cond1DF = rbind(prop_cond1M, prop_cond1BCM, prop_cond2M, prop_cond2BCM, prop_true1M, prop_true2M) %>% as.data.frame() %>% 
-  mutate(state = c(rep("with Misclassification", nrow(numb_cond1M)-1), rep("with Bias Correction", nrow(numb_cond1BCM)-1), rep("with Misclassification", nrow(numb_cond2M)-1), rep("with Bias Correction", nrow(numb_cond2BCM)-1), rep("no Misclassification", nrow(prop_true1M) + nrow(prop_true2M))),
+  mutate(state = c(rep("Observed with misclassification", nrow(numb_cond1M)-1), rep("After bias correction", nrow(numb_cond1BCM)-1), rep("Observed with misclassification", nrow(numb_cond2M)-1), rep("After bias correction", nrow(numb_cond2BCM)-1), rep("True cell proportions", nrow(prop_true1M) + nrow(prop_true2M))),
          cond = c(rep("Condition 1", nrow(numb_cond1M) + nrow(numb_cond1BCM) -2), rep("Condition 2", nrow(numb_cond2M) + nrow(numb_cond2BCM) -2), rep("Condition 1", nrow(prop_true1M)), rep("Condition 2", nrow(prop_true2M)))) %>% 
-  mutate(state = factor(state, levels = c("no Misclassification", "with Misclassification", "with Bias Correction")))
+  mutate(state = factor(state, levels = c("True cell proportions", "Observed with misclassification", "After bias correction")))
 colnames(cond1DF) = c("A", "B", "C", "state", "cond")
 ```
 
 ```{r}
 sim_prop = cond1DF %>% 
-  filter(state != "with Bias Correction") %>% 
+  filter(state != "After bias correction") %>% 
   pivot_longer(A:C, names_to = "cellType", values_to = "proportion") %>% 
   ggplot(aes(cellType, proportion)) + 
   geom_boxplot(aes(col = cellType)) +
@@ -143,7 +143,7 @@ sim1_main = evaluationDF %>%
   theme(axis.title.x = element_blank()) + 
   theme(legend.position = "top") +
   ylab("AUC") +
-  scale_x_discrete(labels=c("null" = "no Bias Correction", "withBC" = "with Bias Correction")) 
+  scale_x_discrete(labels=c("null" = "No bias correction", "withBC" = "With bias correction")) 
 sim1_main
 ggsave("./plot/sim1_main.png", bg = "transparent")
 ```
@@ -160,7 +160,7 @@ evaluationDF %>%
   ggplot(aes(x = condition, y = auc, color = method)) + geom_boxplot() +
   theme(axis.title.x = element_blank()) + 
   ylab("AUC") +
-  scale_x_discrete(labels=c("null" = "no Bias Correction", "withBC" = "with Bias Correction"))
+  scale_x_discrete(labels=c("null" = "No bias correction", "withBC" = "With bias correction"))
 ggsave("./plot/sim1_allAUC.png", bg = "transparent")
 ```
 
@@ -1353,8 +1353,7 @@ haber1 = corrected_cellnumDF %>%
                dotsize = 0.6,position = position_dodge(0.5)) + 
   ylab("proportion") +
   xlab("Haber2017") +
-  theme(axis.text.x = element_text(angle = 45, hjust=1),
-        axis.title.y = element_blank()) +
+  theme(axis.text.x = element_text(angle = 45, hjust=1)) +
   theme(legend.position="top")
 haber2 = corrected_cellnumDF %>% 
   filter(condition == "Control" | condition == "Hpoly.Day10") %>% 
@@ -1364,7 +1363,8 @@ haber2 = corrected_cellnumDF %>%
                dotsize = 0.6,position = position_dodge(0.5)) + 
   ylab("proportion") +
   xlab("Haber2017") +
-  theme(axis.text.x = element_text(angle = 45, hjust=1)) +
+  theme(axis.text.x = element_text(angle = 45, hjust=1),
+        axis.title.y = element_blank()) +
   theme(legend.position="top") 
 haber3 = corrected_cellnumDF %>% 
   filter(condition == "Control" | condition == "Salmonella") %>% 
