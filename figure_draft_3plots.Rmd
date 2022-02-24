@@ -349,6 +349,17 @@ rocobj_diffcyt = roc(clusterRes$truth, clusterRes$diffcyt_pvals)
 rocobj_milo = roc(clusterRes$truth, clusterRes$milo_pct)
 ```
 
+Print one true_matrix and knn_matrix as example
+
+```{r}
+order = order(colnames(oper[[1]]$true_matrix))
+oper[[1]]$true_matrix[order, order] %>% knitr::kable()
+oper[[1]]$knn_matrix %>% knitr::kable()
+cor(as.vector(oper[[1]]$true_matrix[order, order]), as.vector(oper[[1]]$knn_matrix))
+(oper[[1]]$true_matrix[order, order] - oper[[1]]$knn_matrix) %>% mean()
+```
+
+
 ### Figure 2-B
 
 #### Different numbers of replicates
@@ -1385,7 +1396,7 @@ ggsave("./plot/haber_corrected.png", bg = "transparent", height = 4, width = 15)
 ## real-world data2 
 
 ```{r, echo=FALSE}
-exp6_clusterInfo = read.delim("./data/real_world/Exp6_Kang/GSE96583_batch2.total.tsne.df.tsv") %>% 
+exp6_clusterInfo = read.delim("/storage/holab/linxy/DCATS/real_world/Exp6_Kang/GSE96583_batch2.total.tsne.df.tsv") %>% 
   dplyr::rename(clusterRes = cell, condition = stim) %>% 
   rownames_to_column("cell") %>% 
   filter(!is.na(clusterRes))
@@ -1400,8 +1411,8 @@ exp6_clusterInfo %>%
 ```
 
 ```{r}
-ctrl_repInfo <- read.delim("./data/real_world/Exp6_Kang/ye1.ctrl.8.10.sm.best")
-stim_repInfo <- read.delim("./data/real_world/Exp6_Kang/ye2.stim.8.10.sm.best")
+ctrl_repInfo <- read.delim("/storage/holab/linxy/DCATS/real_world/Exp6_Kang/ye1.ctrl.8.10.sm.best")
+stim_repInfo <- read.delim("/storage/holab/linxy/DCATS/real_world/Exp6_Kang/ye2.stim.8.10.sm.best")
 head(ctrl_repInfo)
 head(stim_repInfo)
 
@@ -1438,7 +1449,7 @@ kang_main = exp6DF %>%
 ```
 
 ```{r}
-load("D:/Data/DCATS/real_world/Kang2017_res.RData")
+load("/storage/holab/linxy/DCATS/real_world/Exp6_Kang/Kang2017_res.RData")
 all_res %>% 
   mutate(milo_pct = ifelse(milo_more > milo_less, (milo_more-milo_less)/(milo_more+milo_less+neutral), (milo_less-milo_more)/(milo_more+milo_less+neutral))) %>% 
   dplyr::select(cluster, truth, contains('_pvals'), milo_pct) %>% 
@@ -1482,7 +1493,7 @@ ggsave("./plot/Fig3.png", bg = "transparent", height = 7.5, width = 10)
 ### real-world data 3
 
 ```{r}
-load("D:/Data/DCATS/Ren2021.RData")
+load("/storage/holab/linxy/DCATS/real_world/Ren_2021/Ren2021_res.RData")
 data(Ren2021)
 ```
 
@@ -1630,11 +1641,11 @@ stat.test = stat.test1 %>% rbind(stat.test2) %>% rbind(stat.test3) %>% rbind(sta
          clusterRes = ifelse(clusterRes=="Macro", "Macrophages", clusterRes),
          clusterRes = ifelse(clusterRes=="Neu", "Neutrophils", clusterRes)) %>% 
   mutate(color = ifelse(!((clusterRes == "CD8+ T cells"&group1 == "control"&group2 == "mild/moderate (progression)") | (clusterRes == "Monocytes"&group1 == "mild/moderate (convalescence)"&group2 == "mild/moderate (progression)") | (clusterRes == "B cells"&group1 == "control"&group2 == "mild/moderate (progression)") | (clusterRes == "B cells"&group1 == "mild/moderate (convalescence)"&group2 == "mild/moderate (progression)")), "y1", "y2"))
-save(stat.test, file = "./data/real_world/Ren2021.RData")
+save(stat.test, file = "/storage/holab/linxy/DCATS/real_world/Ren_2021/Ren2021_res.RData")
 ```
 
 ```{r}
-load("./data/real_world/Ren2021.RData")
+#load("./data/real_world/Ren2021.RData")
 pB1 = ggplot(data = Ren2021_plotDF[Ren2021_plotDF$clusterRes %in% c("CD8+ T cells", "Monocytes", "CD4+T cells", "B cells", "Megakaryocytes", "Plasma"),], aes(x = state, y = proportion)) +
     geom_boxplot(aes(color = state)) +
     theme(axis.title.x=element_blank(),
