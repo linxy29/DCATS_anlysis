@@ -541,11 +541,12 @@ res_all %>%
   mutate(mcc = round(mcc, 3),
          auc = round(auc, 3),
          prauc = round(prauc, 3),
+         F1 = round(F1, 3),
          sensitivity = round(sensitivity, 3),
          specificity = round(specificity, 3),
-         precision = round(precision, 3),
-         F1 = round(F1, 3)) %>% 
+         precision = round(precision, 3)) %>% 
   arrange(replicates, desc(auc)) %>% 
+  select(-prauc) %>% 
   knitr::kable()
 ```
 
@@ -872,12 +873,13 @@ res_all %>%
   mutate(method = factor(method, level = c("scDC", "milo", "wtoPhi_emK", "betabin_null", "speckle", "diffcyt", "Fisher", "estPhi_emK", "estPhi_null"))) %>% 
   mutate(mcc = round(mcc, 3),
          auc = round(auc, 3),
+         F1 = round(F1, 3),
          sensitivity = round(sensitivity, 3),
          prauc = round(prauc,3),
          specificity = round(specificity, 3),
-         precision = round(precision, 3),
-         F1 = round(F1, 3)) %>% 
+         precision = round(precision, 3)) %>% 
   arrange(clustersN, desc(auc)) %>% 
+  select(-prauc) %>% 
   knitr::kable()
 ```
 
