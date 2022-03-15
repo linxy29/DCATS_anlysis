@@ -54,11 +54,11 @@ theme_set(theme_classic()+
           panel.background = element_blank(),
           legend.background = element_blank(),
           plot.background = element_rect(fill = "transparent",colour = NA)) + 
-            theme(axis.text=element_text(size=12), axis.title=element_text(size=15))+
-            theme(strip.text.x = element_text(size = 15), strip.text.y = element_text(size = 15)) +
-            theme(plot.title = element_text(size = 16),plot.subtitle = element_text(size = 15)) +
+            theme(axis.text=element_text(size=12), axis.title=element_text(size=13))+
+            theme(strip.text.x = element_text(size = 13), strip.text.y = element_text(size = 13)) +
+            theme(plot.title = element_text(size = 15),plot.subtitle = element_text(size = 15)) +
             theme(legend.title = element_text(size=13), #change legend title font size
-                  legend.text = element_text(size=12)))
+                  legend.text = element_text(size=10)))
 ```
 
 ## Figure 1
@@ -74,15 +74,15 @@ prop_cond2BCM = numb_cond2BCM[2:nrow(numb_cond2BCM),]/2000
 prop_true1M = true_cond1M[2:nrow(true_cond1M),]/2000
 prop_true2M = true_cond2M[2:nrow(true_cond2M),]/2000
 cond1DF = rbind(prop_cond1M, prop_cond1BCM, prop_cond2M, prop_cond2BCM, prop_true1M, prop_true2M) %>% as.data.frame() %>% 
-  mutate(state = c(rep("Observed with misclassification", nrow(numb_cond1M)-1), rep("After bias correction", nrow(numb_cond1BCM)-1), rep("Observed with misclassification", nrow(numb_cond2M)-1), rep("After bias correction", nrow(numb_cond2BCM)-1), rep("True cell proportions", nrow(prop_true1M) + nrow(prop_true2M))),
+  mutate(state = c(rep("Observed cell proportions", nrow(numb_cond1M)-1), rep("Corrected cell proportions", nrow(numb_cond1BCM)-1), rep("Observed cell proportions", nrow(numb_cond2M)-1), rep("Corrected cell proportions", nrow(numb_cond2BCM)-1), rep("True cell proportions", nrow(prop_true1M) + nrow(prop_true2M))),
          cond = c(rep("Condition 1", nrow(numb_cond1M) + nrow(numb_cond1BCM) -2), rep("Condition 2", nrow(numb_cond2M) + nrow(numb_cond2BCM) -2), rep("Condition 1", nrow(prop_true1M)), rep("Condition 2", nrow(prop_true2M)))) %>% 
-  mutate(state = factor(state, levels = c("True cell proportions", "Observed with misclassification", "After bias correction")))
+  mutate(state = factor(state, levels = c("True cell proportions", "Observed cell proportions", "Corrected cell proportions")))
 colnames(cond1DF) = c("A", "B", "C", "state", "cond")
 ```
 
 ```{r}
 sim_prop = cond1DF %>% 
-  filter(state != "After bias correction") %>% 
+  filter(state != "Corrected cell proportions") %>% 
   pivot_longer(A:C, names_to = "cellType", values_to = "proportion") %>% 
   ggplot(aes(cellType, proportion)) + 
   geom_boxplot(aes(col = cellType)) +
@@ -253,7 +253,7 @@ seuratObj <- FindClusters(seuratObj, resolution = 0.5, verbose = FALSE)
 seuratObj <- RunUMAP(seuratObj, dims = 1:30, verbose = FALSE)
 seuratObj[['orig.ident']] <- origLabels
 DimPlot(seuratObj, reduction = "umap")
-p1 = DimPlot(seuratObj, reduction = "umap", group.by = "orig.ident") + theme(legend.position="none") + ggtitle("Cell Pools (8 Cell Types)")
+p1 = DimPlot(seuratObj, reduction = "umap", group.by = "orig.ident") + theme(legend.position="none") + ggtitle("Simulation data (8 Cell Types)")
 ```
 
 ```{r}
@@ -272,7 +272,7 @@ seuratObj <- FindClusters(seuratObj, resolution = 0.5, verbose = FALSE)
 seuratObj <- RunUMAP(seuratObj, dims = 1:30, verbose = FALSE)
 seuratObj[['orig.ident']] <- origLabels
 DimPlot(seuratObj, reduction = "umap")
-p2 = DimPlot(seuratObj, reduction = "umap", group.by = "orig.ident") + theme(legend.position="none", axis.title.y = element_blank())  + ggtitle("Cell Pools (10 Cell Types)")
+p2 = DimPlot(seuratObj, reduction = "umap", group.by = "orig.ident") + theme(legend.position="none", axis.title.y = element_blank())  + ggtitle("Simulation data (10 Cell Types)")
 ```
 
 ```{r}
@@ -291,7 +291,7 @@ seuratObj <- FindClusters(seuratObj, resolution = 0.5, verbose = FALSE)
 seuratObj <- RunUMAP(seuratObj, dims = 1:30, verbose = FALSE)
 seuratObj[['orig.ident']] <- origLabels
 DimPlot(seuratObj, reduction = "umap")
-p3 = DimPlot(seuratObj, reduction = "umap", group.by = "orig.ident") + theme(legend.position="none", axis.title.y = element_blank()) + ggtitle("Cell Pools (12 Cell Types)")
+p3 = DimPlot(seuratObj, reduction = "umap", group.by = "orig.ident") + theme(legend.position="none", axis.title.y = element_blank()) + ggtitle("Simulation data (12 Cell Types)")
 ```
 
 ```{r}
@@ -561,7 +561,6 @@ res_all %>%
          specificity = round(specificity, 3),
          precision = round(precision, 3)) %>% 
   arrange(replicates, desc(auc)) %>% 
-  select(-prauc) %>% 
   knitr::kable()
 ```
 
@@ -894,7 +893,6 @@ res_all %>%
          specificity = round(specificity, 3),
          precision = round(precision, 3)) %>% 
   arrange(clustersN, desc(auc)) %>% 
-  select(-prauc) %>% 
   knitr::kable()
 ```
 
@@ -1508,6 +1506,25 @@ ggsave("./plot/Fig3.png", bg = "transparent", height = 7.5, width = 10)
 ## Figure 4
 
 ### real-world data 3
+
+```{r}
+theme_set(theme_classic()+
+            theme(panel.border = element_blank(),
+          legend.key = element_blank(),
+          axis.ticks = element_blank(),
+          panel.grid = element_blank(),
+          panel.grid.minor = element_blank(), 
+          panel.grid.major = element_blank(),
+          panel.background = element_blank(),
+          legend.background = element_blank(),
+          plot.background = element_rect(fill = "transparent",colour = NA)) + 
+            theme(axis.text=element_text(size=12), axis.title=element_text(size=13))+
+            theme(strip.text.x = element_text(size = 13), strip.text.y = element_text(size = 13)) +
+            theme(plot.title = element_text(size = 15),plot.subtitle = element_text(size = 15)) +
+            theme(legend.title = element_text(size=13), #change legend title font size
+                  legend.text = element_text(size=13)))
+```
+
 
 ```{r}
 load("/storage/holab/linxy/DCATS/real_world/Ren_2021/Ren2021_res.RData")
