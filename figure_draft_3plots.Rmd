@@ -56,7 +56,7 @@ theme_set(theme_classic()+
           plot.background = element_rect(fill = "transparent",colour = NA)) + 
             theme(axis.text=element_text(size=12), axis.title=element_text(size=13))+
             theme(strip.text.x = element_text(size = 13), strip.text.y = element_text(size = 13)) +
-            theme(plot.title = element_text(size = 15),plot.subtitle = element_text(size = 15)) +
+            theme(plot.title = element_text(size = 13),plot.subtitle = element_text(size = 13)) +
             theme(legend.title = element_text(size=13), #change legend title font size
                   legend.text = element_text(size=10)))
 ```
@@ -296,7 +296,7 @@ p3 = DimPlot(seuratObj, reduction = "umap", group.by = "orig.ident") + theme(leg
 
 ```{r}
 p1 + p2 + p3
-ggsave("./plot/sim2_cellpool.png", bg = "transparent", width = 10, height = 4)
+ggsave("./plot/sim2_cellpool.png", bg = "transparent", width = 12, height = 4)
 ```
 
 ```{r}
@@ -874,7 +874,7 @@ sim2_statistics_clustersN
 
 ```{r}
 sim2_statistics_replicates + theme(legend.position = "none") + sim2_statistics_clustersN
-ggsave("./plot/sim2_statistics.png", bg = "transparent", height = 10, width = 14)
+ggsave("./plot/sim2_statistics.png", bg = "transparent", height = 8, width = 14)
 ```
 
 
