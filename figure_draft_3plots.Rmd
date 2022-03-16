@@ -447,6 +447,8 @@ for (file in filenames) {
 
 res_all %>% 
   filter(method %in% c("estPhi_null", "estPhi_emK", "estPhi_emU", "fisher", "speckle", "diffcyt", "betabin_null", "wtoPhi_emK", "scDC", "milo")) %>% 
+  mutate(method = ifelse(method == "estPhi_null", "estPhi_wtoEM", method),
+         method = ifelse(method == "betabin_null", "wtoPhi_wtoEM", method)) %>% 
   arrange(replicates, desc(auc)) %>% 
   dplyr::select(method, mcc, auc, sensitivity, specificity, F1, replicates) %>% 
   mutate(mcc = round(mcc, 3),
@@ -529,7 +531,9 @@ Simulation 2: Supplementary Plots
 sim2_statistics_replicates = res_all %>% 
   filter(method %in% c("scDC", "milo", "wtoPhi_emK", "betabin_null", "speckle", "diffcyt", "fisher", "estPhi_emK", "estPhi_null")) %>%
   #mutate(method = ifelse(method == "fisher", "Fisher", method)) %>% 
-  mutate(method = factor(method, level = c("scDC", "milo", "wtoPhi_emK", "betabin_null", "speckle", "diffcyt", "fisher", "estPhi_emK", "estPhi_null"))) %>% 
+  mutate(method = ifelse(method == "estPhi_null", "estPhi_wtoEM", method),
+         method = ifelse(method == "betabin_null", "wtoPhi_wtoEM", method)) %>% 
+  mutate(method = factor(method, level = c("scDC", "milo", "wtoPhi_emK", "wtoPhi_wtoEM", "speckle", "diffcyt", "fisher", "estPhi_emK", "estPhi_wtoEM"))) %>% 
   dplyr::select(method, auc, prauc, mcc, F1, replicates) %>% 
   pivot_longer(auc:F1, names_to = "statistics", values_to = "value") %>% 
   group_by(replicates, statistics) %>% 
@@ -552,7 +556,9 @@ Details of statistics value
 res_all %>% 
   filter(method %in% c("speckle", "diffcyt", "fisher", "scDC", "betabin_null", "estPhi_null", "wtoPhi_emK", "estPhi_emK", "milo")) %>%
   mutate(method = ifelse(method == "fisher", "Fisher", method)) %>% 
-  mutate(method = factor(method, level = c("scDC", "milo", "wtoPhi_emK", "betabin_null", "speckle", "diffcyt", "Fisher", "estPhi_emK", "estPhi_null"))) %>% 
+  mutate(method = ifelse(method == "estPhi_null", "estPhi_wtoEM", method),
+         method = ifelse(method == "betabin_null", "wtoPhi_wtoEM", method)) %>% 
+  mutate(method = factor(method, level = c("scDC", "milo", "wtoPhi_emK", "wtoPhi_wtoEM", "speckle", "diffcyt", "Fisher", "estPhi_emK", "estPhi_wtoEM"))) %>% 
   mutate(mcc = round(mcc, 3),
          auc = round(auc, 3),
          prauc = round(prauc, 3),
@@ -622,6 +628,8 @@ save(nhoodsRes_all, file = "/storage/holab/linxy/DCATS/simulation/nhoodsRes_all_
 load("/storage/holab/linxy/DCATS/simulation/nhoodsRes_all_replicates.RData")
 nhoodsRes_all %>% 
   arrange(replicates, desc(auc)) %>% 
+  mutate(method = ifelse(method == "estPhi_null", "estPhi_wtoEM", method),
+         method = ifelse(method == "betabin_null", "wtoPhi_wtoEM", method)) %>% 
   dplyr::select(method, mcc, auc, sensitivity, specificity, F1, replicates) %>% 
   mutate(mcc = round(mcc, 3),
          prauc = round(auc, 3),
@@ -633,7 +641,9 @@ nhoodsRes_all %>%
 ```{r}
 nhoodsH1_auc = nhoodsRes_all %>% 
   mutate(method = ifelse(method == "fisher", "Fisher", method)) %>% 
-  mutate(method = factor(method, level = c("speckle", "estPhi_emU", "estPhi_null", "wtoPhi_emU", "betabin_null", "milo", "Fisher"))) %>% 
+  mutate(method = ifelse(method == "estPhi_null", "estPhi_wtoEM", method),
+         method = ifelse(method == "betabin_null", "wtoPhi_wtoEM", method)) %>% 
+  mutate(method = factor(method, level = c("speckle", "estPhi_emU", "estPhi_wtoEM", "wtoPhi_emU", "wtoPhi_wtoEM", "milo", "Fisher"))) %>% 
   dplyr::select(method, auc, replicates) %>% 
   ggplot(aes(replicates, method)) +
     geom_tile(aes(fill = auc)) + 
@@ -645,7 +655,9 @@ nhoodsH1_auc = nhoodsRes_all %>%
 
 nhoodsH1_mcc = nhoodsRes_all %>% 
   mutate(method = ifelse(method == "fisher", "Fisher", method)) %>% 
-  mutate(method = factor(method, level = c("speckle", "estPhi_emU", "estPhi_null", "wtoPhi_emU", "betabin_null", "milo", "Fisher"))) %>% 
+  mutate(method = ifelse(method == "estPhi_null", "estPhi_wtoEM", method),
+         method = ifelse(method == "betabin_null", "wtoPhi_wtoEM", method)) %>% 
+  mutate(method = factor(method, level = c("speckle", "estPhi_emU", "estPhi_wtoEM", "wtoPhi_emU", "wtoPhi_wtoEM", "milo", "Fisher"))) %>%
   dplyr::select(method, mcc, replicates) %>% 
   ggplot(aes(replicates, method)) +
     geom_tile(aes(fill = mcc)) + 
@@ -659,7 +671,9 @@ nhoodsH1_mcc = nhoodsRes_all %>%
 
 nhoodsH1_sensitivity = nhoodsRes_all %>% 
   mutate(method = ifelse(method == "fisher", "Fisher", method)) %>% 
-  mutate(method = factor(method, level = c("speckle", "estPhi_emU", "estPhi_null", "wtoPhi_emU", "betabin_null", "milo", "Fisher"))) %>% 
+  mutate(method = ifelse(method == "estPhi_null", "estPhi_wtoEM", method),
+         method = ifelse(method == "betabin_null", "wtoPhi_wtoEM", method)) %>% 
+  mutate(method = factor(method, level = c("speckle", "estPhi_emU", "estPhi_wtoEM", "wtoPhi_emU", "wtoPhi_wtoEM", "milo", "Fisher"))) %>%
   dplyr::select(method, sensitivity, replicates) %>% 
   ggplot(aes(replicates, method)) +
     geom_tile(aes(fill = sensitivity)) + 
@@ -669,7 +683,9 @@ nhoodsH1_sensitivity = nhoodsRes_all %>%
 
 nhoodsH1_specificity = nhoodsRes_all %>% 
   mutate(method = ifelse(method == "fisher", "Fisher", method)) %>% 
-  mutate(method = factor(method, level = c("speckle", "estPhi_emU", "estPhi_null", "wtoPhi_emU", "betabin_null", "milo", "Fisher"))) %>% 
+  mutate(method = ifelse(method == "estPhi_null", "estPhi_wtoEM", method),
+         method = ifelse(method == "betabin_null", "wtoPhi_wtoEM", method)) %>% 
+  mutate(method = factor(method, level = c("speckle", "estPhi_emU", "estPhi_wtoEM", "wtoPhi_emU", "wtoPhi_wtoEM", "milo", "Fisher"))) %>%
   dplyr::select(method, specificity, replicates) %>% 
   ggplot(aes(replicates, method)) +
     geom_tile(aes(fill = specificity)) + 
@@ -681,7 +697,9 @@ nhoodsH1_specificity = nhoodsRes_all %>%
 
 nhoodsH1_precision = nhoodsRes_all %>% 
   mutate(method = ifelse(method == "fisher", "Fisher", method)) %>% 
-  mutate(method = factor(method, level = c("speckle", "estPhi_emU", "estPhi_null", "wtoPhi_emU", "betabin_null", "milo", "Fisher"))) %>% 
+  mutate(method = ifelse(method == "estPhi_null", "estPhi_wtoEM", method),
+         method = ifelse(method == "betabin_null", "wtoPhi_wtoEM", method)) %>% 
+  mutate(method = factor(method, level = c("speckle", "estPhi_emU", "estPhi_wtoEM", "wtoPhi_emU", "wtoPhi_wtoEM", "milo", "Fisher"))) %>%
   dplyr::select(method, precision, replicates) %>% 
   ggplot(aes(replicates, method)) +
     geom_tile(aes(fill = precision)) + 
@@ -693,7 +711,9 @@ nhoodsH1_precision = nhoodsRes_all %>%
 
 nhoodsH1_F1 = nhoodsRes_all %>% 
   mutate(method = ifelse(method == "fisher", "Fisher", method)) %>% 
-  mutate(method = factor(method, level = c("speckle", "estPhi_emU", "estPhi_null", "wtoPhi_emU", "betabin_null", "milo", "Fisher"))) %>% 
+  mutate(method = ifelse(method == "estPhi_null", "estPhi_wtoEM", method),
+         method = ifelse(method == "betabin_null", "wtoPhi_wtoEM", method)) %>% 
+  mutate(method = factor(method, level = c("speckle", "estPhi_emU", "estPhi_wtoEM", "wtoPhi_emU", "wtoPhi_wtoEM", "milo", "Fisher"))) %>%
   dplyr::select(method, F1, replicates) %>% 
   ggplot(aes(replicates, method)) +
     geom_tile(aes(fill = F1)) + 
@@ -853,8 +873,9 @@ Simulation 2: Supplementary Plot
 ```{r}
 sim2_statistics_clustersN = res_all %>% 
   filter(method %in% c("scDC", "milo", "wtoPhi_emK", "betabin_null", "speckle", "diffcyt", "fisher", "estPhi_emK", "estPhi_null")) %>%
-  #mutate(method = ifelse(method == "fisher", "Fisher", method)) %>% 
-  mutate(method = factor(method, level = c("scDC", "milo", "wtoPhi_emK", "betabin_null", "speckle", "diffcyt", "fisher", "estPhi_emK", "estPhi_null"))) %>% 
+  mutate(method = ifelse(method == "estPhi_null", "estPhi_wtoEM", method),
+         method = ifelse(method == "betabin_null", "wtoPhi_wtoEM", method)) %>% 
+  mutate(method = factor(method, level = c("scDC", "milo", "wtoPhi_emK", "wtoPhi_wtoEM", "speckle", "diffcyt", "fisher", "estPhi_emK", "estPhi_wtoEM"))) %>% 
   dplyr::select(method, auc, prauc, mcc, F1, clustersN) %>% 
   pivot_longer(auc:F1, names_to = "statistics", values_to = "value") %>% 
   group_by(clustersN, statistics) %>% 
@@ -884,7 +905,9 @@ Details of statistics value
 res_all %>% 
   filter(method %in% c("speckle", "diffcyt", "fisher", "scDC", "betabin_null", "estPhi_null", "wtoPhi_emK", "estPhi_emK", "milo")) %>%
   mutate(method = ifelse(method == "fisher", "Fisher", method)) %>% 
-  mutate(method = factor(method, level = c("scDC", "milo", "wtoPhi_emK", "betabin_null", "speckle", "diffcyt", "Fisher", "estPhi_emK", "estPhi_null"))) %>% 
+  mutate(method = ifelse(method == "estPhi_null", "estPhi_wtoEM", method),
+         method = ifelse(method == "betabin_null", "wtoPhi_wtoEM", method)) %>% 
+  mutate(method = factor(method, level = c("scDC", "milo", "wtoPhi_emK", "wtoPhi_wtoEM", "speckle", "diffcyt", "Fisher", "estPhi_emK", "estPhi_wtoEM"))) %>% 
   mutate(mcc = round(mcc, 3),
          auc = round(auc, 3),
          F1 = round(F1, 3),
@@ -960,6 +983,8 @@ save(nhoodsRes_all, file = "/storage/holab/linxy/DCATS/simulation/nhoodsRes_all_
 load("/storage/holab/linxy/DCATS/simulation/nhoodsRes_all_clustersN.RData")
 nhoodsRes_all %>% 
   arrange(clustersN, desc(auc)) %>% 
+  mutate(method = ifelse(method == "estPhi_null", "estPhi_wtoEM", method),
+         method = ifelse(method == "betabin_null", "wtoPhi_wtoEM", method)) %>% 
   dplyr::select(method, mcc, auc, sensitivity, specificity, F1, clustersN) %>% 
   mutate(mcc = round(mcc, 3),
          prauc = round(auc, 3),
@@ -971,7 +996,9 @@ nhoodsRes_all %>%
 ```{r}
 nhoodsH2_auc = nhoodsRes_all %>% 
   mutate(method = ifelse(method == "fisher", "Fisher", method)) %>% 
-  mutate(method = factor(method, level = c("speckle", "estPhi_emU", "estPhi_null", "wtoPhi_emU", "betabin_null", "milo", "Fisher"))) %>% 
+  mutate(method = ifelse(method == "estPhi_null", "estPhi_wtoEM", method),
+         method = ifelse(method == "betabin_null", "wtoPhi_wtoEM", method)) %>% 
+  mutate(method = factor(method, level = c("speckle", "estPhi_emU", "estPhi_wtoEM", "wtoPhi_emU", "wtoPhi_wtoEM", "milo", "Fisher"))) %>% 
   dplyr::select(method, auc, clustersN) %>% 
   ggplot(aes(clustersN, method)) +
     geom_tile(aes(fill = auc)) + 
@@ -983,7 +1010,9 @@ nhoodsH2_auc = nhoodsRes_all %>%
 
 nhoodsH2_mcc = nhoodsRes_all %>% 
   mutate(method = ifelse(method == "fisher", "Fisher", method)) %>% 
-  mutate(method = factor(method, level = c("speckle", "estPhi_emU", "estPhi_null", "wtoPhi_emU", "betabin_null", "milo", "Fisher"))) %>% 
+  mutate(method = ifelse(method == "estPhi_null", "estPhi_wtoEM", method),
+         method = ifelse(method == "betabin_null", "wtoPhi_wtoEM", method)) %>% 
+  mutate(method = factor(method, level = c("speckle", "estPhi_emU", "estPhi_wtoEM", "wtoPhi_emU", "wtoPhi_wtoEM", "milo", "Fisher"))) %>% 
   dplyr::select(method, mcc, clustersN) %>% 
   ggplot(aes(clustersN, method)) +
     geom_tile(aes(fill = mcc)) + 
@@ -997,7 +1026,9 @@ nhoodsH2_mcc = nhoodsRes_all %>%
 
 nhoodsH2_sensitivity = nhoodsRes_all %>% 
   mutate(method = ifelse(method == "fisher", "Fisher", method)) %>% 
-  mutate(method = factor(method, level = c("speckle", "estPhi_emU", "estPhi_null", "wtoPhi_emU", "betabin_null", "milo", "Fisher"))) %>% 
+  mutate(method = ifelse(method == "estPhi_null", "estPhi_wtoEM", method),
+         method = ifelse(method == "betabin_null", "wtoPhi_wtoEM", method)) %>% 
+  mutate(method = factor(method, level = c("speckle", "estPhi_emU", "estPhi_wtoEM", "wtoPhi_emU", "wtoPhi_wtoEM", "milo", "Fisher"))) %>% 
   dplyr::select(method, sensitivity, clustersN) %>% 
   ggplot(aes(clustersN, method)) +
     geom_tile(aes(fill = sensitivity)) + 
@@ -1007,7 +1038,9 @@ nhoodsH2_sensitivity = nhoodsRes_all %>%
 
 nhoodsH2_specificity = nhoodsRes_all %>% 
   mutate(method = ifelse(method == "fisher", "Fisher", method)) %>% 
-  mutate(method = factor(method, level = c("speckle", "estPhi_emU", "estPhi_null", "wtoPhi_emU", "betabin_null", "milo", "Fisher"))) %>% 
+  mutate(method = ifelse(method == "estPhi_null", "estPhi_wtoEM", method),
+         method = ifelse(method == "betabin_null", "wtoPhi_wtoEM", method)) %>% 
+  mutate(method = factor(method, level = c("speckle", "estPhi_emU", "estPhi_wtoEM", "wtoPhi_emU", "wtoPhi_wtoEM", "milo", "Fisher"))) %>% 
   dplyr::select(method, specificity, clustersN) %>% 
   ggplot(aes(clustersN, method)) +
     geom_tile(aes(fill = specificity)) + 
@@ -1019,7 +1052,9 @@ nhoodsH2_specificity = nhoodsRes_all %>%
 
 nhoodsH2_precision = nhoodsRes_all %>% 
   mutate(method = ifelse(method == "fisher", "Fisher", method)) %>% 
-  mutate(method = factor(method, level = c("speckle", "estPhi_emU", "estPhi_null", "wtoPhi_emU", "betabin_null", "milo", "Fisher"))) %>% 
+  mutate(method = ifelse(method == "estPhi_null", "estPhi_wtoEM", method),
+         method = ifelse(method == "betabin_null", "wtoPhi_wtoEM", method)) %>% 
+  mutate(method = factor(method, level = c("speckle", "estPhi_emU", "estPhi_wtoEM", "wtoPhi_emU", "wtoPhi_wtoEM", "milo", "Fisher"))) %>% 
   dplyr::select(method, precision, clustersN) %>% 
   ggplot(aes(clustersN, method)) +
     geom_tile(aes(fill = precision)) + 
@@ -1031,7 +1066,9 @@ nhoodsH2_precision = nhoodsRes_all %>%
 
 nhoodsH2_F1 = nhoodsRes_all %>% 
   mutate(method = ifelse(method == "fisher", "Fisher", method)) %>% 
-  mutate(method = factor(method, level = c("speckle", "estPhi_emU", "estPhi_null", "wtoPhi_emU", "betabin_null", "milo", "Fisher"))) %>% 
+  mutate(method = ifelse(method == "estPhi_null", "estPhi_wtoEM", method),
+         method = ifelse(method == "betabin_null", "wtoPhi_wtoEM", method)) %>% 
+  mutate(method = factor(method, level = c("speckle", "estPhi_emU", "estPhi_wtoEM", "wtoPhi_emU", "wtoPhi_wtoEM", "milo", "Fisher"))) %>% 
   dplyr::select(method, F1, clustersN) %>% 
   ggplot(aes(clustersN, method)) +
     geom_tile(aes(fill = F1)) + 
@@ -1152,7 +1189,9 @@ res_all %>%
   pivot_longer(condition:gender, names_to = "factor", values_to = "auc") %>% 
   filter(method %in% c("speckle", "diffcyt", "fisher", "scDC", "betabin_null", "estPhi_null", "wtoPhi_emK", "estPhi_emK", "milo")) %>%
   mutate(method = ifelse(method == "fisher", "Fisher", method)) %>% 
-  mutate(method = factor(method, level = c("milo", "scDC", "speckle", "diffcyt", "Fisher", "estPhi_null", "estPhi_emK", "betabin_null", "wtoPhi_emK")),
+  mutate(method = ifelse(method == "estPhi_null", "estPhi_wtoEM", method),
+         method = ifelse(method == "betabin_null", "wtoPhi_wtoEM", method)) %>% 
+  mutate(method = factor(method, level = c("milo", "scDC", "speckle", "diffcyt", "Fisher", "estPhi_wtoEM", "estPhi_emK", "wtoPhi_wtoEM", "wtoPhi_emK")),
          factor = factor(factor, level = c("condition", "age", "gender"))) %>% 
   ggplot(aes(factor, method)) +
     geom_tile(aes(fill = auc)) + 
@@ -1169,7 +1208,9 @@ res_all %>%
   pivot_longer(condition:gender, names_to = "factor", values_to = "mcc") %>% 
   filter(method %in% c("speckle", "diffcyt", "fisher", "scDC", "betabin_null", "estPhi_null", "wtoPhi_emK", "estPhi_emK", "milo")) %>%
   mutate(method = ifelse(method == "fisher", "Fisher", method)) %>% 
-  mutate(method = factor(method, level = c("milo", "scDC", "speckle", "diffcyt", "Fisher", "estPhi_null", "estPhi_emK", "betabin_null", "wtoPhi_emK")),
+  mutate(method = ifelse(method == "estPhi_null", "estPhi_wtoEM", method),
+         method = ifelse(method == "betabin_null", "wtoPhi_wtoEM", method)) %>% 
+  mutate(method = factor(method, level = c("milo", "scDC", "speckle", "diffcyt", "Fisher", "estPhi_wtoEM", "estPhi_emK", "wtoPhi_wtoEM", "wtoPhi_emK")),
          factor = factor(factor, level = c("condition", "age", "gender"))) %>% 
   ggplot(aes(factor, method)) +
     geom_tile(aes(fill = mcc)) + 
@@ -1186,7 +1227,9 @@ res_all %>%
   pivot_longer(condition:gender, names_to = "factor", values_to = "F1") %>% 
   filter(method %in% c("speckle", "diffcyt", "fisher", "scDC", "betabin_null", "estPhi_null", "wtoPhi_emK", "estPhi_emK", "milo")) %>%
   mutate(method = ifelse(method == "fisher", "Fisher", method)) %>% 
-  mutate(method = factor(method, level = c("milo", "scDC", "speckle", "diffcyt", "Fisher", "estPhi_null", "estPhi_emK", "betabin_null", "wtoPhi_emK")),
+  mutate(method = ifelse(method == "estPhi_null", "estPhi_wtoEM", method),
+         method = ifelse(method == "betabin_null", "wtoPhi_wtoEM", method)) %>% 
+  mutate(method = factor(method, level = c("milo", "scDC", "speckle", "diffcyt", "Fisher", "estPhi_wtoEM", "estPhi_emK", "wtoPhi_wtoEM", "wtoPhi_emK")),
          factor = factor(factor, level = c("condition", "age", "gender"))) %>% 
   ggplot(aes(factor, method)) +
     geom_tile(aes(fill = F1)) + 
