@@ -1,3 +1,4 @@
+## This file is used to check the situation of mu
 library(DCATS)
 
 ctrl_corrected = Haber2017$count_ctrl
