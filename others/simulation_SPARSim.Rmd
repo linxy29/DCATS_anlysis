@@ -5,6 +5,8 @@ date: "2/19/2021"
 output: html_document
 ---
 
+This file is use to generate simulation data using SPARSim
+
 ```{r}
 library(SPARSim)
 library(tidyverse)
