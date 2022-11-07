@@ -1,0 +1,132 @@
+---
+title: "simulation_SPARSim"
+author: "Xinyi Lin"
+date: "2/19/2021"
+output: html_document
+---
+
+This file is use to generate simulation data using SPARSim
+
+```{r}
+library(SPARSim)
+library(tidyverse)
+library(Seurat)
+```
+
+```{r}
+cluster_num = 3
+batch_size = cluster_num * 1000
+setresolu = 0.2
+batch_num = 4
+cell.prop = c(1/3, 1/3, 1/3)
+de.prop = c(0, 0.1, 0.2)
+options(future.globals.maxSize = 15000 * 1024^2)
+```
+
+```{r, eval=FALSE}
+# Load preset
+data(Chu_param_preset)
+# Create simulation parameter for condition A
+clusterA <- SPARSim_create_simulation_parameter(
+  intensity = Chu_param_preset$Chu_C1$intensity, 
+  variability = Chu_param_preset$Chu_C1$variability, 
+  library_size = sample(Chu_param_preset$Chu_C1$lib_size, size = round(batch_size*cell.prop[1])*batch_num, replace = TRUE),
+  condition_name = "clusterA")
+# Batch effect
+batch_set = list(batch1 = SPARSim_create_batch(name = "Lane1", distribution = "normal", param_A = 0, param_B = 1))
+batch_sample_association = rep("Lane1", round(batch_size*cell.prop[1]))
+for (i in 2:batch_num){
+  batch_set[[str_c("batch", as.character(i))]] = SPARSim_create_batch(name = str_c("Lane", as.character(i)), distribution = "normal", param_A = i-2, param_B = 1)
+  batch_sample_association = c(batch_sample_association, rep(str_c("Lane", as.character(i)), round(batch_size*cell.prop[1])))
+}
+
+batch_parameter <- SPARSim_create_batch_parameter(batch_set = batch_set,  batch_sample = batch_sample_association)
+
+# Run SPARSim simulation using the just created simulation parameter, the 'parameter' object should be a list even there is only one condition
+set.seed(123)
+sim_result <- SPARSim_simulation(dataset_parameter = list(clusterA), batch_parameter = batch_parameter)
+```
+
+Try to simulate multiple clusters and different batches simultaneously, failed
+
+```{r, eval=FALSE}
+genes_num = length(clusterA$intensity)
+cluster_params = list(clusterA = clusterA)
+cluster_name = c("A", "B", "C", "D", "E", "F", "G")
+## STEP 2: define the fold change values for the marker genes 
+## (i.e. genes that are DE across different cell types)
+for (i in 2: cluster_num){
+  genes.chg = round(genes_num*de.prop[i])
+  multiplier = c(runif(n = genes.chg/2, min = 0.0001, max = 0.25), runif(n = genes.chg/2, min = 4, max = 100))
+  FCmultiplier = c(rep(1, genes_num*sum(de.prop[1:i-1])), multiplier, rep(1, genes_num-genes_num*sum(de.prop[1:i])))
+  cluster_params[[str_c("cluster", cluster_name[i])]] = SPARSim_create_DE_genes_parameter(sim_param = clusterA, fc_multiplier = FCmultiplier, N_cells = round(batch_size*cell.prop[i])*batch_num, condition_name = "clusterB")
+}
+
+# Batch effect
+batch_set = list(batch1 = SPARSim_create_batch(name = "Lane1", distribution = "normal", param_A = 0, param_B = 1))
+batch_sample_association = rep("Lane1", batch_size)
+for (i in 2:batch_num){
+  batch_set[[str_c("batch", as.character(i))]] = SPARSim_create_batch(name = str_c("Lane", as.character(i)), distribution = "normal", param_A = i-2, param_B = 1)
+  batch_sample_association = c(batch_sample_association, rep(str_c("Lane", as.character(i)), batch_size))
+}
+
+batch_parameter <- SPARSim_create_batch_parameter(batch_set = batch_set,  batch_sample = batch_sample_association)
+
+# Run SPARSim simulation using the just created simulation parameter, the 'parameter' object should be a list even there is only one condition
+set.seed(123)
+sim_result <- SPARSim_simulation(dataset_parameter = cluster_params, batch_parameter = batch_parameter)
+```
+
+The results of simulation is strange. Try simulate only one cluster one time.
+
+```{r}
+set.seed(123)
+# Load preset
+data(Chu_param_preset)
+cluster_name = c("A", "B", "C", "D", "E", "F", "G")
+sim_resultL = list()
+for (i in 1:cluster_num){
+  ## cluster Info
+  cluster_params <- SPARSim_create_simulation_parameter(
+    intensity = Chu_param_preset[[i]]$intensity, 
+    variability = Chu_param_preset[[i]]$variability, 
+    library_size = sample(Chu_param_preset[[i]]$lib_size, size = round(batch_size*cell.prop[i])*batch_num, replace = TRUE),
+    condition_name = str_c("cluster", cluster_name[i]))
+  
+  # Batch effect
+  batch_set = list(batch1 = SPARSim_create_batch(name = "Lane1", distribution = "normal", param_A = 0, param_B = 1))
+  batch_sample_association = rep("Lane1", round(batch_size*cell.prop[i]))
+  for (j in 2:batch_num){
+    batch_set[[str_c("batch", as.character(j))]] = SPARSim_create_batch(name = str_c("Lane", as.character(j)), distribution = "normal", param_A = j-2, param_B = 1)
+    batch_sample_association = c(batch_sample_association, rep(str_c("Lane", as.character(j)), round(batch_size*cell.prop[1])))
+}
+  batch_params <- SPARSim_create_batch_parameter(batch_set = batch_set,  batch_sample = batch_sample_association)
+  
+  # Run SPARSim simulation using the just created simulation parameter, the 'parameter' object should be a list even there is only one condi
+  sim_result <- SPARSim_simulation(dataset_parameter = list(cluster_params), batch_parameter = batch_params)
+  sim_resultL[[str_c("cluster", cluster_name[i])]] = sim_result
+}
+
+```
+
+```{r}
+sim_result = matrix(NA, nrow = dim(sim_resultL[[1]]$count_matrix)[1], ncol = 0)
+for (i in 1:length(sim_resultL)){
+  sim_result = cbind(sim_result, sim_resultL[[i]]$count_matrix)
+}
+```
+
+```{r}
+seuratObj <- CreateSeuratObject(counts = sim_result, project="SPARSim")
+seuratObj <- NormalizeData(seuratObj, verbose = FALSE)
+seuratObj <- FindVariableFeatures(seuratObj, selection.method = "vst", nfeatures = 2000, verbose = FALSE)
+seuratObj <- ScaleData(seuratObj)
+seuratObj <- RunPCA(seuratObj, features = VariableFeatures(object = seuratObj))
+seuratObj <- FindNeighbors(seuratObj, dims = 1:30, verbose = FALSE)
+seuratObj <- FindClusters(seuratObj, resolution = setresolu, verbose = FALSE)
+seuratObj <- RunUMAP(seuratObj, dims = 1:30, verbose = FALSE)
+DimPlot(seuratObj, reduction = "umap")
+```
+
+
+
