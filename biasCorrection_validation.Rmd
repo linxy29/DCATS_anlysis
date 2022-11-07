@@ -1,0 +1,23 @@
+---
+title: "Validate the bias correction part of DCATS"
+author: "Xinyi_Lin"
+date: "07/11/2022"
+output: html_document
+---
+
+```{r}
+library(scater)
+library(Seurat)
+```
+
+```{r}
+load("/storage/holab/linxy/DCATS/real_world/Heyn_2020/sce.all_classified.technologies.RData")
+seuratObj = as.Seurat(sce)
+#metaDF = colData(sce)
+```
+
+```{r}
+
+
+```
+
