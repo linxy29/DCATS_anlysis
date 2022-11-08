@@ -5,32 +5,12 @@ date: "07/11/2022"
 output: html_document
 ---
 
-## Heyn_2020
-
-This file is used to validate the effectiveness of misclassification correction in DCATS. The data comes from "Benchmarking single-cell RNA-sequencing protocols for cell atlas projects" (https://www.nature.com/articles/s41587-020-0469-4#data-availability) and can be downloaded through https://www.dropbox.com/s/i8mwmyymchx8mn8/sce.all_classified.technologies.RData?dl=0. 
+## Ritchie 2019
 
 ```{r}
 library(scater)
 library(Seurat)
 ```
-
-```{r}
-source("functionsV2.r")
-```
-
-```{r}
-load("/storage/holab/linxy/DCATS/real_world/Heyn_2020/sce.all_classified.technologies.RData")
-seuratObj = as.Seurat(sce)
-#metaDF = colData(sce)
-```
-
-```{r}
-seuratObj = SetIdent(seuratObj, value = "ident")
-DimPlot(seuratObj)
-DimPlot(seuratObj, group.by = 'nnet2')
-```
-
-## Ritchie 2019
 
 This data comes from 'Benchmarking single cell RNA-sequencing analysis pipelines using mixture control experiments' (https://www.nature.com/articles/s41592-019-0425-8#data-availability). It contains three/five cell lines' cells with same proportion.
 
@@ -41,7 +21,7 @@ load("/storage/holab/linxy/DCATS/real_world/Ritchie_2019/sincell_with_class_5cl.
 
 This is the pseudo cell. Can't find its use right now
 
-```{r}
+```{r, eval=FALSE}
 sce_SC1_qc = logNormCounts(sce_SC1_qc)
 pseudocell_mix1 = as.Seurat(sce_SC1_qc)
 pseudocell_mix1 <- NormalizeData(pseudocell_mix1)
@@ -65,9 +45,10 @@ mixcell5_10x_seurat <- RunPCA(mixcell5_10x_seurat, npcs = 30, verbose = FALSE)
 mixcell5_10x_seurat <- RunUMAP(mixcell5_10x_seurat, reduction = "pca", dims = 1:30)
 mixcell5_10x_seurat <- FindNeighbors(mixcell5_10x_seurat, reduction = "pca", dims = 1:30)
 DimPlot(mixcell5_10x_seurat, group.by = 'cell_line_demuxlet')
+save(mixcell5_10x_seurat, file = "/storage/holab/linxy/DCATS/real_world/Ritchie_2019/mixcell5_10x_seurat.RData")
 ```
 
-```{r}
+```{r, eval=FALSE}
 sc_Celseq2_5cl_p1 = logNormCounts(sc_Celseq2_5cl_p1)
 mixcell5_p1_seurat = as.Seurat(sc_Celseq2_5cl_p1)
 mixcell5_p1_seurat <- NormalizeData(mixcell5_p1_seurat)
@@ -84,14 +65,14 @@ Try to merge p1-p3 together. Check whether they have batch effect.
 
 Results: have batch between technologies. Since 10x has more cell numbers, use this one
 
-```{r}
+```{r, eval=FALSE}
 sc_Celseq2_5cl_p2 = logNormCounts(sc_Celseq2_5cl_p2)
 mixcell5_p2_seurat = as.Seurat(sc_Celseq2_5cl_p2)
 sc_Celseq2_5cl_p3 = logNormCounts(sc_Celseq2_5cl_p3)
 mixcell5_p3_seurat = as.Seurat(sc_Celseq2_5cl_p3)
 ```
 
-```{r}
+```{r, eval=FALSE}
 mixcell5_merge = merge(mixcell5_p1_seurat, c(mixcell5_p2_seurat, mixcell5_p3_seurat, mixcell5_10x_seurat), add.cell.ids = c("p1", "p2", "p3", "10x"), project = "mixcell5")
 mixcell5_merge <- NormalizeData(mixcell5_merge)
 mixcell5_merge <- FindVariableFeatures(mixcell5_merge, selection.method = "vst", nfeatures = 2000)
