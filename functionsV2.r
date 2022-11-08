@@ -10,7 +10,7 @@ if(FALSE){
   library(diffcyt)
 }
 
-#print("You are really a smart girl!!!!")
+#print("Well done!!!!")
 
 ## function1: cell selection
 cellSelect = function(sim_mat, origLabels, ppC1, ppC2, sample_size){
@@ -975,7 +975,7 @@ simulator_noInt = function(totals1, totals2, probC1, probC2, setresolu, sim_mat)
   }
   
 }
-## function to get milo results
+## function 19: function to get milo results
 getMilo = function(integratedSamples){
   # create object
   sceObj <- as.SingleCellExperiment(integratedSamples)
@@ -1018,7 +1018,7 @@ getMilo = function(integratedSamples){
   return(list(da_results = da_results, counts = counts, nhoodsID = nhoodsID))
 }
 
-## function to select cells for simulation with multi-covariates
+## function 20: function to select cells for simulation with multi-covariates
 simulator_propM = function(totalV, prop_mat, setresolu, sim_mat, design_mat){
   K = ncol(prop_mat)
   prop_sim = matrix(NA, nrow = nrow(prop_mat), ncol = ncol(prop_mat))
@@ -1092,4 +1092,27 @@ simulator_propM = function(totalV, prop_mat, setresolu, sim_mat, design_mat){
   } else {
     return(NA)
   }
+}
+
+
+## function 21: new function for svm_simMat
+
+svm_simMat_new = function(dataframe){
+  set.seed(123)
+  dataframe$clusterRes = as.factor(dataframe$clusterRes)
+  row_num = nrow(dataframe)
+  pred = rep(NA, row_num)
+  idx1 = sample(1:row_num, round(row_num/5))
+  idx2 = sample((1:row_num)[-idx1], round(row_num/5))
+  idx3 = sample((1:row_num)[-c(idx1, idx2)], round(row_num/5))
+  idx4 = sample((1:row_num)[-c(idx1, idx2, idx3)], round(row_num/5))
+  idx5 = (1:row_num)[-c(idx1, idx2, idx3, idx4)]
+  idxV = list(idx1, idx2, idx3, idx4, idx5)
+  for (i in 1:5){
+    svmfit = e1071::svm(clusterRes ~ ., data = dataframe[-idxV[[i]],], kernel = "radial")
+    pred[idxV[[i]]] = as.character(predict(svmfit, subset(dataframe, select = -clusterRes)[idxV[[i]],]))
+  }
+  conf.mat <- table(dataframe$clusterRes, as.factor(pred))
+  simil_mat <- t(t(conf.mat)/apply(conf.mat,2,sum))
+  return(simil_mat)
 }
