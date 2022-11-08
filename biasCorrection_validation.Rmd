@@ -5,9 +5,17 @@ date: "07/11/2022"
 output: html_document
 ---
 
+## Heyn_2020
+
+This file is used to validate the effectiveness of misclassification correction in DCATS. The data comes from "Benchmarking single-cell RNA-sequencing protocols for cell atlas projects" (https://www.nature.com/articles/s41587-020-0469-4#data-availability) and can be downloaded through https://www.dropbox.com/s/i8mwmyymchx8mn8/sce.all_classified.technologies.RData?dl=0. 
+
 ```{r}
 library(scater)
 library(Seurat)
+```
+
+```{r}
+source("functionsV2.r")
 ```
 
 ```{r}
@@ -17,7 +25,81 @@ seuratObj = as.Seurat(sce)
 ```
 
 ```{r}
+seuratObj = SetIdent(seuratObj, value = "ident")
+DimPlot(seuratObj)
+DimPlot(seuratObj, group.by = 'nnet2')
+```
 
+## Ritchie 2019
 
+This data comes from 'Benchmarking single cell RNA-sequencing analysis pipelines using mixture control experiments' (https://www.nature.com/articles/s41592-019-0425-8#data-availability). It contains three/five cell lines' cells with same proportion.
+
+```{r}
+load("/storage/holab/linxy/DCATS/real_world/Ritchie_2019/9cellmix_qc.RData")
+load("/storage/holab/linxy/DCATS/real_world/Ritchie_2019/sincell_with_class_5cl.RData")
+```
+
+This is the pseudo cell. Can't find its use right now
+
+```{r}
+sce_SC1_qc = logNormCounts(sce_SC1_qc)
+pseudocell_mix1 = as.Seurat(sce_SC1_qc)
+pseudocell_mix1 <- NormalizeData(pseudocell_mix1)
+pseudocell_mix1 <- FindVariableFeatures(pseudocell_mix1, selection.method = "vst", nfeatures = 2000)
+pseudocell_mix1 <- ScaleData(pseudocell_mix1, verbose = FALSE)
+pseudocell_mix1 <- RunPCA(pseudocell_mix1, npcs = 30, verbose = FALSE)
+pseudocell_mix1 <- RunUMAP(pseudocell_mix1, reduction = "pca", dims = 1:30)
+pseudocell_mix1 <- FindNeighbors(pseudocell_mix1, reduction = "pca", dims = 1:30)
+pseudocell_mix1 <- FindClusters(pseudocell_mix1)
+DimPlot(pseudocell_mix1)
+```
+
+This is the cell pool mixing five cell lines with equal proportion.
+
+```{r}
+mixcell5_10x_seurat = as.Seurat(sce_sc_10x_5cl_qc)
+mixcell5_10x_seurat <- NormalizeData(mixcell5_10x_seurat)
+mixcell5_10x_seurat <- FindVariableFeatures(mixcell5_10x_seurat, selection.method = "vst", nfeatures = 2000)
+mixcell5_10x_seurat <- ScaleData(mixcell5_10x_seurat, verbose = FALSE)
+mixcell5_10x_seurat <- RunPCA(mixcell5_10x_seurat, npcs = 30, verbose = FALSE)
+mixcell5_10x_seurat <- RunUMAP(mixcell5_10x_seurat, reduction = "pca", dims = 1:30)
+mixcell5_10x_seurat <- FindNeighbors(mixcell5_10x_seurat, reduction = "pca", dims = 1:30)
+DimPlot(mixcell5_10x_seurat, group.by = 'cell_line_demuxlet')
+```
+
+```{r}
+sc_Celseq2_5cl_p1 = logNormCounts(sc_Celseq2_5cl_p1)
+mixcell5_p1_seurat = as.Seurat(sc_Celseq2_5cl_p1)
+mixcell5_p1_seurat <- NormalizeData(mixcell5_p1_seurat)
+mixcell5_p1_seurat <- FindVariableFeatures(mixcell5_p1_seurat, selection.method = "vst", nfeatures = 2000)
+mixcell5_p1_seurat <- ScaleData(mixcell5_p1_seurat, verbose = FALSE)
+mixcell5_p1_seurat <- RunPCA(mixcell5_p1_seurat, npcs = 30, verbose = FALSE)
+mixcell5_p1_seurat <- RunUMAP(mixcell5_p1_seurat, reduction = "pca", dims = 1:30)
+mixcell5_p1_seurat <- FindNeighbors(mixcell5_p1_seurat, reduction = "pca", dims = 1:30)
+mixcell5_p1_seurat <- FindClusters(mixcell5_p1_seurat)
+DimPlot(mixcell5_p1_seurat, group.by = 'cell_line_demuxlet')
+```
+
+Try to merge p1-p3 together. Check whether they have batch effect.
+
+Results: have batch between technologies. Since 10x has more cell numbers, use this one
+
+```{r}
+sc_Celseq2_5cl_p2 = logNormCounts(sc_Celseq2_5cl_p2)
+mixcell5_p2_seurat = as.Seurat(sc_Celseq2_5cl_p2)
+sc_Celseq2_5cl_p3 = logNormCounts(sc_Celseq2_5cl_p3)
+mixcell5_p3_seurat = as.Seurat(sc_Celseq2_5cl_p3)
+```
+
+```{r}
+mixcell5_merge = merge(mixcell5_p1_seurat, c(mixcell5_p2_seurat, mixcell5_p3_seurat, mixcell5_10x_seurat), add.cell.ids = c("p1", "p2", "p3", "10x"), project = "mixcell5")
+mixcell5_merge <- NormalizeData(mixcell5_merge)
+mixcell5_merge <- FindVariableFeatures(mixcell5_merge, selection.method = "vst", nfeatures = 2000)
+mixcell5_merge <- ScaleData(mixcell5_merge, verbose = FALSE)
+mixcell5_merge <- RunPCA(mixcell5_merge, npcs = 30, verbose = FALSE)
+mixcell5_merge <- RunUMAP(mixcell5_merge, reduction = "pca", dims = 1:30)
+mixcell5_merge <- FindNeighbors(mixcell5_merge, reduction = "pca", dims = 1:30)
+DimPlot(mixcell5_merge, group.by = 'cell_line_demuxlet')
+DimPlot(mixcell5_merge, group.by = 'batch')
 ```
 
