@@ -1,0 +1,75 @@
+---
+title: "Test the usage OF ANCOMBC"
+output: html_document
+---
+
+```{r}
+library(phyloseq)
+library(microbiome)
+library(dplyr)
+library(nloptr)
+```
+
+```{r}
+library(phyloseq)
+
+otu_mat = matrix(sample(1:100, 100, replace = TRUE), nrow = 10, ncol = 10)
+rownames(otu_mat) = paste0("taxon", 1:nrow(otu_mat))
+colnames(otu_mat) = paste0("sample", 1:ncol(otu_mat))
+
+
+meta = data.frame(group = sample(LETTERS[1:4], size = 10, replace = TRUE),
+                  row.names = paste0("sample", 1:ncol(otu_mat)),
+                  stringsAsFactors = FALSE)
+
+tax_mat = matrix(sample(letters, 70, replace = TRUE),
+                 nrow = nrow(otu_mat), ncol = 7)
+rownames(tax_mat) = rownames(otu_mat)
+colnames(tax_mat) = c("Kingdom", "Phylum", "Class", "Order",
+                      "Family", "Genus", "Species")
+
+OTU = otu_table(otu_mat, taxa_are_rows = TRUE)
+META = sample_data(meta)
+TAX = tax_table(tax_mat)
+physeq = phyloseq(OTU, META, TAX)
+
+```
+
+
+```{r}
+data(atlas1006)
+
+# Subset to baseline
+tse = atlas1006[, atlas1006@sam_data$time == 0]
+
+# Re-code the bmi group
+tse$bmi = recode(tse$bmi_group,
+                 obese = "obese",
+                 severeobese = "obese",
+                 morbidobese = "obese")
+# Subset to lean, overweight, and obese subjects
+tse = tse[, tse$bmi %in% c("lean", "overweight", "obese")]
+
+# Note that by default, levels of a categorical variable in R are sorted 
+# alphabetically. In this case, the reference level for `bmi` will be 
+# `lean`. To manually change the reference level, for instance, setting `obese`
+# as the reference level, use:
+tse$bmi = factor(tse$bmi, levels = c("obese", "overweight", "lean"))
+# You can verify the change by checking:
+# levels(sample_data(tse)$bmi)
+
+# Create the region variable
+tse$region = recode(as.character(tse$nationality),
+                    Scandinavia = "NE", UKIE = "NE", SouthEurope = "SE", 
+                    CentralEurope = "CE", EasternEurope = "EE",
+                    .missing = "unknown")
+
+# Discard "EE" as it contains only 1 subject
+# Discard subjects with missing values of region
+tse = tse[, ! tse$region %in% c("EE", "unknown")]
+
+print(tse)
+```
+
+
+
