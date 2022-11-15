@@ -13,7 +13,7 @@ library(ggplot2)
 library(tidyverse)
 library(tidymodels)
 library(diffcyt)
-library(scdney)
+library(scDC)
 library(Matrix)
 library(miloR)
 library(SingleCellExperiment)
@@ -998,5 +998,140 @@ count_mat = Ren2021_cell %>%
          Macro = Macro_count)
 ```
 
+## Schiller 2019 data
 
+https://www.nature.com/articles/s41467-019-08831-9#data-availability
+
+An atlas of the aging lung mapped by single cell transcriptomics and deep tissue proteomics
+
+Sample size: whole lungs samples from 3-month-old mice (n = 8) and 24-month-old mice (m = 7). In total 14813 cells (7672 young, 7141 old).
+
+Key findings in this paper:
+
+1) Additionally, we noticed one cluster of mainly proliferating cells showing high expression levels for S and G2M cell-cycle marker genes (Supplementary Fig. 3a and b). Young mice showed a higher fraction of cells in this cluster compared to old mice
+
+2) The ciliated cells were increased in old mice (Fig. 4h), leading to a significantly altered ratio of club to ciliated cells in aged mouse airways (Fig. 4i). validated this finding in situ immunostainings of Foxj1 (ciliated cell marker) and CC10 (club cell marker)
+
+```{r}
+load("/storage/holab/linxy/DCATS/real_world/Schiller_2019/GSE124872_raw_counts_single_cell.RData")
+meta_Schiller2019 = read_csv("/storage/holab/linxy/DCATS/real_world/Schiller_2019/GSE124872_Angelidis_2018_metadata.csv")
+seurat_Schiller2019 = CreateSeuratObject(raw_counts)
+```
+
+```{r}
+Cells(raw_counts) %>% head()
+meta_Schiller2019$...1 %>% head()   ## barcodes are not the same
+summary(meta_Schiller2019$identifier %>% as.factor())
+cellDF = data.frame(cell = Cells(raw_counts)) %>% 
+  mutate(cellID = cell) %>% 
+  separate(cellID, c("sample", "barcode"), sep = ":")
+summary(cellDF$sample %>% as.factor())
+sampleDF = data.frame(sample = c("old_1", "old_2", "old_3", "old_4", "old_5", "old_6", "old_7", "young_1", "young_2", "young_3", "young_4", "young_5", "young_6", "young_7", "young_8"), identifier = c("muc3838", "muc3839", "muc3840", "muc3841", "muc4166", "muc4167", "muc4168", "muc4169", "muc4170", "muc4172", "muc4173", "muc4174", "muc4175", "muc4654", "muc4657"))
+meta_Schiller2019 = meta_Schiller2019 %>% left_join(sampleDF) %>% 
+  rename(cell = ...1) %>%
+  mutate(barcode = str_remove(cell, "muc[0-9][0-9][0-9][0-9]:muc[0-9][0-9][0-9][0-9]:")) %>% 
+  mutate(cell = str_c(sample, ":", barcode))
+```
+
+```{r}
+meta_Schiller2019 = cellDF %>% 
+  left_join(meta_Schiller2019)
+
+seurat_Schiller2019@meta.data['cell_type'] = meta_Schiller2019$celltype
+seurat_Schiller2019@meta.data['sample'] = meta_Schiller2019$sample
+seurat_Schiller2019@meta.data['cluster'] = meta_Schiller2019$cluster
+```
+
+```{r}
+seurat_Schiller2019 <- NormalizeData(seurat_Schiller2019)
+seurat_Schiller2019 <- FindVariableFeatures(seurat_Schiller2019, selection.method = "vst", nfeatures = 2000)
+seurat_Schiller2019 <- ScaleData(seurat_Schiller2019, verbose = FALSE)
+seurat_Schiller2019 <- RunPCA(seurat_Schiller2019, npcs = 30, verbose = FALSE)
+seurat_Schiller2019 <- RunUMAP(seurat_Schiller2019, reduction = "pca", dims = 1:30)
+seurat_Schiller2019 <- FindNeighbors(seurat_Schiller2019, reduction = "pca", dims = 1:30)
+seurat_Schiller2019 <- FindClusters(seurat_Schiller2019, resolution = 0.5)
+```
+
+```{r}
+DimPlot(seurat_Schiller2019, group.by = 'sample') ## No batch effect, don't need to do integration
+svmDF_Schiller2019 = seurat_Schiller2019@reductions$pca@cell.embeddings %>% 
+  as.data.frame() %>% 
+  tibble::rownames_to_column("cell") %>% 
+  separate(cell, c("batch", "barcode"), sep = ":") %>% 
+  mutate(condition = str_remove(batch, "_[0-9]")) %>% 
+  dplyr::select(-barcode, -batch)
+
+svmDF_Schiller2019['clusterRes'] = seurat_Schiller2019$cell_type 
+svm_mat = svm_simMat(svmDF_Schiller2019)
+```
+
+```{r}
+svm_simMat = function(dataframe){
+  set.seed(123)
+  dataframe$clusterRes = as.factor(dataframe$clusterRes)
+  row_num = nrow(dataframe)
+  pred = rep(NA, row_num)
+  idx1 = sample(1:row_num, round(row_num/5))
+  idx2 = sample((1:row_num)[-idx1], round(row_num/5))
+  idx3 = sample((1:row_num)[-c(idx1, idx2)], round(row_num/5))
+  idx4 = sample((1:row_num)[-c(idx1, idx2, idx3)], round(row_num/5))
+  idx5 = (1:row_num)[-c(idx1, idx2, idx3, idx4)]
+  idxV = list(idx1, idx2, idx3, idx4, idx5)
+  for (i in 1:5){
+    svmfit = e1071::svm(clusterRes ~ ., data = dataframe[-idxV[[i]],], kernel = "radial")
+    pred[idxV[[i]]] = as.character(predict(svmfit, subset(dataframe, select = -clusterRes)[idxV[[i]],]))
+    }
+    conf.mat <- table(dataframe$clusterRes, as.factor(pred))
+    simil_mat <- t(t(conf.mat)/apply(conf.mat,2,sum))
+  return(simil_mat)
+}
+```
+
+Start the testing
+
+```{r}
+countM = meta_Schiller2019 %>% 
+  group_by(celltype, sample) %>% 
+  summarize(n = n()) %>% 
+  pivot_wider(names_from = celltype, values_from = n) %>% 
+  filter(sample %in% c("old_1", "old_2", "young_7", "young_8")) %>% 
+  select(-`NA`) %>% 
+  column_to_rownames("sample")
+countM[is.na(countM)] = 0
+designM = data.frame(condition = c("old", "old", "young", "young"))
+save(countM, designM, svm_mat, file = "/storage/holab/linxy/DCATS/real_world/Schiller_2019/dcats_input.RData")
+```
+
+```{r}
+betabin_null = dcats_GLM(countM, designM)
+betabin_null_ref = dcats_GLM(countM, designM, reference = "Club_cells")
+wtoPhi_emSVM = dcats_GLM(countM, designM, similarity_mat = svm_mat)
+estPhi = getPhi(countM, designM)
+estPhi_null = dcats_GLM(countM, designM, fix_phi = estPhi)
+estPhi_emSVM = dcats_GLM(countM, designM, similarity_mat = svm_mat, fix_phi = estPhi)
+## Fisher's exact test
+fisher_pvals = getFisher(as.matrix(countM[1:2,]), as.matrix(countM[3:4,]))
+
+betabin_null = eachPhi(countM, designM)
+wtoPhi_emSVM = eachPhi(countM, designM, similarity_mat = Haber2017$svm_mat)
+estPhi = getPhi(countM, designM)
+estPhi_null = dcats_GLM(countM, designM, fix_phi = estPhi)
+estPhi_emSVM = dcats_GLM(countM, designM, similarity_mat = Haber2017$svm_mat, fix_phi = estPhi)
+## Fisher's exact test
+fisher_pvals = getFisher(as.matrix(Kang2017$count_ctrl), as.matrix(Kang2017$count_stim))
+## speckle
+speckleRes = speckle::propeller(clusters = exp6DF_mul$clusterRes, sample = exp6DF_mul$batch, group = exp6DF_mul$condition) %>% 
+  dplyr::rename(cluster = BaselineProp.clusters,
+                      speckle_pvals = FDR) %>%
+  dplyr::select(cluster, speckle_pvals)
+## scDC
+cluster_num = dim(Kang2017$count_ctrl)[2]
+res_scDC <- scDC_noClustering(cellTypes = exp6DF_mul$clusterRes, exp6DF_mul$batch, calCI = TRUE, calCI_method = c("percentile", "BCa", "multinom"),nboot = 1000, verbose = FALSE)
+res_GLM <- fitGLM(res_scDC, c(rep("cond1",dim(Kang2017$count_ctrl)[1]*cluster_num),rep("cond2",dim(Kang2017$count_stim)[1]*cluster_num)), pairwise = FALSE, fixed_only = TRUE, verbose = FALSE)
+scDCRes_temp = summary(res_GLM$pool_res_fixed)
+scDCRes = scDCRes_temp[c(cluster_num+1,(dim(scDCRes_temp)[1]-cluster_num+2):dim(scDCRes_temp)[1]),]
+```
+```{r}
+cbind(betabin_null$LRT_pvals < 0.05, betabin_null$fdr < 0.05, betabin_null_ref$LRT_pvals < 0.05, betabin_null_ref$fdr < 0.05)
+```
 
