@@ -5,38 +5,31 @@ date: "07/11/2022"
 output: html_document
 ---
 
-## Ritchie 2019
-
 ```{r}
 library(scater)
 library(Seurat)
+library(DCATS)
+library(tidyverse)
+```
+
+## Ritchie 2019
+
+```{r}
+source("functionsV2.r")
 ```
 
 This data comes from 'Benchmarking single cell RNA-sequencing analysis pipelines using mixture control experiments' (https://www.nature.com/articles/s41592-019-0425-8#data-availability). It contains three/five cell lines' cells with same proportion.
 
 ```{r}
-load("/storage/holab/linxy/DCATS/real_world/Ritchie_2019/9cellmix_qc.RData")
 load("/storage/holab/linxy/DCATS/real_world/Ritchie_2019/sincell_with_class_5cl.RData")
+load("/storage/holab/linxy/DCATS/real_world/Ritchie_2019/sincell_with_class.RData")
 ```
 
-This is the pseudo cell. Can't find its use right now
-
-```{r, eval=FALSE}
-sce_SC1_qc = logNormCounts(sce_SC1_qc)
-pseudocell_mix1 = as.Seurat(sce_SC1_qc)
-pseudocell_mix1 <- NormalizeData(pseudocell_mix1)
-pseudocell_mix1 <- FindVariableFeatures(pseudocell_mix1, selection.method = "vst", nfeatures = 2000)
-pseudocell_mix1 <- ScaleData(pseudocell_mix1, verbose = FALSE)
-pseudocell_mix1 <- RunPCA(pseudocell_mix1, npcs = 30, verbose = FALSE)
-pseudocell_mix1 <- RunUMAP(pseudocell_mix1, reduction = "pca", dims = 1:30)
-pseudocell_mix1 <- FindNeighbors(pseudocell_mix1, reduction = "pca", dims = 1:30)
-pseudocell_mix1 <- FindClusters(pseudocell_mix1)
-DimPlot(pseudocell_mix1)
-```
+## Preprocess data
 
 This is the cell pool mixing five cell lines with equal proportion.
 
-```{r}
+```{r,eval=FALSE}
 mixcell5_10x_seurat = as.Seurat(sce_sc_10x_5cl_qc)
 mixcell5_10x_seurat <- NormalizeData(mixcell5_10x_seurat)
 mixcell5_10x_seurat <- FindVariableFeatures(mixcell5_10x_seurat, selection.method = "vst", nfeatures = 2000)
@@ -46,41 +39,336 @@ mixcell5_10x_seurat <- RunUMAP(mixcell5_10x_seurat, reduction = "pca", dims = 1:
 mixcell5_10x_seurat <- FindNeighbors(mixcell5_10x_seurat, reduction = "pca", dims = 1:30)
 DimPlot(mixcell5_10x_seurat, group.by = 'cell_line_demuxlet')
 save(mixcell5_10x_seurat, file = "/storage/holab/linxy/DCATS/real_world/Ritchie_2019/mixcell5_10x_seurat.RData")
+table(mixcell5_10x_seurat$cell_line_demuxlet)
 ```
 
-```{r, eval=FALSE}
-sc_Celseq2_5cl_p1 = logNormCounts(sc_Celseq2_5cl_p1)
-mixcell5_p1_seurat = as.Seurat(sc_Celseq2_5cl_p1)
-mixcell5_p1_seurat <- NormalizeData(mixcell5_p1_seurat)
-mixcell5_p1_seurat <- FindVariableFeatures(mixcell5_p1_seurat, selection.method = "vst", nfeatures = 2000)
-mixcell5_p1_seurat <- ScaleData(mixcell5_p1_seurat, verbose = FALSE)
-mixcell5_p1_seurat <- RunPCA(mixcell5_p1_seurat, npcs = 30, verbose = FALSE)
-mixcell5_p1_seurat <- RunUMAP(mixcell5_p1_seurat, reduction = "pca", dims = 1:30)
-mixcell5_p1_seurat <- FindNeighbors(mixcell5_p1_seurat, reduction = "pca", dims = 1:30)
-mixcell5_p1_seurat <- FindClusters(mixcell5_p1_seurat)
-DimPlot(mixcell5_p1_seurat, group.by = 'cell_line_demuxlet')
+```{r}
+load("/storage/holab/linxy/DCATS/real_world/Ritchie_2019/mixcell5_10x_seurat.RData")
+Idents(mixcell5_10x_seurat) <- 'cell_line_demuxlet'
+hvgenes_h838vhcc827 <- FindMarkers(mixcell5_10x_seurat, ident.1 = 'H838', ident.2 = 'HCC827', min.pct = 0.25)
 ```
 
-Try to merge p1-p3 together. Check whether they have batch effect.
+Remove highly variable genes do not make cell lines similar, we try to mix RNA expression.
 
-Results: have batch between technologies. Since 10x has more cell numbers, use this one
-
-```{r, eval=FALSE}
-sc_Celseq2_5cl_p2 = logNormCounts(sc_Celseq2_5cl_p2)
-mixcell5_p2_seurat = as.Seurat(sc_Celseq2_5cl_p2)
-sc_Celseq2_5cl_p3 = logNormCounts(sc_Celseq2_5cl_p3)
-mixcell5_p3_seurat = as.Seurat(sc_Celseq2_5cl_p3)
+```{r}
+h838_subset = subset(x = mixcell5_10x_seurat, idents = "H838")
+h838_subset_mat = h838_subset@assays$originalexp@counts
+hcc827_subset = subset(x = mixcell5_10x_seurat, idents = "HCC827")
+hcc827_subset_mat = hcc827_subset@assays$originalexp@counts
+h838hcc827_subset_mat = cbind(h838_subset@assays$originalexp@counts, hcc827_subset@assays$originalexp@counts) %>% as.matrix()
+dim(h838hcc827_subset_mat)
 ```
 
+```{r}
+set.seed(123)
+shuffuleGene = c(rownames(hvgenes_h838vhcc827), rownames(h838hcc827_subset_mat)[1:8000])
+for (gene in shuffuleGene) {
+  h838hcc827_subset_mat[gene,] = sample(h838hcc827_subset_mat[gene,], 1464)
+}
+```
+
+
+```{r}
+shuffled_subset = CreateSeuratObject(h838hcc827_subset_mat)
+shuffled_subset <- NormalizeData(shuffled_subset)
+shuffled_subset <- FindVariableFeatures(shuffled_subset, selection.method = "vst", nfeatures = 2000)
+shuffled_subset <- ScaleData(shuffled_subset, verbose = FALSE)
+shuffled_subset <- RunPCA(shuffled_subset, npcs = 30, verbose = FALSE)
+shuffled_subset <- RunUMAP(shuffled_subset, reduction = "pca", dims = 1:30)
+shuffled_subset <- FindNeighbors(shuffled_subset, reduction = "pca", dims = 1:30)
+shuffled_subset <- FindClusters(shuffled_subset, resolution = 0.05)
+shuffled_subset$cell_line_demuxlet = c(rep("H838", 876), rep("HCC827",588))
+DimPlot(shuffled_subset, group.by = 'cell_line_demuxlet')
+DimPlot(shuffled_subset)
+conf.mat <- table(shuffled_subset$cell_line_demuxlet, shuffled_subset$seurat_clusters)
+true.conf <- conf.mat/rowSums(conf.mat)
+true.conf
+```
+
+```{r}
+h2228_subset = subset(x = mixcell5_10x_seurat, idents = "H2228")
+h2228_subset_mat = as.matrix(h2228_subset@assays$originalexp@counts)
+shuffled_subset_mat = cbind(h838hcc827_subset_mat, h2228_subset_mat)
+dim(shuffled_subset_mat)
+save(h838hcc827_subset_mat, h2228_subset_mat, hvgenes_h838vhcc827, true_proportion, file = "/storage/holab/linxy/DCATS/checkBiasCorrection_preprocessed_Ritchie2019.RData")
+```
+
+
+```{r}
+shuffled_subset = CreateSeuratObject(shuffled_subset_mat)
+shuffled_subset <- NormalizeData(shuffled_subset)
+shuffled_subset <- FindVariableFeatures(shuffled_subset, selection.method = "vst", nfeatures = 2000)
+shuffled_subset <- ScaleData(shuffled_subset, verbose = FALSE)
+shuffled_subset <- RunPCA(shuffled_subset, npcs = 30, verbose = FALSE)
+shuffled_subset <- RunUMAP(shuffled_subset, reduction = "pca", dims = 1:30)
+shuffled_subset <- FindNeighbors(shuffled_subset, reduction = "pca", dims = 1:30)
+shuffled_subset <- FindClusters(shuffled_subset, resolution = 0.2)
+```
+
+```{r}
+Kprep = shuffled_subset@active.ident %>% as.factor() %>% summary() %>% length()
+setresolu = 0.1
+while (Kprep != 2 & setresolu > 0.03) {
+    if (Kprep > 2){
+      setresolu = setresolu - 0.01
+      shuffled_subset <- FindClusters(shuffled_subset, resolution = setresolu, verbose = FALSE)
+      Kprep = shuffled_subset@active.ident %>% as.factor() %>% summary() %>% length()
+      str_c("Kprep: ", as.character(Kprep)) %>% print()
+      str_c("setresolu: ", as.character(setresolu)) %>% print()
+    } else {
+      setresolu = setresolu + 0.01
+      shuffled_subset <- FindClusters(shuffled_subset, resolution = setresolu, verbose = FALSE)
+      Kprep = shuffled_subset@active.ident %>% as.factor() %>% summary() %>% length()
+      str_c("Kprep: ", as.character(Kprep)) %>% print()
+      str_c("setresolu: ", as.character(setresolu)) %>% print()
+    }
+  }
+```
+
+```{r}
+shuffled_subset$cell_line_demuxlet = c(rep("H838", 876), rep("HCC827",588), rep("H2228", 758))
+DimPlot(shuffled_subset, group.by = 'cell_line_demuxlet')
+DimPlot(shuffled_subset)
+conf.mat <- table(shuffled_subset$cell_line_demuxlet, shuffled_subset$seurat_clusters)
+true.conf <- conf.mat/rowSums(conf.mat)
+true.conf
+save(shuffled_subset, file = "/storage/holab/linxy/DCATS/shuffled_subset.RData")
+```
+
+This is the cell pool mixing five cell lines with equal proportion. Two cell line has unusual proportion, remove them and use the left three for DCATS testing.
+
+### try scale way
+
+Also try to scale expression to make two datasets closer. Do not work well. Because it is hard to make the distribution exactly the same.
+
+* Method 1: assuming expression following zero-inflated poission, estimate the non-zero expression of hcc827 using the estimated poission from h838 -- fail to make them similar, because the proportion of zero is not the same.
+
+* Method 2: assuming expression following zero-inflated poission, estimated all expression of hcc827 -- fail, as some of the calculated pai have not realistic value (negative value)
+
+* Method 3: scale hcc827 first, then add back mean and variance. -- fail, may be also caused by the 
+
+```{r}
+set.seed(123)
+shuffuleGene = c(rownames(hvgenes_h838vhcc827), rownames(h838hcc827_subset_mat)[1:8000])
+for (gene in shuffuleGene) {
+  h838_mean = h838_subset_mat[gene,] %>% mean()
+  h838_variance = h838_subset_mat[gene,] %>% var()
+  hcc827_subset_mat[gene,] = (scale(hcc827_subset_mat[gene,]) + h838_mean)*sqrt(h838_variance)
+}
+h838hcc827_subset_mat = cbind(h838_subset_mat, hcc827_subset_mat)
+density(h838_subset_mat[gene,]) %>% plot()
+density(hcc827_subset_mat[gene,]) %>% plot()
+```
+
+```{r}
+shuffled_subset = CreateSeuratObject(h838hcc827_subset_mat)
+shuffled_subset <- NormalizeData(shuffled_subset)
+shuffled_subset <- FindVariableFeatures(shuffled_subset, selection.method = "vst", nfeatures = 2000)
+shuffled_subset <- ScaleData(shuffled_subset, verbose = FALSE)
+shuffled_subset <- RunPCA(shuffled_subset, npcs = 30, verbose = FALSE)
+shuffled_subset <- RunUMAP(shuffled_subset, reduction = "pca", dims = 1:30)
+shuffled_subset <- FindNeighbors(shuffled_subset, reduction = "pca", dims = 1:30)
+shuffled_subset <- FindClusters(shuffled_subset, resolution = 0.05)
+shuffled_subset$cell_line_demuxlet = c(rep("H838", 876), rep("HCC827",588))
+DimPlot(shuffled_subset, group.by = 'cell_line_demuxlet')
+DimPlot(shuffled_subset)
+conf.mat <- table(shuffled_subset$cell_line_demuxlet, shuffled_subset$seurat_clusters)
+true.conf <- conf.mat/rowSums(conf.mat)
+true.conf
+```
+
+## Test the bias correction.
+
+```{r}
+true_proportion = table(shuffled_subset$cell_line_demuxlet)/2222
+cur_proportion = table(shuffled_subset$seurat_clusters)/2222
+bs_proportion = multinom_EM(cur_proportion, true.conf[c(2,1,3),], verbose = FALSE)$mu
+print(cur_proportion)
+print(bs_proportion)
+rmse_cur = abs(cur_proportion - true_proportion) %>% sum()
+rmse_bs = abs(bs_proportion - true_proportion) %>% sum()
+print(rmse_cur)
+print(rmse_bs)
+```
+
+```{r}
+load("/storage/holab/linxy/DCATS/checkBiasCorrection_preprocessed_Ritchie2019.RData")
+sim = 30
+set.seed(123)
+rmse_curL = rep(NA, sim)
+rmse_true_bsL = rep(NA, sim)
+rmse_knn_bsL = rep(NA, sim)
+rmse_svm_bsL = rep(NA, sim)
+for (i in 1:sim){
+  shuffuleGene = c(rownames(hvgenes_h838vhcc827), rownames(h838hcc827_subset_mat)[1:8000])
+  for (gene in shuffuleGene) {
+    h838hcc827_subset_mat[gene,] = sample(h838hcc827_subset_mat[gene,], 1464)}
+  shuffled_subset_mat = cbind(h838hcc827_subset_mat, h2228_subset_mat)
+  shuffled_subset = CreateSeuratObject(shuffled_subset_mat)
+  shuffled_subset <- NormalizeData(shuffled_subset)
+  shuffled_subset <- FindVariableFeatures(shuffled_subset, selection.method = "vst", nfeatures = 2000)
+  shuffled_subset <- ScaleData(shuffled_subset, verbose = FALSE)
+  shuffled_subset <- RunPCA(shuffled_subset, npcs = 30, verbose = FALSE)
+  shuffled_subset <- RunUMAP(shuffled_subset, reduction = "pca", dims = 1:30)
+  shuffled_subset <- FindNeighbors(shuffled_subset, reduction = "pca", dims = 1:30)
+  shuffled_subset <- FindClusters(shuffled_subset, resolution = 0.2)
+  Kprep = shuffled_subset@active.ident %>% as.factor() %>% summary() %>% length()
+  setresolu = 0.2
+  while (Kprep != 3 & setresolu > 0.03) {
+    if (Kprep > 3){
+      setresolu = setresolu - 0.01
+      shuffled_subset <- FindClusters(shuffled_subset, resolution = setresolu, verbose = FALSE)
+      Kprep = shuffled_subset@active.ident %>% as.factor() %>% summary() %>% length()
+      str_c("Kprep: ", as.character(Kprep)) %>% print()
+      str_c("setresolu: ", as.character(setresolu)) %>% print()
+    } else {
+      setresolu = setresolu + 0.01
+      shuffled_subset <- FindClusters(shuffled_subset, resolution = setresolu, verbose = FALSE)
+      Kprep = shuffled_subset@active.ident %>% as.factor() %>% summary() %>% length()
+      str_c("Kprep: ", as.character(Kprep)) %>% print()
+      str_c("setresolu: ", as.character(setresolu)) %>% print()
+    }
+  }
+  shuffled_subset$cell_line_demuxlet = c(rep("H838", 876), rep("HCC827",588), rep("H2228", 758))
+  DimPlot(shuffled_subset, group.by = 'cell_line_demuxlet')
+  DimPlot(shuffled_subset)
+  ## true mat
+  conf.mat <- table(shuffled_subset$cell_line_demuxlet, shuffled_subset$seurat_clusters)
+  true.conf <- conf.mat/rowSums(conf.mat)
+  true.conf = true.conf[apply(true.conf, 2, which.max),] ## change order
+  print(true.conf) 
+  ## knn mat 
+  graphs = shuffled_subset@graphs$RNA_snn
+  labels = Idents(shuffled_subset)
+  knn_mat = knn_simMat(graphs, labels)
+  knn_mat = knn_mat[c("0","1","2"), c("0","1","2")]
+  ## svm mat
+  svmDF = shuffled_subset@reductions$pca@cell.embeddings %>% 
+    as.data.frame() %>% 
+    mutate(clusterRes = shuffled_subset$seurat_clusters)
+  set.seed(123)
+  simil_matSVM = svm_simMat(svmDF)
+  ## evaluation
+  cur_proportion = table(shuffled_subset$seurat_clusters)/2222
+  bs_true_proportion = multinom_EM(cur_proportion, true.conf, verbose = FALSE)$mu
+  bs_knn_proportion = multinom_EM(cur_proportion, knn_mat, verbose = FALSE)$mu
+  bs_svm_proportion = multinom_EM(cur_proportion, simil_matSVM, verbose = FALSE)$mu
+  names(cur_proportion) = rownames(true.conf)
+  names(bs_true_proportion) = rownames(true.conf)
+  names(bs_knn_proportion) = rownames(true.conf)
+  names(bs_svm_proportion) = rownames(true.conf)
+  rmse_cur = abs(cur_proportion[c("H2228", "H838", "HCC827")] - true_proportion) %>% sum()
+  rmse_true_bs = abs(bs_true_proportion[c("H2228", "H838", "HCC827")] - true_proportion) %>% sum()
+  rmse_knn_bs = abs(bs_knn_proportion[c("H2228", "H838", "HCC827")] - true_proportion) %>% sum()
+  rmse_svm_bs = abs(bs_svm_proportion[c("H2228", "H838", "HCC827")] - true_proportion) %>% sum()
+  rmse_curL[i] = rmse_cur
+  rmse_true_bsL[i] = rmse_true_bs
+  rmse_knn_bsL[i] = rmse_knn_bs
+  rmse_svm_bsL[i] = rmse_svm_bs
+}
+
+```
+
+
+## Try the Friese2021 data
+
 ```{r, eval=FALSE}
-mixcell5_merge = merge(mixcell5_p1_seurat, c(mixcell5_p2_seurat, mixcell5_p3_seurat, mixcell5_10x_seurat), add.cell.ids = c("p1", "p2", "p3", "10x"), project = "mixcell5")
-mixcell5_merge <- NormalizeData(mixcell5_merge)
-mixcell5_merge <- FindVariableFeatures(mixcell5_merge, selection.method = "vst", nfeatures = 2000)
-mixcell5_merge <- ScaleData(mixcell5_merge, verbose = FALSE)
-mixcell5_merge <- RunPCA(mixcell5_merge, npcs = 30, verbose = FALSE)
-mixcell5_merge <- RunUMAP(mixcell5_merge, reduction = "pca", dims = 1:30)
-mixcell5_merge <- FindNeighbors(mixcell5_merge, reduction = "pca", dims = 1:30)
-DimPlot(mixcell5_merge, group.by = 'cell_line_demuxlet')
-DimPlot(mixcell5_merge, group.by = 'batch')
+Friese2021_cellMeta = read_csv("/storage/holab/linxy/DCATS/real_world/Friese_2021/GSE144744_metadata_per_cell.csv")
+Friese2021_subset_meta = Friese2021_cellMeta %>% filter(cluster_names %in% c("T06", "T07", "T09", "T10", "T11"))
+rm(Friese2021_cellMeta)
+Friese2021_mtx = Read10X("/storage/holab/linxy/DCATS/real_world/Friese_2021/RNA_integrated")
+Friese2021_subset_mtx = Friese2021_mtx[,Friese2021_subset_meta$cell_names]
+save(Friese2021_subset_meta, Friese2021_subset_mtx, file = "/storage/holab/linxy/DCATS/real_world/Friese_2021/subste_Tcells.RData")
+```
+
+
+```{r}
+load("/storage/holab/linxy/DCATS/real_world/Friese_2021/subste_Tcells.RData")
+Friese2021_subset_seurat = CreateSeuratObject(Friese2021_subset_mtx)
+Friese2021_subset_meta = Friese2021_subset_meta %>% 
+  column_to_rownames('cell_names')
+Friese2021_subset_meta = Friese2021_subset_meta[Cells(Friese2021_subset_seurat),]
+Friese2021_subset_seurat$clusterRes = Friese2021_subset_meta$cluster_names
+```
+
+Select cell with proportion difference T06 and T09, and the surrounding cell types
+
+```{r}
+Idents(Friese2021_subset_seurat) = 'clusterRes'
+#Friese2021_subset_seurat <- subset(Friese2021_subset_seurat, ident = c("T06", "T07", "T09", "T10"))
+Friese2021_subset_seurat <- FindVariableFeatures(Friese2021_subset_seurat, selection.method = "vst", nfeatures = 2000)
+Friese2021_subset_seurat <- ScaleData(Friese2021_subset_seurat, verbose = FALSE)
+Friese2021_subset_seurat <- RunPCA(Friese2021_subset_seurat, npcs = 30, verbose = FALSE)
+Friese2021_subset_seurat <- RunUMAP(Friese2021_subset_seurat, reduction = "pca", dims = 1:30)
+Friese2021_subset_seurat <- FindNeighbors(Friese2021_subset_seurat, reduction = "pca", dims = 1:30)
+Friese2021_subset_seurat <- FindClusters(Friese2021_subset_seurat, resolution = 0.08)
+DimPlot(Friese2021_subset_seurat)
+DimPlot(Friese2021_subset_seurat, group.by = 'clusterRes')
+```
+
+```{r}
+conf.mat <- table(Friese2021_subset_seurat$clusterRes, Friese2021_subset_seurat$seurat_clusters)
+true.conf <- conf.mat/rowSums(conf.mat)
+library(clue)
+order2 = as.vector(solve_LSAP(true.conf, maximum = TRUE))
+simil_matT = true.conf[,order2]
+print(simil_matT)
+```
+
+```{r}
+true_proportion = table(Friese2021_subset_seurat$clusterRes)/length(Cells(Friese2021_subset_seurat))
+cur_proportion = table(Friese2021_subset_seurat$seurat_clusters)/length(Cells(Friese2021_subset_seurat))
+#library(clue)
+#order2 = as.vector(solve_LSAP(true.conf, maximum = TRUE))
+#simil_matT = true.conf[,order2]
+#simil_matT = true.conf[apply(true.conf, 2, which.max),] ## change order
+simil_matT = true.conf
+bs_proportion = multinom_EM(cur_proportion, simil_matT, verbose = FALSE)$mu
+names(cur_proportion) = rownames(simil_matT)
+names(bs_proportion) = rownames(simil_matT)
+print(simil_matT)
+print(true_proportion)
+print(cur_proportion)
+print(bs_proportion)
+rmse_cur = abs(cur_proportion[names(true_proportion)] - true_proportion) %>% sum()
+rmse_bs = abs(bs_proportion[names(true_proportion)] - true_proportion) %>% sum()
+print(rmse_cur)
+print(rmse_bs)
+```
+
+```{r}
+## true mat
+  conf.mat <- table(Friese2021_subset_seurat$clusterRes, Friese2021_subset_seurat$seurat_clusters)
+  true.conf <- conf.mat/rowSums(conf.mat)
+  #true.conf = true.conf[apply(true.conf, 2, which.max),] ## change order
+  print(true.conf) 
+  ## knn mat 
+  graphs = Friese2021_subset_seurat@graphs$RNA_snn
+  labels = Idents(Friese2021_subset_seurat)
+  knn_mat = knn_simMat(graphs, labels)
+  knn_mat = knn_mat[c("0","1","2","3"), c("0","1","2","3")]
+  ## svm mat
+  svmDF = Friese2021_subset_seurat@reductions$pca@cell.embeddings %>% 
+    as.data.frame() %>% 
+    mutate(clusterRes = Friese2021_subset_seurat$seurat_clusters)
+  set.seed(123)
+  simil_matSVM = svm_simMat(svmDF)
+  ## evaluation
+  cur_proportion = table(Friese2021_subset_seurat$seurat_clusters)/2222
+  bs_true_proportion = multinom_EM(cur_proportion, true.conf, verbose = FALSE)$mu
+  bs_knn_proportion = multinom_EM(cur_proportion, knn_mat, verbose = FALSE)$mu
+  bs_svm_proportion = multinom_EM(cur_proportion, simil_matSVM, verbose = FALSE)$mu
+  names(cur_proportion) = rownames(true.conf)
+  names(bs_true_proportion) = rownames(true.conf)
+  names(bs_knn_proportion) = rownames(true.conf)
+  names(bs_svm_proportion) = rownames(true.conf)
+  rmse_cur = abs(cur_proportion[names(true_proportion)] - true_proportion) %>% sum()
+  rmse_true_bs = abs(bs_true_proportion[names(true_proportion)] - true_proportion) %>% sum()
+  rmse_knn_bs = abs(bs_knn_proportion[names(true_proportion)] - true_proportion) %>% sum()
+  rmse_svm_bs = abs(bs_svm_proportion[names(true_proportion)] - true_proportion) %>% sum()
+  print(rmse_cur)
+  print(rmse_true_bs)
+  print(rmse_knn_bs)
+  print(rmse_svm_bs)
 ```
 
