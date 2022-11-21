@@ -346,15 +346,17 @@ print(rmse_bs)
   graphs = Friese2021_subset_seurat@graphs$RNA_snn
   labels = Idents(Friese2021_subset_seurat)
   knn_mat = knn_simMat(graphs, labels)
-  knn_mat = knn_mat[c("0","1","2","3"), c("0","1","2","3")]
+  knn_mat = knn_mat[colnames(true.conf), colnames(true.conf)]
   ## svm mat
   svmDF = Friese2021_subset_seurat@reductions$pca@cell.embeddings %>% 
     as.data.frame() %>% 
     mutate(clusterRes = Friese2021_subset_seurat$seurat_clusters)
   set.seed(123)
   simil_matSVM = svm_simMat(svmDF)
+  simil_matSVM = cbind(simil_matSVM, rep(0,5))
+  colnames(simil_matSVM) = c("0", "1", "2", "3", "4")
   ## evaluation
-  cur_proportion = table(Friese2021_subset_seurat$seurat_clusters)/2222
+  cur_proportion = table(Friese2021_subset_seurat$seurat_clusters)/length(Cells(Friese2021_subset_seurat))
   bs_true_proportion = multinom_EM(cur_proportion, true.conf, verbose = FALSE)$mu
   bs_knn_proportion = multinom_EM(cur_proportion, knn_mat, verbose = FALSE)$mu
   bs_svm_proportion = multinom_EM(cur_proportion, simil_matSVM, verbose = FALSE)$mu
