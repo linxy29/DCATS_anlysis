@@ -1106,12 +1106,10 @@ dcats_new = function (count_mat, design_mat, similarity_mat = NULL, pseudo_count
 ## function: detect reference
 detect_reference = function(count_mat, design_mat, similarity_mat = NULL){
   res = dcats_GLM(count_mat, design_mat, similarity_mat)
-  ref_order = order(res$LRT_pvals[res$LRT_pvals > 0.2], decreasing = TRUE)
-  if (is.null(colnames(count_mat))){
-    return(ref_order)
-  } else {
-    return(colnames(count_mat)[ref_order])
-  }
+  pvals = res$LRT_pvals %>% as.vector
+  names(pvals) = rownames(res$LRT_pvals)
+  ref_order = order(pvals[pvals > 0.2], decreasing = TRUE)
+  return(names(pvals[pvals > 0.2][ref_order]))
 }
 
 ## function: get results of ANCOMBC
