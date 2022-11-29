@@ -4,71 +4,102 @@ output: html_document
 ---
 
 ```{r}
-library(phyloseq)
-library(microbiome)
-library(dplyr)
-library(nloptr)
+#library(phyloseq)
+library(tidyverse)
+library(ANCOMBC)
+library(TreeSummarizedExperiment)
+```
+
+## ancombc2
+
+```{r}
+assay_data <- matrix((1:24)*5, nrow = 6)
+colnames(assay_data) <- paste0("sample", 1:4)
+rownames(assay_data) <- paste("entity", seq_len(6), sep = "")
+assay_data
 ```
 
 ```{r}
-library(phyloseq)
-
-otu_mat = matrix(sample(1:100, 100, replace = TRUE), nrow = 10, ncol = 10)
-rownames(otu_mat) = paste0("taxon", 1:nrow(otu_mat))
-colnames(otu_mat) = paste0("sample", 1:ncol(otu_mat))
-
-
-meta = data.frame(group = sample(LETTERS[1:4], size = 10, replace = TRUE),
-                  row.names = paste0("sample", 1:ncol(otu_mat)),
-                  stringsAsFactors = FALSE)
-
-tax_mat = matrix(sample(letters, 70, replace = TRUE),
-                 nrow = nrow(otu_mat), ncol = 7)
-rownames(tax_mat) = rownames(otu_mat)
-colnames(tax_mat) = c("Kingdom", "Phylum", "Class", "Order",
-                      "Family", "Genus", "Species")
-
-OTU = otu_table(otu_mat, taxa_are_rows = TRUE)
-META = sample_data(meta)
-TAX = tax_table(tax_mat)
-physeq = phyloseq(OTU, META, TAX)
-
+# column data (sample annotations)
+col_data <- data.frame(gg = c(1, 2, 3, 3),
+                       group = rep(LETTERS[1:2], each = 2), 
+                       row.names = colnames(assay_data),
+                       stringsAsFactors = FALSE)
+col_data
 ```
 
+```{r}
+tse = TreeSummarizedExperiment(assays = list(counts = assay_data),
+                                     colData = col_data)
+tse
+```
 
 ```{r}
-data(atlas1006)
+output = ancombc2(data = tse, assay_name = "counts",
+                  fix_formula = "gg + group",
+                  p_adj_method = "holm")
+output$res
+```
 
-# Subset to baseline
-tse = atlas1006[, atlas1006@sam_data$time == 0]
+```{r}
+data(QMP)
+set.seed(12345)
+n = 150
+d = ncol(QMP)
+diff_prop = 0.1
+lfc_cont = -1
+lfc_cat2_vs_1 = -2
+lfc_cat3_vs_1 = 1
 
-# Re-code the bmi group
-tse$bmi = recode(tse$bmi_group,
-                 obese = "obese",
-                 severeobese = "obese",
-                 morbidobese = "obese")
-# Subset to lean, overweight, and obese subjects
-tse = tse[, tse$bmi %in% c("lean", "overweight", "obese")]
+# Generate the true abundances
+abn_data = sim_plnm(abn_table = QMP, taxa_are_rows = FALSE, prv_cut = 0.05, 
+                    n = n, scale_mean = 1e8, scale_sd = 1e8/3)
+log_abn_data = log(abn_data + 1e-5)
+rownames(log_abn_data) = paste0("T", seq_len(d))
+colnames(log_abn_data) = paste0("S", seq_len(n))
 
-# Note that by default, levels of a categorical variable in R are sorted 
-# alphabetically. In this case, the reference level for `bmi` will be 
-# `lean`. To manually change the reference level, for instance, setting `obese`
-# as the reference level, use:
-tse$bmi = factor(tse$bmi, levels = c("obese", "overweight", "lean"))
-# You can verify the change by checking:
-# levels(sample_data(tse)$bmi)
+# Generate the sample and feature meta data
+# Sampling fractions are set to differ by batches
+smd = data.frame(samp_frac = log(c(runif(n/3, min = 1e-4, max = 1e-3),
+                                   runif(n/3, min = 1e-3, max = 1e-2),
+                                   runif(n/3, min = 1e-2, max = 1e-1))),
+                 cont_cov = rnorm(n),
+                 cat_cov = as.factor(rep(seq_len(3), each = n/3)))
+rownames(smd) = paste0("S", seq_len(n))
+                      
+fmd = data.frame(seq_eff = log(runif(d, min = 0.1, max = 1)),
+                 lfc_cont = sample(c(0, lfc_cont), 
+                                   size = d,
+                                   replace = TRUE,
+                                   prob = c(1 - diff_prop, diff_prop)),
+                 lfc_cat2_vs_1 = sample(c(0, lfc_cat2_vs_1), 
+                                        size = d,
+                                        replace = TRUE,
+                                        prob = c(1 - diff_prop, diff_prop)),
+                 lfc_cat3_vs_1 = sample(c(0, lfc_cat3_vs_1), 
+                                        size = d,
+                                        replace = TRUE,
+                                        prob = c(1 - diff_prop, diff_prop))) %>%
+    mutate(lfc_cat3_vs_2 = lfc_cat3_vs_1 - lfc_cat2_vs_1)
+rownames(fmd) = paste0("T", seq_len(d))
 
-# Create the region variable
-tse$region = recode(as.character(tse$nationality),
-                    Scandinavia = "NE", UKIE = "NE", SouthEurope = "SE", 
-                    CentralEurope = "CE", EasternEurope = "EE",
-                    .missing = "unknown")
+# Add effect sizes of covariates to the true abundances
+dmy = caret::dummyVars(" ~ cat_cov", data = smd)
+smd_dmy = data.frame(predict(dmy, newdata = smd))
 
-# Discard "EE" as it contains only 1 subject
-# Discard subjects with missing values of region
-tse = tse[, ! tse$region %in% c("EE", "unknown")]
+log_abn_data = log_abn_data + outer(fmd$lfc_cont, smd$cont_cov)
+log_abn_data = log_abn_data + outer(fmd$lfc_cat2_vs_1, smd_dmy$cat_cov.2)
+log_abn_data = log_abn_data + outer(fmd$lfc_cat3_vs_1, smd_dmy$cat_cov.3)
 
-print(tse)
+# Add sample- and taxon-specific biases
+log_otu_data = t(t(log_abn_data) + smd$samp_frac)
+log_otu_data = log_otu_data + fmd$seq_eff
+otu_data = round(exp(log_otu_data))
+
+# Create the tse object
+assays = S4Vectors::SimpleList(counts = otu_data)
+smd = S4Vectors::DataFrame(smd)
+tse = TreeSummarizedExperiment::TreeSummarizedExperiment(assays = assays, colData = smd)
 ```
 
 
