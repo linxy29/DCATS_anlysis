@@ -24,9 +24,9 @@ saveRDS(params, "/storage/holab/linxy/DCATS/mnnCT7params.rds")
 ```{r,eval=FALSE}
 set.seed(123)
 ## simulate cells pool setting
-cluster_num = 10
+cluster_num = 8
 prob = rep(1/cluster_num, cluster_num)
-batch_size = cluster_num * 1500
+batch_size = cluster_num * 3000  ## generate 3000 cells for each cluster
 de_prob = rep(NA, cluster_num)
 #de_prob[1:round(cluster_num/3)] = runif(round(cluster_num/3), 0.1, 0.2)
 #de_prob[(round(cluster_num/3)+1):cluster_num] = runif((cluster_num - round(cluster_num/3)), 0.5, 1)
@@ -42,7 +42,7 @@ if (par == "origin"){
   params <- newSplatParams()
 } else if (par == "mnnCT7"){
   #params = readRDS("./data/ovarian_params.rds")
-  params = readRDS("D:/Data/DCATS/simulation/mnnCT7params.rds")
+  params = readRDS("/storage/holab/linxy/DCATS/mnnCT7params.rds")
 }
 ```
 
@@ -58,12 +58,12 @@ origLabels = sim@colData@listData$Group
 
 ```{r}
 # Save multiple objects
-save(sim_mat, origLabels, file = str_c("D:/Data/DCATS/cells_pool", as.character(cluster_num), "_splatter.RData"))
+save(sim_mat, origLabels, file = str_c("/storage/holab/linxy/DCATS/cells_pool", as.character(cluster_num), "_splatter_large.RData"))
 #save(sim_mat, origLabels, file = str_c("D:/Data/DCATS/cells_pool", as.character(cluster_num), "_splatter_test.RData"))
 ```
 
 ```{r}
-load(str_c("D:/Data/DCATS/cells_pool", as.character(cluster_num), "_splatter.RData"))
+load(str_c("/storage/holab/linxy/DCATS/cells_pool", as.character(cluster_num), "_splatter.RData"))
 #load(str_c("./data/cells_pool", as.character(cluster_num), ".RData"))
 ```
 

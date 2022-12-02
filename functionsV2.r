@@ -199,7 +199,7 @@ cell_slt_dup = function(cell_num, sim_mat, origLabels){
   index = numeric()
   for (j in 1:K){
     group_idx = c(1:length(origLabels))[origLabels == cellname[j]] %>% 
-      sample(cell_num[j])
+      sample(cell_num[j], replace = TRUE)
     index = c(index, group_idx)
   }
   sub_sim_mat = sim_mat[,index]
@@ -1106,10 +1106,9 @@ dcats_new = function (count_mat, design_mat, similarity_mat = NULL, pseudo_count
 ## function: detect reference
 detect_reference = function(count_mat, design_mat, similarity_mat = NULL){
   res = dcats_GLM(count_mat, design_mat, similarity_mat)
-  pvals = res$LRT_pvals %>% as.vector
-  names(pvals) = rownames(res$LRT_pvals)
-  ref_order = order(pvals[pvals > 0.2], decreasing = TRUE)
-  return(names(pvals[pvals > 0.2][ref_order]))
+  resDF = data.frame(celltype = rownames(res$LRT_pval), pval = as.vector(res$LRT_pvals))
+  resDF = resDF[order(-resDF$pval),]
+  return(resDF)
 }
 
 ## function: get results of ANCOMBC
