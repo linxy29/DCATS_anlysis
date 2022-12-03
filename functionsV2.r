@@ -199,7 +199,7 @@ cell_slt_dup = function(cell_num, sim_mat, origLabels){
   index = numeric()
   for (j in 1:K){
     group_idx = c(1:length(origLabels))[origLabels == cellname[j]] %>% 
-      sample(cell_num[j], replace = TRUE)
+      sample(cell_num[j])
     index = c(index, group_idx)
   }
   sub_sim_mat = sim_mat[,index]

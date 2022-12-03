@@ -19,9 +19,9 @@ library(miloR)
 library(SingleCellExperiment)
 ```
 
-The first case is all DA cell types increase.
+## Extreme case1
 
-## Simulate count only 
+The first case is all DA cell types increase.
 
 ```{r}
 ## simulation setting
@@ -42,15 +42,43 @@ probC2 = countC2/sum(countC2)
 truthRes = c("P", "P", "N", "N", "P", "N", "N", "N")
 print(probC1)
 print(probC2)
+file_name = "/storage/holab/linxy/DCATS/simulation/current/three_increase.RData"
+```
+
+## extreme case2
+
+```{r}
+## simulation setting
+cluster_num = 8  # numbers of clusters
+setresolu = 0.6
+rep1 = 3
+rep2 = 3
+simulation_times = 30
+concentration = 100
+sample_size1 = 3000
+sample_size2 = 3000
+cell_pool = "splatter"  # cell pool used, can be selected from ("SPAR", "splatter", "realWorld")
+more_negative = ""
+countC1 = c(rep(8,7),2)
+countC2 = c(rep(8,7), 40)
+probC1 = countC1/sum(countC1)
+probC2 = countC2/sum(countC2)
+truthRes = c("N", "N", "N", "N", "N", "N", "N", "P")
+print(probC1)
+print(probC2)
+file_name = "/storage/holab/linxy/DCATS/simulation/current/one_increase.RData"
 ```
 
 ```{r}
 ## load data and function
-load("/storage/holab/linxy/DCATS/cells_pool8_splatter.RData")
+#load("/storage/holab/linxy/DCATS/cells_pool8_splatter.RData")
+load("/storage/holab/linxy/DCATS/cells_pool8_splatter_large.RData") ## for extreme case2
 source("functionsV2.r")
 source("glm.R")     # for scDC
 options(future.globals.maxSize = 15000 * 1024^2)
 ```
+
+### Simulate count only
 
 ```{r}
 ## only simulate count
@@ -60,7 +88,7 @@ for (i in 1:50){
   sim_design = data.frame(condition = c(rep("g1", rep1), rep("g2", rep2)))
   print(simulation$numb_cond1/rowSums(simulation$numb_cond1))
   print(simulation$numb_cond2/rowSums(simulation$numb_cond2))
-  ref_order = detect_reference(rbind(simulation$numb_cond1, simulation$numb_cond2), sim_design)
+  ref_order = detect_reference(rbind(simulation$numb_cond1, simulation$numb_cond2), sim_design)$celltype
   print(ref_order)
   if (length(ref_order) < 3) next
   ref_res3 = dcats_new(rbind(simulation$numb_cond1, simulation$numb_cond2), sim_design, reference = ref_order[1:3])
@@ -123,7 +151,6 @@ true_matrixL = list()
 svm_matrixL = list()
 clusterRes = data.frame()
 timeDF = data.frame()
-simulation_times = 30
 for (idx in 1:simulation_times) {
   print(str_c("idx: ", as.character(idx)))
   timeL = rep(NA, 8) # DCATS w/wto similarity matrix, fisher, speckle, diffcyt, scDC
@@ -210,9 +237,9 @@ for (idx in 1:simulation_times) {
   wtoPhi_emSVM = dcats_GLM(sim_count, sim_design, simil_matSVM)
   estPhi_emSVM = dcats_GLM(sim_count, sim_design, simil_matSVM, fix_phi = phi)
   ## add reference
-  ref_order = detect_reference(sim_count, sim_design)
-  knnref_order = detect_reference(sim_count, sim_design, simil_matK)
-  svmref_order = detect_reference(sim_count, sim_design, simil_matSVM)
+  ref_order = detect_reference(sim_count, sim_design)$celltype
+  knnref_order = detect_reference(sim_count, sim_design, simil_matK)$celltype
+  svmref_order = detect_reference(sim_count, sim_design, simil_matSVM)$celltype
   emSVM_refSVM3 = dcats_new(sim_count, sim_design, simil_matSVM, reference = svmref_order[1:3])
   emSVM_refSVM2 = dcats_new(sim_count, sim_design, simil_matSVM, reference = svmref_order[1:2])
   emK_refK3 = dcats_new(sim_count, sim_design, simil_matK, reference = knnref_order[1:3])
@@ -304,14 +331,14 @@ for (idx in 1:simulation_times) {
 }
 
 resL = list(clusterRes = clusterRes, timeDF = timeDF, svm_matrixL = svm_matrixL, true_matrixL = true_matrixL, knn_matrixL = knn_matrixL, seurat_countDF = seurat_countDF, true_countDF = true_countDF)
-save(resL, file = "/storage/holab/linxy/DCATS/simulation/current/three_increase.RData")
+save(resL, file = file_name)
 ```
 
 Using statistics to summary
 
 ```{r}
 ## calculate statistics of "three_increase.RData" results
-load("/storage/holab/linxy/DCATS/simulation/current/three_increase.RData")
+#load(file_name)
 clusterRes = resL$clusterRes
 methods = colnames(clusterRes)[colnames(clusterRes) %>% str_detect("_pvals")] %>% str_remove("_pvals")
 #methods = colnames(clusterRes)[colnames(clusterRes) %>% str_detect("_pvals")] %>% str_remove("_pvals")
@@ -330,6 +357,7 @@ clusterRes = clusterRes %>%
          milo_pct = milo_main/(milo_less + neutral + milo_more),
          milo_diff = abs(milo_less - milo_more)) %>% 
   dplyr::select(-milo_less, -milo_more, - neutral, -milo_main)
+
 for (i in 3:(dim(clusterRes)[2]-1)){
   pred = clusterRes[,i]
   if (colnames(clusterRes)[i] == "milo_pct") {
@@ -356,8 +384,34 @@ for (i in 3:(dim(clusterRes)[2]-1)){
   F1[i-2] = 2*TP/(2*TP+FP+FN)
 }
 res = data.frame(methods = methods, mcc = mcc, auc = auc, prauc = prauc, sensitivity = sensitivity, specificity = specificity, precision = precision, F1 = F1) %>% 
-  arrange(desc(auc))
+  arrange(desc(mcc))
   #filter(methods == "wtoPhi_fullK" | methods == "diffcyt" | methods == "speckle" | methods == "fisher" | methods == "scDC")
 print(res)
 ```
+
+## extreme case2
+
+```{r}
+## simulation setting
+cluster_num = 8  # numbers of clusters
+setresolu = 0.6
+rep1 = 3
+rep2 = 3
+simulation_times = 30
+concentration = 100
+sample_size1 = 3000
+sample_size2 = 3000
+cell_pool = "splatter"  # cell pool used, can be selected from ("SPAR", "splatter", "realWorld")
+more_negative = ""
+countC1 = rep(8, 8)
+countC2 = c(12, 12, 8, 8, 12, rep(8,3))
+probC1 = countC1/sum(countC1)
+probC2 = countC2/sum(countC2)
+truthRes = c("P", "P", "N", "N", "P", "N", "N", "N")
+print(probC1)
+print(probC2)
+file_name = "/storage/holab/linxy/DCATS/simulation/current/one_increase.RData"
+```
+
+
 

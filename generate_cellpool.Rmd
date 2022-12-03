@@ -25,8 +25,9 @@ saveRDS(params, "/storage/holab/linxy/DCATS/mnnCT7params.rds")
 set.seed(123)
 ## simulate cells pool setting
 cluster_num = 8
-prob = rep(1/cluster_num, cluster_num)
-batch_size = cluster_num * 3000  ## generate 3000 cells for each cluster
+#prob = rep(1/cluster_num, cluster_num)
+prob = c(rep(0.8/cluster_num, 7),0.2)
+batch_size = cluster_num * 2000  ## generate 3000 cells for each cluster
 de_prob = rep(NA, cluster_num)
 #de_prob[1:round(cluster_num/3)] = runif(round(cluster_num/3), 0.1, 0.2)
 #de_prob[(round(cluster_num/3)+1):cluster_num] = runif((cluster_num - round(cluster_num/3)), 0.5, 1)
@@ -121,7 +122,7 @@ origLabels = sim@colData@listData$Group
 
 ```{r}
 # Save multiple objects
-save(sim_mat, origLabels, file = str_c("D:/Data/DCATS/cells_pool", as.character(cluster_num), "_splatter_discrete.RData"))
+#save(sim_mat, origLabels, file = str_c("D:/Data/DCATS/cells_pool", as.character(cluster_num), "_splatter_discrete.RData"))
 #save(sim_mat, origLabels, file = str_c("D:/Data/DCATS/cells_pool", as.character(cluster_num), "_splatter_test.RData"))
 ```
 
@@ -142,6 +143,7 @@ seuratObj <- RunUMAP(seuratObj, dims = 1:30, verbose = FALSE)
 seuratObj[['orig.ident']] <- origLabels
 DimPlot(seuratObj, reduction = "umap")
 DimPlot(seuratObj, reduction = "umap", group.by = "orig.ident")
+table(seuratObj$orig.ident)
 ```
 
 ## real world data
