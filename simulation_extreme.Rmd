@@ -389,29 +389,6 @@ res = data.frame(methods = methods, mcc = mcc, auc = auc, prauc = prauc, sensiti
 print(res)
 ```
 
-## extreme case2
-
-```{r}
-## simulation setting
-cluster_num = 8  # numbers of clusters
-setresolu = 0.6
-rep1 = 3
-rep2 = 3
-simulation_times = 30
-concentration = 100
-sample_size1 = 3000
-sample_size2 = 3000
-cell_pool = "splatter"  # cell pool used, can be selected from ("SPAR", "splatter", "realWorld")
-more_negative = ""
-countC1 = rep(8, 8)
-countC2 = c(12, 12, 8, 8, 12, rep(8,3))
-probC1 = countC1/sum(countC1)
-probC2 = countC2/sum(countC2)
-truthRes = c("P", "P", "N", "N", "P", "N", "N", "N")
-print(probC1)
-print(probC2)
-file_name = "/storage/holab/linxy/DCATS/simulation/current/one_increase.RData"
-```
 
 
 
