@@ -270,65 +270,71 @@ for (i in 1:sim){
 ```
 
 
-## Try the Friese2021 data
+## Try the Kaufmann2021 data
+
+This data is from "	Identifying CNS-colonizing T cells as potential therapeutic targets to prevent progression of multiple sclerosis"
 
 ```{r, eval=FALSE}
-Friese2021_cellMeta = read_csv("/storage/holab/linxy/DCATS/real_world/Friese_2021/GSE144744_metadata_per_cell.csv")
-Friese2021_subset_meta = Friese2021_cellMeta %>% filter(cluster_names %in% c("T06", "T07", "T09", "T10", "T11"))
-rm(Friese2021_cellMeta)
-Friese2021_mtx = Read10X("/storage/holab/linxy/DCATS/real_world/Friese_2021/RNA_integrated")
-Friese2021_subset_mtx = Friese2021_mtx[,Friese2021_subset_meta$cell_names]
-save(Friese2021_subset_meta, Friese2021_subset_mtx, file = "/storage/holab/linxy/DCATS/real_world/Friese_2021/subste_Tcells.RData")
+Kaufmann2021_cellMeta = read_csv("/storage/holab/linxy/DCATS/real_world/Kaufmann_2021/GSE144744_metadata_per_cell.csv")
+Kaufmann2021_subset_meta = Kaufmann2021_cellMeta %>% filter(cluster_names %in% c("T06", "T07", "T09", "T10", "T11", "T02", "T08"))
+# Kaufmann2021_subset_meta = Kaufmann2021_cellMeta %>% filter(cluster_names %in% c("T06", "T07", "T09", "T10", "T11", "T02", "T03"))
+rm(Kaufmann2021_cellMeta)
+Kaufmann2021_mtx = Read10X("/storage/holab/linxy/DCATS/real_world/Kaufmann_2021/RNA_integrated")
+Kaufmann2021_subset_mtx = Kaufmann2021_mtx[,Kaufmann2021_subset_meta$cell_names]
+save(Kaufmann2021_subset_meta, Kaufmann2021_subset_mtx, file = "/storage/holab/linxy/DCATS/real_world/Kaufmann_2021/subste_Tcells.RData")
 ```
 
 
 ```{r}
-load("/storage/holab/linxy/DCATS/real_world/Friese_2021/subste_Tcells.RData")
-Friese2021_subset_seurat = CreateSeuratObject(Friese2021_subset_mtx)
-Friese2021_subset_meta = Friese2021_subset_meta %>% 
+load("/storage/holab/linxy/DCATS/real_world/Kaufmann_2021/subste_Tcells.RData")
+Kaufmann2021_subset_seurat = CreateSeuratObject(Kaufmann2021_subset_mtx)
+Kaufmann2021_subset_meta = Kaufmann2021_subset_meta %>% 
   column_to_rownames('cell_names')
-Friese2021_subset_meta = Friese2021_subset_meta[Cells(Friese2021_subset_seurat),]
-Friese2021_subset_seurat$clusterRes = Friese2021_subset_meta$cluster_names
+Kaufmann2021_subset_meta = Kaufmann2021_subset_meta[Cells(Kaufmann2021_subset_seurat),]
+Kaufmann2021_subset_seurat$clusterRes = Kaufmann2021_subset_meta$cluster_names
 ```
 
 Select cell with proportion difference T06 and T09, and the surrounding cell types
 
 ```{r}
-Idents(Friese2021_subset_seurat) = 'clusterRes'
-#Friese2021_subset_seurat <- subset(Friese2021_subset_seurat, ident = c("T06", "T07", "T09", "T10"))
-Friese2021_subset_seurat <- FindVariableFeatures(Friese2021_subset_seurat, selection.method = "vst", nfeatures = 2000)
-Friese2021_subset_seurat <- ScaleData(Friese2021_subset_seurat, verbose = FALSE)
-Friese2021_subset_seurat <- RunPCA(Friese2021_subset_seurat, npcs = 30, verbose = FALSE)
-Friese2021_subset_seurat <- RunUMAP(Friese2021_subset_seurat, reduction = "pca", dims = 1:30)
-Friese2021_subset_seurat <- FindNeighbors(Friese2021_subset_seurat, reduction = "pca", dims = 1:30)
-Friese2021_subset_seurat <- FindClusters(Friese2021_subset_seurat, resolution = 0.08)
-DimPlot(Friese2021_subset_seurat)
-DimPlot(Friese2021_subset_seurat, group.by = 'clusterRes')
+Idents(Kaufmann2021_subset_seurat) = 'clusterRes'
+Kaufmann2021_subset2 <- subset(Kaufmann2021_subset_seurat, ident = c("T06", "T07", "T09", "T10"))
+Kaufmann2021_subset2 <- FindVariableFeatures(Kaufmann2021_subset2, selection.method = "vst", nfeatures = 2000)
+Kaufmann2021_subset2 <- ScaleData(Kaufmann2021_subset2, verbose = FALSE)
+Kaufmann2021_subset2 <- RunPCA(Kaufmann2021_subset2, npcs = 30, verbose = FALSE)
+Kaufmann2021_subset2 <- RunUMAP(Kaufmann2021_subset2, reduction = "pca", dims = 1:30)
+Kaufmann2021_subset2 <- FindNeighbors(Kaufmann2021_subset2, reduction = "pca", dims = 1:30)
+Kaufmann2021_subset2 <- FindClusters(Kaufmann2021_subset2, resolution = 0.09)
+DimPlot(Kaufmann2021_subset2)
+DimPlot(Kaufmann2021_subset2, group.by = 'clusterRes')
 ```
 
 ```{r}
-conf.mat <- table(Friese2021_subset_seurat$clusterRes, Friese2021_subset_seurat$seurat_clusters)
-true.conf <- conf.mat/rowSums(conf.mat)
-library(clue)
-order2 = as.vector(solve_LSAP(true.conf, maximum = TRUE))
-simil_matT = true.conf[,order2]
-print(simil_matT)
+#save(Kaufmann2021_subset2, file = "/storage/holab/linxy/DCATS/real_world/Kaufmann_2021/further_subset.RData")
+save(Kaufmann2021_subset_seurat, file = "/storage/holab/linxy/DCATS/real_world/Kaufmann_2021/subset_seurat.RData")
 ```
 
 ```{r}
-true_proportion = table(Friese2021_subset_seurat$clusterRes)/length(Cells(Friese2021_subset_seurat))
-cur_proportion = table(Friese2021_subset_seurat$seurat_clusters)/length(Cells(Friese2021_subset_seurat))
+load("/storage/holab/linxy/DCATS/real_world/Kaufmann_2021/further_subset.RData")
+Idents(Kaufmann2021_subset_seurat) = 'clusterRes'
+conf.mat <- table(Kaufmann2021_subset2$clusterRes, Kaufmann2021_subset2$seurat_clusters)
+#true.conf <- conf.mat/rowSums(conf.mat)
 #library(clue)
 #order2 = as.vector(solve_LSAP(true.conf, maximum = TRUE))
 #simil_matT = true.conf[,order2]
-#simil_matT = true.conf[apply(true.conf, 2, which.max),] ## change order
-simil_matT = true.conf
+simil_matT = true.conf[apply(true.conf, 2, which.max),] ## change order
+print("----simil_matT----")
+print(simil_matT)
+true_proportion = table(Kaufmann2021_subset2$clusterRes)/length(Cells(Kaufmann2021_subset2))
+cur_proportion = table(Kaufmann2021_subset2$seurat_clusters)/length(Cells(Kaufmann2021_subset2))
 bs_proportion = multinom_EM(cur_proportion, simil_matT, verbose = FALSE)$mu
 names(cur_proportion) = rownames(simil_matT)
 names(bs_proportion) = rownames(simil_matT)
-print(simil_matT)
+print("----true proportion----")
 print(true_proportion)
+print("----cur proportion----")
 print(cur_proportion)
+print("----bs proportion----")
 print(bs_proportion)
 rmse_cur = abs(cur_proportion[names(true_proportion)] - true_proportion) %>% sum()
 rmse_bs = abs(bs_proportion[names(true_proportion)] - true_proportion) %>% sum()
@@ -337,40 +343,53 @@ print(rmse_bs)
 ```
 
 ```{r}
+true_proportion = table(Kaufmann2021_subset2$clusterRes)/length(Cells(Kaufmann2021_subset2))
+cur_proportion = table(Kaufmann2021_subset2$seurat_clusters)/length(Cells(Kaufmann2021_subset2))
 ## true mat
-  conf.mat <- table(Friese2021_subset_seurat$clusterRes, Friese2021_subset_seurat$seurat_clusters)
+  conf.mat <- table(Kaufmann2021_subset2$clusterRes, Kaufmann2021_subset2$seurat_clusters)
   true.conf <- conf.mat/rowSums(conf.mat)
-  #true.conf = true.conf[apply(true.conf, 2, which.max),] ## change order
+  true.conf = true.conf[apply(true.conf, 2, which.max),] ## change order
+  print("-------true.conf--------")
   print(true.conf) 
   ## knn mat 
-  graphs = Friese2021_subset_seurat@graphs$RNA_snn
-  labels = Idents(Friese2021_subset_seurat)
+  graphs = Kaufmann2021_subset2@graphs$RNA_snn
+  labels = Idents(Kaufmann2021_subset2)
   knn_mat = knn_simMat(graphs, labels)
   knn_mat = knn_mat[colnames(true.conf), colnames(true.conf)]
+  print("-------knn_mat--------")
+  print(knn_mat)
   ## svm mat
-  svmDF = Friese2021_subset_seurat@reductions$pca@cell.embeddings %>% 
+  svmDF = Kaufmann2021_subset2@reductions$pca@cell.embeddings %>% 
     as.data.frame() %>% 
-    mutate(clusterRes = Friese2021_subset_seurat$seurat_clusters)
-  set.seed(123)
-  simil_matSVM = svm_simMat(svmDF)
-  simil_matSVM = cbind(simil_matSVM, rep(0,5))
-  colnames(simil_matSVM) = c("0", "1", "2", "3", "4")
+    mutate(clusterRes = Kaufmann2021_subset2$seurat_clusters)
+  simil_matSVM = svm_simMat(svmDF[sample(1:nrow(svmDF), size = 9000),])
+  #simil_matSVM = cbind(simil_matSVM, rep(0,5))
+  #colnames(simil_matSVM) = c("0", "1", "2", "3", "4")
   ## evaluation
-  cur_proportion = table(Friese2021_subset_seurat$seurat_clusters)/length(Cells(Friese2021_subset_seurat))
-  bs_true_proportion = multinom_EM(cur_proportion, true.conf, verbose = FALSE)$mu
-  bs_knn_proportion = multinom_EM(cur_proportion, knn_mat, verbose = FALSE)$mu
-  bs_svm_proportion = multinom_EM(cur_proportion, simil_matSVM, verbose = FALSE)$mu
+  cur_proportion = table(Kaufmann2021_subset2$seurat_clusters)/length(Cells(Kaufmann2021_subset2))
   names(cur_proportion) = rownames(true.conf)
-  names(bs_true_proportion) = rownames(true.conf)
-  names(bs_knn_proportion) = rownames(true.conf)
-  names(bs_svm_proportion) = rownames(true.conf)
   rmse_cur = abs(cur_proportion[names(true_proportion)] - true_proportion) %>% sum()
-  rmse_true_bs = abs(bs_true_proportion[names(true_proportion)] - true_proportion) %>% sum()
-  rmse_knn_bs = abs(bs_knn_proportion[names(true_proportion)] - true_proportion) %>% sum()
-  rmse_svm_bs = abs(bs_svm_proportion[names(true_proportion)] - true_proportion) %>% sum()
   print(rmse_cur)
+  bs_true_proportion = multinom_EM(cur_proportion, true.conf, verbose = FALSE)$mu
+  names(bs_true_proportion) = rownames(true.conf)
+  rmse_true_bs = abs(bs_true_proportion[names(true_proportion)] - true_proportion) %>% sum()
   print(rmse_true_bs)
+  bs_knn_proportion = multinom_EM(cur_proportion, knn_mat, verbose = FALSE)$mu
+  names(bs_knn_proportion) = rownames(true.conf)
+  rmse_knn_bs = abs(bs_knn_proportion[names(true_proportion)] - true_proportion) %>% sum()
   print(rmse_knn_bs)
+  bs_svm_proportion = multinom_EM(cur_proportion, simil_matSVM, verbose = FALSE)$mu
+  names(bs_svm_proportion) = rownames(true.conf)
+  rmse_svm_bs = abs(bs_svm_proportion[names(true_proportion)] - true_proportion) %>% sum()
   print(rmse_svm_bs)
+  proportionDF = data.frame(true_proportion = as.vector(true_proportion), cur_proportion = as.vector(cur_proportion), bs_true_proportion, bs_knn_proportion, bs_svm_proportion)
+  print(proportionDF)
+  rmseL = list(rmse_cur = rmse_cur, rmse_true_bs = rmse_true_bs, rmse_svm_bs = rmse_svm_bs, rmse_knn_bs = rmse_knn_bs)
+  similL = list(true_mat = true.conf, knn_mat = knn_mat, svm_mat = simil_matSVM)
+Kaufmann2021L = list(proportionDF = proportionDF, rmseL = rmseL, similL = similL)
+```
+
+```{r}
+save(Kaufmann2021L, file = "/storage/holab/linxy/DCATS/real_world/Kaufmann_2021/Kaufmann2021Res.RData")
 ```
 
