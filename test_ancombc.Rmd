@@ -41,66 +41,7 @@ output = ancombc2(data = tse, assay_name = "counts",
 output$res
 ```
 
-```{r}
-data(QMP)
-set.seed(12345)
-n = 150
-d = ncol(QMP)
-diff_prop = 0.1
-lfc_cont = -1
-lfc_cat2_vs_1 = -2
-lfc_cat3_vs_1 = 1
 
-# Generate the true abundances
-abn_data = sim_plnm(abn_table = QMP, taxa_are_rows = FALSE, prv_cut = 0.05, 
-                    n = n, scale_mean = 1e8, scale_sd = 1e8/3)
-log_abn_data = log(abn_data + 1e-5)
-rownames(log_abn_data) = paste0("T", seq_len(d))
-colnames(log_abn_data) = paste0("S", seq_len(n))
-
-# Generate the sample and feature meta data
-# Sampling fractions are set to differ by batches
-smd = data.frame(samp_frac = log(c(runif(n/3, min = 1e-4, max = 1e-3),
-                                   runif(n/3, min = 1e-3, max = 1e-2),
-                                   runif(n/3, min = 1e-2, max = 1e-1))),
-                 cont_cov = rnorm(n),
-                 cat_cov = as.factor(rep(seq_len(3), each = n/3)))
-rownames(smd) = paste0("S", seq_len(n))
-                      
-fmd = data.frame(seq_eff = log(runif(d, min = 0.1, max = 1)),
-                 lfc_cont = sample(c(0, lfc_cont), 
-                                   size = d,
-                                   replace = TRUE,
-                                   prob = c(1 - diff_prop, diff_prop)),
-                 lfc_cat2_vs_1 = sample(c(0, lfc_cat2_vs_1), 
-                                        size = d,
-                                        replace = TRUE,
-                                        prob = c(1 - diff_prop, diff_prop)),
-                 lfc_cat3_vs_1 = sample(c(0, lfc_cat3_vs_1), 
-                                        size = d,
-                                        replace = TRUE,
-                                        prob = c(1 - diff_prop, diff_prop))) %>%
-    mutate(lfc_cat3_vs_2 = lfc_cat3_vs_1 - lfc_cat2_vs_1)
-rownames(fmd) = paste0("T", seq_len(d))
-
-# Add effect sizes of covariates to the true abundances
-dmy = caret::dummyVars(" ~ cat_cov", data = smd)
-smd_dmy = data.frame(predict(dmy, newdata = smd))
-
-log_abn_data = log_abn_data + outer(fmd$lfc_cont, smd$cont_cov)
-log_abn_data = log_abn_data + outer(fmd$lfc_cat2_vs_1, smd_dmy$cat_cov.2)
-log_abn_data = log_abn_data + outer(fmd$lfc_cat3_vs_1, smd_dmy$cat_cov.3)
-
-# Add sample- and taxon-specific biases
-log_otu_data = t(t(log_abn_data) + smd$samp_frac)
-log_otu_data = log_otu_data + fmd$seq_eff
-otu_data = round(exp(log_otu_data))
-
-# Create the tse object
-assays = S4Vectors::SimpleList(counts = otu_data)
-smd = S4Vectors::DataFrame(smd)
-tse = TreeSummarizedExperiment::TreeSummarizedExperiment(assays = assays, colData = smd)
-```
 
 
 
