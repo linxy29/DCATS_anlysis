@@ -520,6 +520,8 @@ getROC = function(truth, pred){
   thresholds = unique(c(0, pred))
   sensitivity = rep(NA, length(thresholds))
   specificity = rep(NA, length(thresholds))
+  precision = rep(NA, length(thresholds))
+  recall = rep(NA, length(thresholds))
   TP = rep(NA, length(thresholds))
   TN = rep(NA, length(thresholds))
   FP = rep(NA, length(thresholds))
@@ -532,10 +534,14 @@ getROC = function(truth, pred){
     FN[j] <- sum(pred_res=="N"&truth=="P")
     sensitivity[j] = TP[j]/(TP[j]+FN[j])
     specificity[j] = TN[j]/(TN[j]+FP[j])
+    precision[j] = TP[j]/(TP[j]+FP[j])
+    recall[j] = TP[j]/(TP[j]+FN[j])
   }
   eval = data.frame(thresholds = thresholds, TP = TP, TN = TN, FP = FP, FN = FN)
-  df = data.frame(sensitivity = sensitivity, specificity = specificity, x = 1-specificity) %>% 
+  df = data.frame(sensitivity = sensitivity, specificity = specificity, precision = precision, recall = recall, x = 1-specificity) %>% 
     arrange(x)
+  df[is.na(df)] <- 0
+  df = df[rowSums(df)!=0,]
   ## plot
   plot = df %>% 
     ggplot(aes(x = x, y = sensitivity)) +
