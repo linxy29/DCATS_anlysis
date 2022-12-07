@@ -299,12 +299,13 @@ Select cell with proportion difference T06 and T09, and the surrounding cell typ
 ```{r}
 Idents(Kaufmann2021_subset_seurat) = 'clusterRes'
 Kaufmann2021_subset2 <- subset(Kaufmann2021_subset_seurat, ident = c("T06", "T07", "T09", "T10"))
+
 Kaufmann2021_subset2 <- FindVariableFeatures(Kaufmann2021_subset2, selection.method = "vst", nfeatures = 2000)
 Kaufmann2021_subset2 <- ScaleData(Kaufmann2021_subset2, verbose = FALSE)
 Kaufmann2021_subset2 <- RunPCA(Kaufmann2021_subset2, npcs = 30, verbose = FALSE)
 Kaufmann2021_subset2 <- RunUMAP(Kaufmann2021_subset2, reduction = "pca", dims = 1:30)
 Kaufmann2021_subset2 <- FindNeighbors(Kaufmann2021_subset2, reduction = "pca", dims = 1:30)
-Kaufmann2021_subset2 <- FindClusters(Kaufmann2021_subset2, resolution = 0.09)
+Kaufmann2021_subset2 <- FindClusters(Kaufmann2021_subset2, resolution = 0.1)
 DimPlot(Kaufmann2021_subset2)
 DimPlot(Kaufmann2021_subset2, group.by = 'clusterRes')
 ```

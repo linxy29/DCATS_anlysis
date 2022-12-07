@@ -59,11 +59,14 @@ sample_size1 = 3000
 sample_size2 = 3000
 cell_pool = "splatter"  # cell pool used, can be selected from ("SPAR", "splatter", "realWorld")
 more_negative = ""
-countC1 = c(rep(8,7),2)
-countC2 = c(rep(8,7), 40)
+#countC1 = c(rep(8,7),2)
+#countC2 = c(rep(8,7), 40)
+countC1 = c(2, rep(8,7))
+countC2 = c(40, rep(8,7))
 probC1 = countC1/sum(countC1)
 probC2 = countC2/sum(countC2)
-truthRes = c("N", "N", "N", "N", "N", "N", "N", "P")
+#truthRes = c("N", "N", "N", "N", "N", "N", "N", "P")
+truthRes = c("P", "N", "N", "N", "N", "N", "N", "N")
 print(probC1)
 print(probC2)
 file_name = "/storage/holab/linxy/DCATS/simulation/current/one_increase.RData"
