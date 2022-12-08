@@ -146,13 +146,48 @@ da_results <- testNhoods(exp7_milo, design = ~ sample, design.df = seurat_intg@m
 
 ## Simulation
 
-
-
-
-
 ```{r}
-hist(sim_count[1,])
-summary(sim_count[1,])
-hist(sim_count)
+testNhoods = function (x, design, design.df, fdr.weighting = c("k-distance", 
+    "neighbour-distance", "max", "graph-overlap", "none"), min.mean = 0, 
+    model.contrasts = NULL, robust = TRUE, reduced.dim = "PCA", 
+    norm.method = c("TMM", "RLE", "logMS")) 
+{
+    if (is(design, "formula")) {
+        model <- model.matrix(design, data = design.df)
+        rownames(model) <- rownames(design.df)
+    }
+    else if (is(design, "matrix")) {
+        model <- design
+        if (nrow(model) != nrow(design.df)) {
+            stop("Design matrix and model matrix are not the same dimensionality")
+        }
+        if (any(rownames(model) != rownames(design.df))) {
+            warning("Design matrix and model matrix dimnames are not the same")
+            check.names <- any(rownames(model) %in% rownames(design.df))
+            if (isTRUE(check.names)) {
+                rownames(model) <- rownames(design.df)
+            }
+            else {
+                stop("Design matrix and model matrix rownames are not a subset")
+            }
+        }
+    }
+    if (!is(x, "Milo")) {
+        stop("Unrecognised input type - must be of class Milo")
+    }
+    else if (.check_empty(x, "nhoodCounts")) {
+        stop("Neighbourhood counts missing - please run countCells first")
+    }
+    if (!any(norm.method %in% c("TMM", "logMS", "RLE"))) {
+        stop("Normalisation method ", norm.method, " not recognised. Must be either TMM, RLE or logMS")
+    }
+    if (!reduced.dim %in% reducedDimNames(x)) {
+      stop(reduced.dim, " is not found in reducedDimNames. Avaiable options are ", 
+            paste(reducedDimNames(x), collapse = ","))
+    }
+    subset.counts <- FALSE
+    if (ncol(nhoodCounts(x)) != nrow(model)) {
+        if (all(rownames
 ```
+
 
