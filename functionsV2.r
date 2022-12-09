@@ -857,15 +857,26 @@ getMilo = function(integratedSamples){
     designDF <- distinct(designDF)
     milo <- calcNhoodDistance(milo, d=30)
     rownames(designDF) <- designDF$batch
-    da_results <- testNhoods(milo, design = ~ age + gender + condition, design.df = designDF)
+    da_condition <- testNhoods(milo, design = ~ age + gender + condition, design.df = designDF)
+    da_gender <- testNhoods(milo, design = ~ age + condition + gender, design.df = designDF)
+    da_age <- testNhoods(milo, design = ~ condition + gender + age, design.df = designDF)
+    null_condition = testNhoods(milo, design = ~ condition, design.df = designDF)
+    null_age = testNhoods(milo, design = ~ age, design.df = designDF)
+    null_gender = testNhoods(milo, design = ~ gender, design.df = designDF)
+    da_resultsL = list(da_condition = da_condition, da_gender = da_gender, da_age = da_age, null_condition = null_condition, null_age = null_age, null_gender = null_gender)
+    da_resultsL <- lapply(X = da_resultsL, FUN = function(x) {
+      x <- annotateNhoods(milo, x, coldata_col = "ident")
+    })
+    da_results = rbind(da_resultsL$da_condition %>% mutate(detect = "condition_full"), da_resultsL$null_condition %>% mutate(detect = "condition_null"), da_resultsL$da_gender %>% mutate(detect = "gender_full"), da_resultsL$null_gender %>% mutate(detect = "gender_null"), da_resultsL$da_age %>% mutate(detect = "age_full"), da_resultsL$null_age %>% mutate(detect = "age_null"))
   } else {
     designDF <- data.frame(colData(milo))[,c("batch", "condition")]
     designDF <- distinct(designDF)
     milo <- calcNhoodDistance(milo, d=30)
     rownames(designDF) <- designDF$batch
     da_results <- testNhoods(milo, design = ~ condition, design.df = designDF)
+    da_results <- annotateNhoods(milo, da_results, coldata_col = "ident")
+    da_resultsL = "not_applicable"
   }
-  da_results <- annotateNhoods(milo, da_results, coldata_col = "ident")
   counts <- nhoodCounts(milo)
   # get nhoods
   anno_vec <- colData(milo) %>% rownames()
