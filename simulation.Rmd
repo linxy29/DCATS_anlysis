@@ -1056,8 +1056,8 @@ cluster_num = 8  # numbers of clusters
 concentration = 100 # indicate how simulated proportion far away from true, the larger the closer
 setresolu = 0.6
 simulation_times = 30
-sample_size1 = 3000
-sample_size2 = 3000
+sample_size1 = 2000
+sample_size2 = 2000
 cell_pool = "splatter"  # cell pool used, can be selected from ("SPAR", "splatter", "realWorld")
 more_negative = ""
 truthRes = c(rep("P", 4), rep("N", 4))
@@ -1353,8 +1353,8 @@ foreachtime = Sys.time() - startTime
 #set.seed(123)
 set.seed(1)
 oper = list()
-#for (idx in 1:10){
-for (idx in 11:30){
+for (idx in 1:30){
+#for (idx in 11:30){
   print(str_c("idx: ", as.character(idx)))
   result <- list()  # where to save output
   timeL = rep(NA, 8) # DCATS w/wto similarity matrix, fisher, speckle, diffcyt, scDC
@@ -1571,43 +1571,94 @@ for (idx in 11:30){
 
 ```{r}
 #file_name = str_c("D:/Data/DCATS/simulation/replicates10&10_K", as.character(cluster_num), "_con", as.character(concentration), "_", cell_pool, more_negative, sample_size1, "&", sample_size2, "_para.RData")
-file_name = str_c("/storage/holab/linxy/DCATS/simulation/replicates10&10_K", as.character(cluster_num), "_con", as.character(concentration), "_", cell_pool, more_negative, sample_size1, "&", sample_size2, "_paraV2.RData")
+file_name = str_c("/storage/holab/linxy/DCATS/simulation/replicates10&10_K", as.character(cluster_num), "_con", as.character(concentration), "_", cell_pool, more_negative, sample_size1, "&", sample_size2, "_para_test.RData")
 save(oper, design_mat, add_mat, prop_mat, file = file_name)
 ```
 
 ```{r}
-load(file_name)
-simulationDF = simulationDF %>% na.omit()
-methods = colnames(simulationDF)[3:dim(simulationDF)[2]] %>% str_remove("_pvals")
-numb_mthd = length(methods)
-mcc = rep(NA, numb_mthd)
-auc = rep(NA, numb_mthd)
-prauc = rep(NA, numb_mthd)
-sensitivity = rep(NA, numb_mthd)
-specificity = rep(NA, numb_mthd)
-precision = rep(NA, numb_mthd)
-truth = simulationDF$truth
-for (i in 3:dim(simulationDF)[2]){
-  auc[i-2] = getROC(simulationDF$truth, simulationDF[,i])$auc
-  pred = simulationDF[, i]
-  pred_res = ifelse(pred < 0.05, "P", "N")
-  TP <- sum(pred_res=="P"&truth=="P")
-  TN <- sum(pred_res=="N"&truth=="N")
-  FP <- sum(pred_res=="P"&truth=="N")
-  FN <- sum(pred_res=="N"&truth=="P")
-  truthN = TN + FP
-  truthP = FN + TP
-  predP = TP + FP
-  predN = FN + TN
-  mcc[i-2] = (TP*TN-FP*FN)/sqrt(predP*truthP*truthN*predN)
-  prauc[i-2] = getPRC(simulationDF$truth, simulationDF[,i])$prauc
-  sensitivity[i-2] = TP/truthP
-  specificity[i-2] = TN/truthN
-  precision[i-2] = TP/predP
-}
-res = data.frame(methods = methods, mcc = mcc, auc = auc, prauc = prauc, sensitivity = sensitivity, specificity = specificity, precision = precision) %>% 
-  arrange(desc(auc)) %>% 
-  #filter(methods == "wtoPhi_fullK" | methods == "diffcyt" | methods == "speckle" | methods == "fisher" | methods == "scDC")
-print(res)
+#load(file_name)
+conditionRes = data.frame()
+genderRes = data.frame()
+ageRes = data.frame()
+for (idx in 1:length(oper)){
+  if (!is.na(oper[[idx]])) {
+    conditionRes = rbind(conditionRes, oper[[idx]]$conditionDF)
+    genderRes = rbind(genderRes, oper[[idx]]$genderDF)
+    ageRes = rbind(ageRes, oper[[idx]]$ageDF)}}
+conditionRes = conditionRes %>% 
+  mutate(factor = "condition") %>% 
+  dplyr::select(cluster, truth, factor, everything())
+ageRes = ageRes %>% 
+  mutate(factor = "age") %>% 
+  dplyr::select(cluster, truth, factor, everything())
+genderRes = genderRes %>% 
+  mutate(factor = "gender") %>% 
+  dplyr::select(cluster, truth, factor, everything())
+## conditionRes
+fileL = list(conditionRes, ageRes, genderRes)
+res_all = data.frame()
+for (file in fileL) {
+  simulationDF = file
+  methods = colnames(simulationDF)[colnames(simulationDF) %>% str_detect("_pvals")] %>% str_remove("_pvals")
+  if("full_milo_less" %in% colnames(simulationDF)) {
+    methods = c(methods, "milo_full", "milo_null")
+    simulationDF = simulationDF %>% 
+      mutate(full_milo_main = ifelse(full_milo_less > full_milo_more, full_milo_less, full_milo_more),
+             full_milo_pct = full_milo_main/(full_milo_less + full_neutral + full_milo_more),
+           full_milo_diff = abs(full_milo_less - full_milo_more)) %>% 
+      dplyr::select(-full_milo_less, -full_milo_more, - full_neutral, -full_milo_main) %>% 
+      mutate(null_milo_main = ifelse(null_milo_less > null_milo_more, null_milo_less, null_milo_more),
+             null_milo_pct = null_milo_main/(null_milo_less + null_neutral + null_milo_more),
+           null_milo_diff = abs(null_milo_less - null_milo_more)) %>% 
+      dplyr::select(-null_milo_less, -null_milo_more, - null_neutral, -null_milo_main)
+  }
+  numb_mthd = length(methods)
+  mcc = rep(NA, numb_mthd)
+  auc = rep(NA, numb_mthd)
+  prauc = rep(NA, numb_mthd)
+  sensitivity = rep(NA, numb_mthd)
+  specificity = rep(NA, numb_mthd)
+  precision = rep(NA, numb_mthd)
+  F1 = rep(NA, numb_mthd)
+  truth = simulationDF$truth
+  for (i in 4:(3+numb_mthd)) {
+    pred = simulationDF[,i]
+    if (colnames(simulationDF)[i] == "full_milo_pct") {
+      pred_res = ifelse(simulationDF$full_milo_diff > 0, "P", "N")
+      auc[i-3] = getROC(simulationDF$truth, 1-pred)$auc
+      prauc[i-3] = getPRC(simulationDF$truth, 1-pred)$prauc}
+    else if (colnames(simulationDF)[i] == "null_milo_pct") {
+      pred_res = ifelse(simulationDF$null_milo_diff > 0, "P", "N")
+      auc[i-3] = getROC(simulationDF$truth, 1-pred)$auc
+      prauc[i-3] = getPRC(simulationDF$truth, 1-pred)$prauc
+    } else {
+      pred_res = ifelse(pred < 0.1, "P", "N")
+      auc[i-3] = getROC(simulationDF$truth, pred)$auc
+      prauc[i-3] = getPRC(simulationDF$truth, pred)$prauc}
+    TP <- sum(pred_res=="P"&truth=="P")
+    TN <- sum(pred_res=="N"&truth=="N")
+    FP <- sum(pred_res=="P"&truth=="N")
+    FN <- sum(pred_res=="N"&truth=="P")
+    truthN = TN + FP
+    truthP = FN + TP
+    predP = TP + FP
+    predN = FN + TN
+    sensitivity[i-3] = TP/truthP
+    specificity[i-3] = TN/truthN
+    precision[i-3] = TP/predP
+    #mcc[i-2] = sqrt(sensitivity[i]*specificity[i]*precision[i]*(TN/(TN+FN))) - sqrt((1-sensitivity[i])*(1-specificity[i])*(FN/predN)*(FP/predP))
+    mcc[i-3] = (TP*TN-FP*FN)/sqrt(predP*truthP*truthN*predN)
+    F1[i-3] = 2*TP/(2*TP+FP+FN)
+    }
+  res = data.frame(method = methods, mcc = mcc, auc = auc, prauc = prauc, sensitivity = sensitivity, specificity = specificity, precision = precision, F1 = F1) %>% 
+    arrange(desc(mcc)) %>% 
+    mutate(factor = unique(simulationDF$factor))
+  res_all = rbind(res_all, res)}
+res_all
+```
+
+```{r}
+file_name = str_c("/storage/holab/linxy/DCATS/simulation/replicates10&10_K", as.character(cluster_num), "_con", as.character(concentration), "_", cell_pool, more_negative, sample_size1, "&", sample_size2, "_para_testResDF.RData")
+save(res_all, file = file_name)
 ```
 

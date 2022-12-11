@@ -63,7 +63,7 @@ theme_set(theme_classic()+
   theme(plot.title = element_text(hjust = 0.5)))
 ```
 
-## Figure 1 - BC
+## Bias Correction validation
 
 Supplementary figures
 
@@ -72,7 +72,7 @@ load("/storage/holab/linxy/DCATS/real_world/Kaufmann_2021/further_subset.RData")
 p1 = DimPlot(Kaufmann2021_subset2, group.by = 'clusterRes') + ggtitle("Cell type annotation")
 p2 = DimPlot(Kaufmann2021_subset2) + ggtitle("Seurat clustering")
 p1 + p2
-ggsave("./plot/version2/bias_corretion_validate.png", bg = "transparent")
+#ggsave("./plot/version2/bias_corretion_validate.png", bg = "transparent")
 ```
 
 ```{r}
@@ -92,8 +92,13 @@ p2b = rmseDF %>% rownames_to_column("proportion") %>%
 p2b
 ```
 
+```{r}
+(p1 + p2)/(p2b + p2b)
+ggsave("./plot/bias_correction.png", bg = "transparent")
+```
 
-### Figure 1 - D
+
+### Figure 1 - B
 
 ```{r}
 load("/storage/holab/linxy/DCATS/simulation/toy_simulation.RData")
@@ -135,7 +140,7 @@ sim1_prop
 ggsave("./plot/sim1_proportion.png", bg = "transparent")
 ```
 
-### Figure 2 - E
+### Figure 2 - C
 
 ```{r}
 evaluationDF = data.frame()
@@ -185,11 +190,11 @@ sim1_main = evaluationDF %>%
   filter(method %in% c("estPhi", "fisher")) %>% 
   mutate(method = ifelse(method == "fisher", "Fisher", method),
          method = ifelse(method == "estPhi", "DCATS", method)) %>% 
-  ggplot(aes(x = condition, y = auc, color = method)) + geom_boxplot() +
+  ggplot(aes(x = condition, y = mcc, color = method)) + geom_boxplot() +
   scale_color_manual(values=c("#F8766D", "#00BFC4")) +
   theme(axis.title.x = element_blank()) + 
   theme(legend.position = "top") +
-  ylab("AUC") +
+  ylab("MCC") +
   scale_x_discrete(labels=c("null" = "No bias correction", "withBC" = "With bias correction")) 
 sim1_main
 ggsave("./plot/sim1_main.png", bg = "transparent")
@@ -257,7 +262,7 @@ ggsave("./plot/sim1_phi.png", bg = "transparent", width = 8, height = 5)
 ```
 
 ```{r}
-(p2b + p2b)/(sim_prop + sim1_main)
+sim_prop + sim1_main
 ggsave("./plot/version2/Fig1.png", bg = "transparent", width = 12, height = 10)
 ```
 
@@ -604,16 +609,17 @@ sim2_mainMCC1
 ```
 
 ```{r}
+short_order = c("scDC", "bcancombc", "ancombc", "Fisher", "milo", "diffcyt", "speckle", "DCATS")
 sim2_mainHM1 = res_all %>% 
   filter(method %in% c("speckle", "diffcyt", "fisher", "scDC", "estPhi_emK", "milo", "ancombc", "ancombc_knn")) %>%
   mutate(method = ifelse(method == "fisher", "Fisher", method)) %>% 
   mutate(method = ifelse(method == "estPhi_emK", "DCATS", method)) %>% 
   mutate(method = ifelse(method == "ancombc_knn", "bcancombc", method)) %>% 
-  mutate(method = factor(method, level = c("DCATS", "speckle", "diffcyt", "Fisher", "bcancombc", "ancombc", "milo", "scDC"))) %>% 
+  mutate(method = factor(method, level = short_order)) %>% 
   #dplyr::select(method, auc, mcc, F1, replicates) %>% 
   #pivot_longer(auc:F1, names_to = "statistics", values_to = "value") %>% 
-  dplyr::select(method, auc, replicates) %>% 
-  pivot_longer(auc, names_to = "statistics", values_to = "value") %>% 
+  dplyr::select(method, mcc, replicates) %>% 
+  pivot_longer(mcc, names_to = "statistics", values_to = "value") %>% 
   group_by(replicates, statistics) %>% 
   mutate(order_pre = rank(round(value, 3)),
          value_order = 7-ceiling(rank(order_pre))) %>% 
@@ -635,11 +641,11 @@ sim2_mainHM2 = res_all %>%
   mutate(method = ifelse(method == "fisher", "Fisher", method)) %>% 
   mutate(method = ifelse(method == "estPhi_emK", "DCATS", method)) %>% 
   mutate(method = ifelse(method == "ancombc_knn", "bcancombc", method)) %>% 
-  mutate(method = factor(method, level = c("DCATS", "speckle", "diffcyt", "Fisher", "bcancombc", "ancombc", "milo", "scDC"))) %>% 
+  mutate(method = factor(method, level = short_order)) %>% 
   #dplyr::select(method, auc, mcc, F1, replicates) %>% 
   #pivot_longer(auc:F1, names_to = "statistics", values_to = "value") %>% 
-  dplyr::select(method, mcc, replicates) %>% 
-  pivot_longer(mcc, names_to = "statistics", values_to = "value") %>% 
+  dplyr::select(method, auc, replicates) %>% 
+  pivot_longer(auc, names_to = "statistics", values_to = "value") %>% 
   group_by(replicates, statistics) %>% 
   mutate(order_pre = rank(round(value, 3)),
          value_order = 7-ceiling(rank(order_pre))) %>% 
@@ -659,22 +665,24 @@ sim2_mainHM2
 Simulation 2: Supplementary Plots
 
 ```{r}
+long_order = c("scDC", "ancombc", "bcancombc", "fisher", "milo", "diffcyt", "speckle", "wtoPhi_wtoEM", "wtoPhi_emK", "estPhi_wtoEM", "estPhi_emK")
 sim2_statistics_replicates = res_all %>% 
   filter(method %in% c("scDC", "milo", "wtoPhi_emK", "betabin_null", "speckle", "diffcyt", "fisher", "estPhi_emK", "estPhi_null", "ancombc", "ancombc_knn")) %>%
   #mutate(method = ifelse(method == "fisher", "Fisher", method)) %>% 
   mutate(method = ifelse(method == "estPhi_null", "estPhi_wtoEM", method),
          method = ifelse(method == "betabin_null", "wtoPhi_wtoEM", method),
          method = ifelse(method == "ancombc_knn", "bcancombc", method)) %>%
-  mutate(method = factor(method, level = c("scDC", "ancombc", "bcancombc", "milo", "wtoPhi_emK", "wtoPhi_wtoEM", "speckle", "diffcyt", "fisher", "estPhi_emK", "estPhi_wtoEM"))) %>% 
-  dplyr::select(method, auc, prauc, mcc, F1, replicates) %>% 
-  pivot_longer(auc:F1, names_to = "statistics", values_to = "value") %>% 
+  mutate(method = factor(method, level = long_order)) %>% 
+  dplyr::select(method, mcc, prauc, F1, auc, replicates) %>% 
+  pivot_longer(mcc:auc, names_to = "statistics", values_to = "value") %>% 
+  mutate(statistics = factor(statistics, levels = c("mcc", "prauc", "F1", "auc"))) %>% 
   group_by(replicates, statistics) %>% 
   mutate(order_pre = rank(round(value, 3)),
          value_order = 10-ceiling(rank(order_pre))) %>% 
   ggplot(aes(replicates, method)) +
     geom_tile(aes(fill = value)) + 
     geom_text(aes(label = round(value, 3))) +
-    scale_fill_gradient(low = "red", high = "white") +
+    scale_fill_gradient(low = "white", high = "red") +
   xlab("# of Replicates") +
   theme(axis.title.y = element_blank()) +
   facet_grid(.~statistics) + labs(fill='value')
@@ -691,7 +699,7 @@ res_all %>%
   mutate(method = ifelse(method == "estPhi_null", "estPhi_wtoEM", method),
          method = ifelse(method == "betabin_null", "wtoPhi_wtoEM", method),
          method = ifelse(method == "ancombc_knn", "bcancombc", method)) %>%
-  mutate(method = factor(method, level = c("scDC", "ancombc", "bcancombc", "milo", "wtoPhi_emK", "wtoPhi_wtoEM", "speckle", "diffcyt", "fisher", "estPhi_emK", "estPhi_wtoEM"))) %>% 
+  mutate(method = factor(method, level = long_order)) %>% 
   mutate(mcc = round(mcc, 3),
          auc = round(auc, 3),
          prauc = round(prauc, 3),
@@ -783,7 +791,9 @@ nhoodsH1_auc = nhoodsRes_all %>%
     geom_text(aes(label = round(auc, 3))) +
     scale_fill_gradient(low = "white", high = "red", limits = c(0.6,0.8)) +
   xlab("# of Replicates") +
-  theme(axis.title.x = element_blank(),
+  theme(axis.title.y = element_blank(),
+        axis.text.y = element_blank(),
+        axis.title.x = element_blank(),
         axis.text.x = element_blank())
 
 nhoodsH1_mcc = nhoodsRes_all %>% 
@@ -797,9 +807,7 @@ nhoodsH1_mcc = nhoodsRes_all %>%
     geom_text(aes(label = ifelse(is.na(mcc), "N.A.", as.character(round(mcc, 3))))) +
     scale_fill_gradient(low = "white", high = "red", limits = c(0,0.5)) +
   xlab("# of Replicates") +
-  theme(axis.title.y = element_blank(),
-        axis.text.y = element_blank(),
-        axis.title.x = element_blank(),
+  theme(axis.title.x = element_blank(),
         axis.text.x = element_blank())
 
 nhoodsH1_sensitivity = nhoodsRes_all %>% 
@@ -858,7 +866,7 @@ nhoodsH1_F1 = nhoodsRes_all %>%
         axis.title.x = element_blank(),
         axis.text.x = element_blank())
 
-nhoodsH1_auc + nhoodsH1_mcc + nhoodsH1_F1 + nhoodsH1_sensitivity + nhoodsH1_specificity + nhoodsH1_precision
+nhoodsH1_mcc + nhoodsH1_F1 + nhoodsH1_auc + nhoodsH1_sensitivity + nhoodsH1_specificity + nhoodsH1_precision
 ggsave("./plot/sim2_nhood1.png", bg = "transparent", width = 10, height = 6)
 ```
 
@@ -984,11 +992,11 @@ sim2_mainHM3 = res_all %>%
   mutate(method = ifelse(method == "fisher", "Fisher", method)) %>% 
   mutate(method = ifelse(method == "estPhi_emK", "DCATS", method)) %>% 
   mutate(method = ifelse(method == "ancombc_knn", "bcancombc", method)) %>% 
-  mutate(method = factor(method, level = c("DCATS", "speckle", "diffcyt", "Fisher", "milo", "bcancombc", "ancombc", "scDC"))) %>% 
+  mutate(method = factor(method, level = short_order)) %>% 
   #dplyr::select(method, auc, mcc, F1, clustersN) %>% 
   #pivot_longer(auc:F1, names_to = "statistics", values_to = "value") %>% 
-  dplyr::select(method, auc, clustersN) %>% 
-  pivot_longer(auc, names_to = "statistics", values_to = "value") %>% 
+  dplyr::select(method, mcc, clustersN) %>% 
+  pivot_longer(mcc, names_to = "statistics", values_to = "value") %>% 
   group_by(clustersN, statistics) %>% 
   mutate(order_pre = rank(round(value, 3)),
          value_order = 7-ceiling(rank(order_pre))) %>% 
@@ -1011,11 +1019,11 @@ sim2_mainHM4 = res_all %>%
   mutate(method = ifelse(method == "fisher", "Fisher", method)) %>% 
   mutate(method = ifelse(method == "estPhi_emK", "DCATS", method)) %>% 
   mutate(method = ifelse(method == "ancombc_knn", "bcancombc", method)) %>% 
-  mutate(method = factor(method, level = c("DCATS", "speckle", "diffcyt", "Fisher", "milo", "bcancombc", "ancombc", "scDC"))) %>% 
+  mutate(method = factor(method, level = short_order)) %>% 
   #dplyr::select(method, auc, mcc, F1, clustersN) %>% 
   #pivot_longer(auc:F1, names_to = "statistics", values_to = "value") %>% 
-  dplyr::select(method, mcc, clustersN) %>% 
-  pivot_longer(mcc, names_to = "statistics", values_to = "value") %>% 
+  dplyr::select(method, auc, clustersN) %>% 
+  pivot_longer(auc, names_to = "statistics", values_to = "value") %>% 
   group_by(clustersN, statistics) %>% 
   mutate(order_pre = rank(round(value, 3)),
          value_order = 7-ceiling(rank(order_pre))) %>% 
@@ -1039,16 +1047,17 @@ sim2_statistics_clustersN = res_all %>%
   filter(method %in% c("scDC", "milo", "wtoPhi_emK", "betabin_null", "speckle", "diffcyt", "fisher", "estPhi_emK", "estPhi_null")) %>%
   mutate(method = ifelse(method == "estPhi_null", "estPhi_wtoEM", method),
          method = ifelse(method == "betabin_null", "wtoPhi_wtoEM", method)) %>% 
-  mutate(method = factor(method, level = c("scDC", "milo", "wtoPhi_emK", "wtoPhi_wtoEM", "speckle", "diffcyt", "fisher", "estPhi_emK", "estPhi_wtoEM"))) %>% 
+  mutate(method = factor(method, level = long_order)) %>% 
   dplyr::select(method, auc, prauc, mcc, F1, clustersN) %>% 
   pivot_longer(auc:F1, names_to = "statistics", values_to = "value") %>% 
   group_by(clustersN, statistics) %>% 
+  mutate(statistics = factor(statistics, levels = c("mcc", "prauc", "F1", "auc"))) %>% 
   mutate(order_pre = rank(round(value, 3)),
          value_order = 10-ceiling(rank(order_pre))) %>% 
   ggplot(aes(clustersN, method)) +
     geom_tile(aes(fill = value)) + 
     geom_text(aes(label = round(value, 3))) +
-    scale_fill_gradient(low = "red", high = "white") +
+    scale_fill_gradient(low = "white", high = "red") +
   xlab("# of cell types") +
   theme(axis.title.y = element_blank(),
         axis.text.y = element_blank()) +
@@ -1059,7 +1068,7 @@ sim2_statistics_clustersN
 
 ```{r}
 sim2_statistics_replicates + theme(legend.position = "none") + sim2_statistics_clustersN
-ggsave("./plot/sim2_statistics.png", bg = "transparent", height = 8, width = 14)
+ggsave("./plot/sim2_statistics.png", bg = "transparent", height = 8, width = 16)
 ```
 
 
@@ -1072,7 +1081,7 @@ res_all %>%
   mutate(method = ifelse(method == "estPhi_null", "estPhi_wtoEM", method),
          method = ifelse(method == "betabin_null", "wtoPhi_wtoEM", method),
          method = ifelse(method == "ancombc_knn", "bcancombc", method)) %>% 
-  mutate(method = factor(method, level = c("scDC", "ancombc", "bcancombc", "milo", "wtoPhi_emK", "wtoPhi_wtoEM", "speckle", "diffcyt", "Fisher", "estPhi_emK", "estPhi_wtoEM"))) %>% 
+  mutate(method = factor(method, level = long_order)) %>% 
   mutate(mcc = round(mcc, 3),
          auc = round(auc, 3),
          F1 = round(F1, 3),
@@ -1170,7 +1179,9 @@ nhoodsH2_auc = nhoodsRes_all %>%
     geom_text(aes(label = round(auc, 3))) +
     scale_fill_gradient(low = "white", high = "red", limits = c(0.6,0.8)) +
   xlab("# of cell types") +
-  theme(axis.title.x = element_blank(),
+  theme(axis.title.y = element_blank(),
+        axis.text.y = element_blank(),
+        axis.title.x = element_blank(),
         axis.text.x = element_blank())
 
 nhoodsH2_mcc = nhoodsRes_all %>% 
@@ -1184,9 +1195,7 @@ nhoodsH2_mcc = nhoodsRes_all %>%
     geom_text(aes(label = ifelse(is.na(mcc), "N.A.", as.character(round(mcc, 3))))) +
     scale_fill_gradient(low = "white", high = "red", limits = c(0,0.5)) +
   xlab("# of cell types") +
-  theme(axis.title.y = element_blank(),
-        axis.text.y = element_blank(),
-        axis.title.x = element_blank(),
+  theme(axis.title.x = element_blank(),
         axis.text.x = element_blank())
 
 nhoodsH2_sensitivity = nhoodsRes_all %>% 
@@ -1245,7 +1254,7 @@ nhoodsH2_F1 = nhoodsRes_all %>%
         axis.title.x = element_blank(),
         axis.text.x = element_blank())
 
-nhoodsH2_auc + nhoodsH2_mcc + nhoodsH2_F1 + nhoodsH2_sensitivity + nhoodsH2_specificity + nhoodsH2_precision
+nhoodsH2_mcc + nhoodsH2_F1 + nhoodsH2_auc + nhoodsH2_sensitivity + nhoodsH2_specificity + nhoodsH2_precision
 ggsave("./plot/sim2_nhood2.png", bg = "transparent", width = 10, height = 6)
 ```
 
@@ -1253,8 +1262,12 @@ ggsave("./plot/sim2_nhood2.png", bg = "transparent", width = 10, height = 6)
 ### Figure 2 - C
 
 ```{r}
-#load("/storage/holab/linxy/DCATS/simulation/replicates10&10_K8_con100_splatter1500&2500_para.RData")
-load("/storage/holab/linxy/DCATS/simulation/replicates10&10_K8_con100_splatter3000&3000_para.RData")
+load("/storage/holab/linxy/DCATS/simulation/replicates10&10_K8_con100_splatter2000&2000_paraResDF.RData")
+```
+
+
+```{r}
+
 conditionRes = data.frame()
 genderRes = data.frame()
 ageRes = data.frame()
@@ -1328,19 +1341,20 @@ res_all
 ```
 
 ```{r}
+sim3_order = c("milo_null", "scDC", "milo_full", "Fisher", "speckle", "diffcyt", "DCATS")
 sim3_main = res_all %>% 
-  dplyr::select(method, auc, factor) %>% 
-  pivot_wider(names_from = factor, values_from = auc) %>% 
-  pivot_longer(condition:gender, names_to = "factor", values_to = "auc") %>% 
-  filter(method %in% c("speckle", "diffcyt", "fisher", "scDC", "estPhi_emK", "milo")) %>%
+  dplyr::select(method, mcc, factor) %>% 
+  pivot_wider(names_from = factor, values_from = mcc) %>% 
+  pivot_longer(condition:gender, names_to = "factor", values_to = "mcc") %>% 
+  filter(method %in% c("speckle", "diffcyt", "fisher", "scDC", "estPhi_emK", "milo_full", "milo_null")) %>%
   mutate(method = ifelse(method == "fisher", "Fisher", method),
          method = ifelse(method == "estPhi_emK", "DCATS", method)) %>% 
-  mutate(method = factor(method, level = c("milo", "scDC", "speckle", "diffcyt", "Fisher", "DCATS")),
+  mutate(method = factor(method, level = sim3_order),
          factor = factor(factor, level = c("condition", "age", "gender"))) %>% 
   ggplot(aes(factor, method)) +
-    geom_tile(aes(fill = auc)) + 
-    geom_text(aes(label = ifelse(is.na(auc), "N.A.", as.character(round(auc, 3))))) +
-    scale_fill_gradient(low = "white", high = "red", limits = c(0.3,0.9))+
+    geom_tile(aes(fill = mcc)) + 
+    geom_text(aes(label = ifelse(is.na(mcc), "N.A.", as.character(round(mcc, 3))))) +
+    scale_fill_gradient(low = "white", high = "red")+
   xlab("covariates") +
   theme(axis.title.y = element_blank(),
         legend.position = "bottom")
@@ -1353,35 +1367,36 @@ res_all %>%
   dplyr::select(method, auc, factor) %>% 
   pivot_wider(names_from = factor, values_from = auc) %>% 
   pivot_longer(condition:gender, names_to = "factor", values_to = "auc") %>% 
-  filter(method %in% c("speckle", "diffcyt", "fisher", "scDC", "betabin_null", "estPhi_null", "wtoPhi_emK", "estPhi_emK", "milo")) %>%
+  filter(method %in% c("speckle", "diffcyt", "fisher", "scDC", "estPhi_emK", "milo_full", "milo_null")) %>%
   mutate(method = ifelse(method == "fisher", "Fisher", method)) %>% 
   mutate(method = ifelse(method == "estPhi_null", "estPhi_wtoEM", method),
          method = ifelse(method == "betabin_null", "wtoPhi_wtoEM", method)) %>% 
-  mutate(method = factor(method, level = c("milo", "scDC", "speckle", "diffcyt", "Fisher", "estPhi_wtoEM", "estPhi_emK", "wtoPhi_wtoEM", "wtoPhi_emK")),
+  mutate(method = factor(method, level = sim3_order),
          factor = factor(factor, level = c("condition", "age", "gender"))) %>% 
   ggplot(aes(factor, method)) +
     geom_tile(aes(fill = auc)) + 
     geom_text(aes(label = ifelse(is.na(auc), "N.A.", as.character(round(auc, 3))))) +
-    scale_fill_gradient(low = "white", high = "red", limits = c(0.3,0.9))+
+    scale_fill_gradient(low = "white", high = "red")+
   xlab("Covariates")
 ggsave("./plot/sim3_auc.png", bg = "transparent")
 ```
 
 ```{r}
+sim3_order2 = c("milo_null", "scDC", "milo_full", "Fisher", "speckle", "diffcyt", "wtoPhi_emK", "estPhi_wtoEM", "wtoPhi_wtoEM", "estPhi_emK")
 res_all %>% 
   dplyr::select(method, mcc, factor) %>% 
   pivot_wider(names_from = factor, values_from = mcc) %>% 
   pivot_longer(condition:gender, names_to = "factor", values_to = "mcc") %>% 
-  filter(method %in% c("speckle", "diffcyt", "fisher", "scDC", "betabin_null", "estPhi_null", "wtoPhi_emK", "estPhi_emK", "milo")) %>%
+  filter(method %in% c("speckle", "diffcyt", "fisher", "scDC", "betabin_null", "estPhi_null", "wtoPhi_emK", "estPhi_emK", "milo_null", "milo_full")) %>%
   mutate(method = ifelse(method == "fisher", "Fisher", method)) %>% 
   mutate(method = ifelse(method == "estPhi_null", "estPhi_wtoEM", method),
          method = ifelse(method == "betabin_null", "wtoPhi_wtoEM", method)) %>% 
-  mutate(method = factor(method, level = c("milo", "scDC", "speckle", "diffcyt", "Fisher", "estPhi_wtoEM", "estPhi_emK", "wtoPhi_wtoEM", "wtoPhi_emK")),
+  mutate(method = factor(method, level = sim3_order2),
          factor = factor(factor, level = c("condition", "age", "gender"))) %>% 
   ggplot(aes(factor, method)) +
     geom_tile(aes(fill = mcc)) + 
     geom_text(aes(label = ifelse(is.na(mcc), "N.A.", as.character(round(mcc, 3))))) +
-    scale_fill_gradient(low = "white", high = "red", limits = c(0,0.6))+
+    scale_fill_gradient(low = "white", high = "red")+
   xlab("Covariates")
 ggsave("./plot/sim3_mcc.png", bg = "transparent")
 ```
@@ -1391,11 +1406,11 @@ res_all %>%
   dplyr::select(method, F1, factor) %>% 
   pivot_wider(names_from = factor, values_from = F1) %>% 
   pivot_longer(condition:gender, names_to = "factor", values_to = "F1") %>% 
-  filter(method %in% c("speckle", "diffcyt", "fisher", "scDC", "betabin_null", "estPhi_null", "wtoPhi_emK", "estPhi_emK", "milo")) %>%
+  filter(method %in% c("speckle", "diffcyt", "fisher", "scDC", "betabin_null", "estPhi_null", "wtoPhi_emK", "estPhi_emK", "milo_null", "milo_full")) %>%
   mutate(method = ifelse(method == "fisher", "Fisher", method)) %>% 
   mutate(method = ifelse(method == "estPhi_null", "estPhi_wtoEM", method),
          method = ifelse(method == "betabin_null", "wtoPhi_wtoEM", method)) %>% 
-  mutate(method = factor(method, level = c("milo", "scDC", "speckle", "diffcyt", "Fisher", "estPhi_wtoEM", "estPhi_emK", "wtoPhi_wtoEM", "wtoPhi_emK")),
+  mutate(method = factor(method, level = sim3_order2),
          factor = factor(factor, level = c("condition", "age", "gender"))) %>% 
   ggplot(aes(factor, method)) +
     geom_tile(aes(fill = F1)) + 
@@ -1405,124 +1420,10 @@ res_all %>%
 ggsave("./plot/sim3_f1.png", bg = "transparent")
 ```
 
-
 ### extreme case1
 
 ```{r}
-load("/storage/holab/linxy/DCATS/simulation/three_increase_conc100.RData")
-```
-
-```{r}
-## calculate statistics of "three_increase.RData" results
-#load(file_name)
-clusterRes = resL$clusterRes
-methods = colnames(clusterRes)[colnames(clusterRes) %>% str_detect("_pvals")] %>% str_remove("_pvals")
-#methods = colnames(clusterRes)[colnames(clusterRes) %>% str_detect("_pvals")] %>% str_remove("_pvals")
-methods = c(methods, "milo")
-numb_mthd = length(methods)
-mcc = rep(NA, numb_mthd)
-auc = rep(NA, numb_mthd)
-prauc = rep(NA, numb_mthd)
-sensitivity = rep(NA, numb_mthd)
-specificity = rep(NA, numb_mthd)
-precision = rep(NA, numb_mthd)
-F1 = rep(NA, numb_mthd)
-truth = clusterRes$truth
-clusterRes = clusterRes %>% 
-  mutate(milo_main = ifelse(milo_less > milo_more, milo_less, milo_more),
-         milo_pct = milo_main/(milo_less + neutral + milo_more),
-         milo_diff = abs(milo_less - milo_more)) %>% 
-  dplyr::select(-milo_less, -milo_more, - neutral, -milo_main)
-
-for (i in 3:(dim(clusterRes)[2]-1)){
-  pred = clusterRes[,i]
-  if (colnames(clusterRes)[i] == "milo_pct") {
-    pred_res = ifelse(clusterRes$milo_diff > 0, "P", "N")
-    ## most of them are negative, can't calculate this value
-    auc[i-2] = getROC(clusterRes$truth, 1-pred)$auc
-    #prauc[i-2] = getPRC(clusterRes$truth, 1-pred)$prauc
-    }
-  else {
-    pred_res = ifelse(pred < 0.1, "P", "N")
-    auc[i-2] = getROC(clusterRes$truth, pred)$auc
-    prauc[i-2] = getPRC(clusterRes$truth, pred)$prauc}
-  TP <- sum(pred_res=="P"&truth=="P")
-  TN <- sum(pred_res=="N"&truth=="N")
-  FP <- sum(pred_res=="P"&truth=="N")
-  FN <- sum(pred_res=="N"&truth=="P")
-  truthN = TN + FP
-  truthP = FN + TP
-  predP = TP + FP
-  predN = FN + TN
-  sensitivity[i-2] = TP/truthP
-  specificity[i-2] = TN/truthN
-  precision[i-2] = TP/predP
-  #mcc[i-2] = sqrt(sensitivity[i]*specificity[i]*precision[i]*(TN/(TN+FN))) - sqrt((1-sensitivity[i])*(1-specificity[i])*(FN/predN)*(FP/predP))
-  mcc[i-2] = (TP*TN-FP*FN)/sqrt(predP*truthP*truthN*predN)
-  F1[i-2] = 2*TP/(2*TP+FP+FN)
-}
-res = data.frame(methods = methods, mcc = mcc, auc = auc, prauc = prauc, sensitivity = sensitivity, specificity = specificity, precision = precision, F1 = F1) %>% 
-  arrange(desc(auc))
-  #filter(methods == "wtoPhi_fullK" | methods == "diffcyt" | methods == "speckle" | methods == "fisher" | methods == "scDC")
-print(res)
-```
-
-```{r}
-sim4_mainHM1 = res %>% 
-  filter(methods %in% c("speckle", "diffcyt", "fisher", "scDC", "estPhi_emK", "milo", "ancombc", "ancombc_knn", "emK_org2", "emK_truth2")) %>%
-  mutate(methods = ifelse(methods == "fisher", "Fisher", methods)) %>% 
-  #mutate(method = ifelse(method == "estPhi_emK", "DCATS", method)) %>% 
-  mutate(methods = ifelse(methods == "ancombc_knn", "bcancombc", methods)) %>% 
-  mutate(methods = ifelse(methods == "emK_org2", "emK_autoRef", methods)) %>% 
-  mutate(methods = ifelse(methods == "emK_truth2", "emK_defRef", methods)) %>% 
-  mutate(methods = factor(methods, level = c("emK_autoRef", "emK_defRef", "estPhi_emK", "speckle", "diffcyt", "Fisher", "milo", "bcancombc", "ancombc", "scDC"))) %>% 
-  dplyr::select(methods, auc, mcc, F1) %>% 
-  pivot_longer(auc:F1, names_to = "statistics", values_to = "value") %>% 
-  #dplyr::select(method, auc, mcc, clustersN) %>% 
-  #pivot_longer(auc, names_to = "statistics", values_to = "value") %>% 
-  group_by(statistics) %>% 
-  mutate(order_pre = rank(round(value, 3)),
-         value_order = 7-ceiling(rank(order_pre))) %>% 
-  ggplot(aes(statistics, methods)) +
-    geom_tile(aes(fill = value)) + 
-    geom_text(aes(label = round(value, 3))) +
-  #scale_fill_distiller(palette = "RdYIBu") +
-    scale_fill_gradient(low = "white", high = "red") +
-  #xlab("# of cell types") +
-  theme(axis.title.y = element_blank(),
-        #axis.text.y = element_blank(),
-        axis.title.x = element_blank(),
-        legend.position = "bottom") +
-  labs(fill='value') + 
-  ggtitle("Special case 1")
-sim4_mainHM1
-```
-
-```{r}
-res %>% 
-  filter(methods %in% c("speckle", "diffcyt", "fisher", "scDC", "estPhi_emK", "milo", "ancombc", "ancombc_knn", "emK_org2", "emK_truth2")) %>%
-  mutate(methods = ifelse(methods == "fisher", "Fisher", methods)) %>% 
-  #mutate(method = ifelse(method == "estPhi_emK", "DCATS", method)) %>% 
-  mutate(methods = ifelse(methods == "ancombc_knn", "bcancombc", methods)) %>% 
-  mutate(methods = ifelse(methods == "emK_org2", "emK_autoRef", methods)) %>% 
-  mutate(methods = ifelse(methods == "emK_truth2", "emK_defRef", methods)) %>% 
-  mutate(methods = factor(methods, level = c("emK_autoRef", "emK_defRef", "estPhi_emK", "speckle", "diffcyt", "Fisher", "milo", "bcancombc", "ancombc", "scDC"))) %>% 
-mutate(mcc = round(mcc, 3),
-         auc = round(auc, 3),
-         F1 = round(F1, 3),
-         sensitivity = round(sensitivity, 3),
-         prauc = round(prauc,3),
-         specificity = round(specificity, 3),
-         precision = round(precision, 3)) %>% 
-  arrange(desc(auc)) %>% 
-  knitr::kable()
-```
-
-
-### extreme case2
-
-```{r}
-load("/storage/holab/chrissy/Ho_DCATS/simulation/one_increase.RData")
+load("/storage/holab/linxy/DCATS/simulation/one_increase.RData")
 ```
 
 ```{r}
@@ -1581,18 +1482,137 @@ print(res)
 ```
 
 ```{r}
-sim4_mainHM2 = res %>% 
+sim4_mainHM1 = res %>% 
   filter(methods %in% c("speckle", "diffcyt", "fisher", "scDC", "estPhi_emK", "milo", "ancombc", "ancombc_knn", "emK_org2", "emK_truth2")) %>%
   mutate(methods = ifelse(methods == "fisher", "Fisher", methods)) %>% 
-  #mutate(method = ifelse(method == "estPhi_emK", "DCATS", method)) %>% 
+  mutate(methods = ifelse(methods == "estPhi_emK", "DCATS", methods)) %>% 
+  mutate(methods = ifelse(methods == "ancombc_knn", "bcancombc", methods)) %>% 
+  mutate(methods = ifelse(methods == "emK_org2", "dcats_autoRef", methods)) %>% 
+  mutate(methods = ifelse(methods == "emK_truth2", "dcats_defRef", methods)) %>% 
+  mutate(methods = factor(methods, level = c("Fisher", "scDC", "ancombc", "bcancombc", "milo", "diffcyt", "speckle", "dcats_defRef", "dcats_autoRef",  "DCATS"))) %>% 
+  dplyr::select(methods, mcc, F1, auc) %>% 
+  pivot_longer(mcc:auc, names_to = "statistics", values_to = "value") %>% 
+  #dplyr::select(method, auc, mcc, clustersN) %>% 
+  #pivot_longer(auc, names_to = "statistics", values_to = "value") %>% 
+  group_by(statistics) %>% 
+  mutate(statistics = factor(statistics, levels = c("mcc", "F1", "auc"))) %>% 
+  mutate(order_pre = rank(round(value, 3)),
+         value_order = 7-ceiling(rank(order_pre))) %>% 
+  ggplot(aes(statistics, methods)) +
+    geom_tile(aes(fill = value)) + 
+    geom_text(aes(label = round(value, 3))) +
+  #scale_fill_distiller(palette = "RdYIBu") +
+    scale_fill_gradient(low = "white", high = "red") +
+  #xlab("# of cell types") +
+  theme(axis.title.x = element_blank()) +
+  labs(fill='value') + ggtitle("Special case")
+sim4_mainHM1
+```
+
+```{r}
+res %>% 
+  filter(methods %in% c("speckle", "diffcyt", "fisher", "scDC", "estPhi_emK", "milo", "ancombc", "ancombc_knn", "emK_org2", "emK_truth2")) %>%
+  mutate(methods = ifelse(methods == "fisher", "Fisher", methods)) %>% 
+  mutate(methods = ifelse(methods == "estPhi_emK", "DCATS", methods)) %>% 
   mutate(methods = ifelse(methods == "ancombc_knn", "bcancombc", methods)) %>% 
   mutate(methods = ifelse(methods == "emK_org2", "emK_autoRef", methods)) %>% 
   mutate(methods = ifelse(methods == "emK_truth2", "emK_defRef", methods)) %>% 
-  mutate(methods = factor(methods, level = c("emK_autoRef", "emK_defRef", "estPhi_emK", "speckle", "diffcyt", "Fisher", "milo", "bcancombc", "ancombc", "scDC"))) %>% 
+  mutate(methods = factor(methods, level = c("Fisher", "scDC", "ancombc", "bcancombc", "milo", "diffcyt", "speckle", "dcats_defRef", "dcats_autoRef",  "DCATS"))) %>% 
+mutate(mcc = round(mcc, 3),
+         auc = round(auc, 3),
+         F1 = round(F1, 3),
+         sensitivity = round(sensitivity, 3),
+         prauc = round(prauc,3),
+         specificity = round(specificity, 3),
+         precision = round(precision, 3)) %>% 
+  arrange(desc(auc)) %>% 
+  knitr::kable()
+```
+
+```{r}
+(p1 + sim2_prop + curve + theme(legend.position="top"))/(sim2_mainHM1 + sim2_mainHM2 + sim2_mainHM3 + sim2_mainHM4  + plot_layout(ncol = 4))/(sim4_mainHM1 + sim3_main)
+ggsave("./plot/version2/Fig2.png", bg = "transparent", height = 14, width = 12)
+
+#ggsave("./plot/version2/Fig2_sub2.png", bg = "transparent", height = 5, width = 12)
+```
+
+
+
+### extreme case1
+
+```{r}
+load("/storage/holab/linxy/DCATS/simulation/three_increase_conc100.RData")
+```
+
+```{r}
+## calculate statistics of "three_increase.RData" results
+#load(file_name)
+clusterRes = resL$clusterRes
+methods = colnames(clusterRes)[colnames(clusterRes) %>% str_detect("_pvals")] %>% str_remove("_pvals")
+#methods = colnames(clusterRes)[colnames(clusterRes) %>% str_detect("_pvals")] %>% str_remove("_pvals")
+methods = c(methods, "milo")
+numb_mthd = length(methods)
+mcc = rep(NA, numb_mthd)
+auc = rep(NA, numb_mthd)
+prauc = rep(NA, numb_mthd)
+sensitivity = rep(NA, numb_mthd)
+specificity = rep(NA, numb_mthd)
+precision = rep(NA, numb_mthd)
+F1 = rep(NA, numb_mthd)
+truth = clusterRes$truth
+clusterRes = clusterRes %>% 
+  mutate(milo_main = ifelse(milo_less > milo_more, milo_less, milo_more),
+         milo_pct = milo_main/(milo_less + neutral + milo_more),
+         milo_diff = abs(milo_less - milo_more)) %>% 
+  dplyr::select(-milo_less, -milo_more, - neutral, -milo_main)
+
+for (i in 3:(dim(clusterRes)[2]-1)){
+  pred = clusterRes[,i]
+  if (colnames(clusterRes)[i] == "milo_pct") {
+    pred_res = ifelse(clusterRes$milo_diff > 0, "P", "N")
+    ## most of them are negative, can't calculate this value
+    auc[i-2] = getROC(clusterRes$truth, 1-pred)$auc
+    #prauc[i-2] = getPRC(clusterRes$truth, 1-pred)$prauc
+    }
+  else {
+    pred_res = ifelse(pred < 0.1, "P", "N")
+    auc[i-2] = getROC(clusterRes$truth, pred)$auc
+    prauc[i-2] = getPRC(clusterRes$truth, pred)$prauc}
+  TP <- sum(pred_res=="P"&truth=="P")
+  TN <- sum(pred_res=="N"&truth=="N")
+  FP <- sum(pred_res=="P"&truth=="N")
+  FN <- sum(pred_res=="N"&truth=="P")
+  truthN = TN + FP
+  truthP = FN + TP
+  predP = TP + FP
+  predN = FN + TN
+  sensitivity[i-2] = TP/truthP
+  specificity[i-2] = TN/truthN
+  precision[i-2] = TP/predP
+  #mcc[i-2] = sqrt(sensitivity[i]*specificity[i]*precision[i]*(TN/(TN+FN))) - sqrt((1-sensitivity[i])*(1-specificity[i])*(FN/predN)*(FP/predP))
+  mcc[i-2] = (TP*TN-FP*FN)/sqrt(predP*truthP*truthN*predN)
+  F1[i-2] = 2*TP/(2*TP+FP+FN)
+}
+res = data.frame(methods = methods, mcc = mcc, auc = auc, prauc = prauc, sensitivity = sensitivity, specificity = specificity, precision = precision, F1 = F1) %>% 
+  arrange(desc(mcc))
+  #filter(methods == "wtoPhi_fullK" | methods == "diffcyt" | methods == "speckle" | methods == "fisher" | methods == "scDC")
+print(res)
+```
+
+```{r}
+sim4_mainHM1 = res %>% 
+  filter(methods %in% c("speckle", "diffcyt", "fisher", "scDC", "estPhi_emK", "milo", "ancombc", "ancombc_knn", "emK_org2", "emK_truth2")) %>%
+  mutate(methods = ifelse(methods == "fisher", "Fisher", methods)) %>% 
+  mutate(methods = ifelse(methods == "estPhi_emK", "DCATS", methods)) %>% 
+  mutate(methods = ifelse(methods == "ancombc_knn", "bcancombc", methods)) %>% 
+  mutate(methods = ifelse(methods == "emK_org2", "dcats_autoRef", methods)) %>% 
+  mutate(methods = ifelse(methods == "emK_truth2", "dcats_defRef", methods)) %>% 
+  mutate(methods = factor(methods, level = c("dcats_defRef", "DCATS", "speckle", "diffcyt", "Fisher", "dcats_autoRef", "milo", "bcancombc", "ancombc", "scDC"))) %>% 
   dplyr::select(methods, auc, mcc, F1) %>% 
   pivot_longer(auc:F1, names_to = "statistics", values_to = "value") %>% 
   #dplyr::select(method, auc, mcc, clustersN) %>% 
   #pivot_longer(auc, names_to = "statistics", values_to = "value") %>% 
+  mutate(statistics = factor(statistics, levels = c("mcc", "auc"))) %>% 
   group_by(statistics) %>% 
   mutate(order_pre = rank(round(value, 3)),
          value_order = 7-ceiling(rank(order_pre))) %>% 
@@ -1603,11 +1623,12 @@ sim4_mainHM2 = res %>%
     scale_fill_gradient(low = "white", high = "red") +
   #xlab("# of cell types") +
   theme(axis.title.y = element_blank(),
-        axis.text.y = element_blank(),
+        #axis.text.y = element_blank(),
         axis.title.x = element_blank(),
         legend.position = "bottom") +
-  labs(fill='value') + ggtitle("Special case 2")
-sim4_mainHM2
+  labs(fill='value') + 
+  ggtitle("Special case 2")
+sim4_mainHM1
 ```
 
 ```{r}
@@ -1630,12 +1651,6 @@ mutate(mcc = round(mcc, 3),
   knitr::kable()
 ```
 
-```{r}
-(p1 + sim2_prop + curve + theme(legend.position="top"))/(sim2_mainHM1 + sim2_mainHM2 + sim2_mainHM3 + sim2_mainHM4  + plot_layout(ncol = 4))/(sim4_mainHM1 + sim4_mainHM2 + sim3_main)
-ggsave("./plot/version2/Fig2.png", bg = "transparent", height = 14, width = 12)
-
-#ggsave("./plot/version2/Fig2_sub2.png", bg = "transparent", height = 5, width = 12)
-```
 
 
 ## Figure 4

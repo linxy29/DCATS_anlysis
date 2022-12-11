@@ -558,6 +558,9 @@ getROC = function(truth, pred){
 
 # function 13: plot PRC plot
 getPRC = function(truth, pred){
+  if (length(unique(pred)) <=5){
+    return(list(plot = NA, prauc = 0, df = NA, eval = NA))
+  }
   ## precision and recall
   library(ggplot2)
   thresholds = unique(c(0, round(pred, 3)))
