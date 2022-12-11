@@ -147,47 +147,193 @@ da_results <- testNhoods(exp7_milo, design = ~ sample, design.df = seurat_intg@m
 ## Simulation
 
 ```{r}
-testNhoods = function (x, design, design.df, fdr.weighting = c("k-distance", 
-    "neighbour-distance", "max", "graph-overlap", "none"), min.mean = 0, 
-    model.contrasts = NULL, robust = TRUE, reduced.dim = "PCA", 
-    norm.method = c("TMM", "RLE", "logMS")) 
-{
-    if (is(design, "formula")) {
-        model <- model.matrix(design, data = design.df)
+integratedSamples = simulation$integratedSamples
+getMilo = function(integratedSamples){
+  # create object
+  sceObj <- as.SingleCellExperiment(integratedSamples)
+  milo <- Milo(sceObj)
+  milo <- buildGraph(milo, k = 10, d = 30)
+  milo <- makeNhoods(milo, prop = 0.1, k = 10, d=30, refined = TRUE)
+  # get milo result
+  milo <- countCells(milo, meta.data = data.frame(colData(milo)), sample="batch")
+  if ("gender" %in% colnames(colData(milo))) {
+    designDF <- data.frame(colData(milo))[,c("batch", "condition", "gender", "age")]
+    designDF <- distinct(designDF)
+    milo <- calcNhoodDistance(milo, d=30)
+    rownames(designDF) <- designDF$batch
+    da_condition <- testNhoods(milo, design = ~ age + gender + condition, design.df = designDF)
+    da_gender <- testNhoods(milo, design = ~ age + condition + gender, design.df = designDF)
+    da_age <- testNhoods(milo, design = ~ condition + gender + age, design.df = designDF)
+    null_condition = testNhoods(milo, design = ~ condition, design.df = designDF)
+    null_age = testNhoods(milo, design = ~ age, design.df = designDF)
+    null_gender = testNhoods(milo, design = ~ gender, design.df = designDF)
+    da_resultsL = list(da_condition = da_condition, da_gender = da_gender, da_age = da_age, null_condition = null_condition, null_age = null_age, null_gender = null_gender)
+    da_resultsL <- lapply(X = da_resultsL, FUN = function(x) {
+    x <- annotateNhoods(milo, x, coldata_col = "ident")
+})
+    da_results = rbind(da_resultsL$da_condition %>% mutate(detect = "condition_full"), da_resultsL$null_condition %>% mutate(detect = "condition_null"), da_resultsL$da_gender %>% mutate(detect = "gender_full"), da_resultsL$null_gender %>% mutate(detect = "gender_null"), da_resultsL$da_age %>% mutate(detect = "age_full"), da_resultsL$null_age %>% mutate(detect = "age_null"))
+  } else {
+    designDF <- data.frame(colData(milo))[,c("batch", "condition")]
+    designDF <- distinct(designDF)
+    milo <- calcNhoodDistance(milo, d=30)
+    rownames(designDF) <- designDF$batch
+    da_results <- testNhoods(milo, design = ~ condition, design.df = designDF)
+    da_results <- annotateNhoods(milo, da_results, coldata_col = "ident")
+    da_resultsL = "not_applicable"
+  }
+  counts <- nhoodCounts(milo)
+  # get nhoods
+  anno_vec <- colData(milo) %>% rownames()
+  if (!is.factor(anno_vec)) {
+    anno_vec <- factor(anno_vec, levels=unique(anno_vec))
+  }
+  
+  ## Count occurrence of labels in each nhood
+  n.levels <- length(levels(anno_vec))
+  nhood_counts <- vapply(seq_len(ncol(nhoods(milo))), FUN=function(n)
+    table(anno_vec[which(nhoods(milo)[,n]==1)]),FUN.VALUE=numeric(n.levels))
+  colnames(nhood_counts) = str_c("hoods", 1:ncol(nhood_counts))
+  select_nhood = nhood_counts[rowSums(nhood_counts) > 0,]
+  nhoodsID = sapply(seq_len(nrow(select_nhood)), FUN = function(n)
+    sample(colnames(select_nhood)[select_nhood[n,] != 0], size = 1))
+  names(nhoodsID) = rownames(select_nhood)
+  #nhoodsInfo = data.frame(cellID = rownames(select_nhood), nhoodsID = hoodsID)
+  return(list(da_results = da_results, counts = counts, nhoodsID = nhoodsID))
+}
+```
+
+```{r}
+x = milo
+design = ~ age + gender + condition
+design.df = designDF
+testNhoods <- function(x, design, design.df,
+                       fdr.weighting=c("k-distance", "neighbour-distance", "max", "graph-overlap", "none"),
+                       min.mean=0, model.contrasts=NULL, robust=TRUE, reduced.dim="PCA",
+                       norm.method=c("TMM", "RLE", "logMS")){
+    if(is(design, "formula")){
+        model <- model.matrix(design, data=design.df)
         rownames(model) <- rownames(design.df)
-    }
-    else if (is(design, "matrix")) {
+    } else if(is(design, "matrix")){
         model <- design
-        if (nrow(model) != nrow(design.df)) {
+        if(nrow(model) != nrow(design.df)){
             stop("Design matrix and model matrix are not the same dimensionality")
         }
-        if (any(rownames(model) != rownames(design.df))) {
+
+        if(any(rownames(model) != rownames(design.df))){
             warning("Design matrix and model matrix dimnames are not the same")
+            # check if rownames are a subset of the design.df
             check.names <- any(rownames(model) %in% rownames(design.df))
-            if (isTRUE(check.names)) {
+            if(isTRUE(check.names)){
                 rownames(model) <- rownames(design.df)
-            }
-            else {
+            } else{
                 stop("Design matrix and model matrix rownames are not a subset")
             }
         }
     }
-    if (!is(x, "Milo")) {
+
+    if(!is(x, "Milo")){
         stop("Unrecognised input type - must be of class Milo")
-    }
-    else if (.check_empty(x, "nhoodCounts")) {
+    } else if(.check_empty(x, "nhoodCounts")){
         stop("Neighbourhood counts missing - please run countCells first")
     }
-    if (!any(norm.method %in% c("TMM", "logMS", "RLE"))) {
+
+    if(!any(norm.method %in% c("TMM", "logMS", "RLE"))){
         stop("Normalisation method ", norm.method, " not recognised. Must be either TMM, RLE or logMS")
     }
-    if (!reduced.dim %in% reducedDimNames(x)) {
-      stop(reduced.dim, " is not found in reducedDimNames. Avaiable options are ", 
-            paste(reducedDimNames(x), collapse = ","))
+
+    if(!reduced.dim %in% reducedDimNames(x)){
+        stop(reduced.dim, " is not found in reducedDimNames. Avaiable options are ", paste(reducedDimNames(x), collapse=","))
     }
+
     subset.counts <- FALSE
-    if (ncol(nhoodCounts(x)) != nrow(model)) {
-        if (all(rownames
+    if(ncol(nhoodCounts(x)) != nrow(model)){
+        # need to allow for design.df with a subset of samples only
+        if(all(rownames(model) %in% colnames(nhoodCounts(x)))){
+            message("Design matrix is a strict subset of the nhood counts")
+            subset.counts <- TRUE
+        } else{
+            stop("Design matrix (", nrow(model), ") and nhood counts (",
+                 ncol(nhoodCounts(x)), ") are not the same dimension")
+        }
+    }
+
+    # assume nhoodCounts and model are in the same order
+    # cast as DGEList doesn't accept sparse matrices
+    # what is the cost of cast a matrix that is already dense vs. testing it's class
+    if(min.mean > 0){
+        if(isTRUE(subset.counts)){
+            keep.nh <- rowMeans(nhoodCounts(x)[, rownames(model)]) >= min.mean
+        } else{
+            keep.nh <- rowMeans(nhoodCounts(x)) >= min.mean
+        }
+    } else{
+        if(isTRUE(subset.counts)){
+            keep.nh <- rep(TRUE, nrow(nhoodCounts(x)[, rownames(model)]))
+        }else{
+            keep.nh <- rep(TRUE, nrow(nhoodCounts(x)))
+        }
+    }
+
+    if(isTRUE(subset.counts)){
+        keep.samps <- intersect(rownames(model), colnames(nhoodCounts(x)[keep.nh, ]))
+    } else{
+        keep.samps <- colnames(nhoodCounts(x)[keep.nh, ])
+    }
+
+    if(any(colnames(nhoodCounts(x)[keep.nh, keep.samps]) != rownames(model)) & !any(colnames(nhoodCounts(x)[keep.nh, keep.samps]) %in% rownames(model))){
+        stop("Sample names in design matrix and nhood counts are not matched.
+             Set appropriate rownames in design matrix.")
+    } else if(any(colnames(nhoodCounts(x)[keep.nh, keep.samps]) != rownames(model)) & any(colnames(nhoodCounts(x)[keep.nh, keep.samps]) %in% rownames(model))){
+        warning("Sample names in design matrix and nhood counts are not matched. Reordering")
+        model <- model[colnames(nhoodCounts(x)[keep.nh, keep.samps]), ]
+    }
+
+    if(length(norm.method) > 1){
+        message("Using TMM normalisation")
+        dge <- DGEList(counts=nhoodCounts(x)[keep.nh, keep.samps],
+                       lib.size=colSums(nhoodCounts(x)[keep.nh, keep.samps]))
+        dge <- calcNormFactors(dge, method="TMM")
+    } else if(norm.method %in% c("TMM")){
+        message("Using TMM normalisation")
+        dge <- DGEList(counts=nhoodCounts(x)[keep.nh, keep.samps],
+                       lib.size=colSums(nhoodCounts(x)[keep.nh, keep.samps]))
+        dge <- calcNormFactors(dge, method="TMM")
+    } else if(norm.method %in% c("RLE")){
+        message("Using RLE normalisation")
+        dge <- DGEList(counts=nhoodCounts(x)[keep.nh, keep.samps],
+                       lib.size=colSums(nhoodCounts(x)[keep.nh, keep.samps]))
+        dge <- calcNormFactors(dge, method="RLE")
+    }else if(norm.method %in% c("logMS")){
+        message("Using logMS normalisation")
+        dge <- DGEList(counts=nhoodCounts(x)[keep.nh, keep.samps],
+                       lib.size=colSums(nhoodCounts(x)[keep.nh, keep.samps]))
+    }
+
+    dge <- estimateDisp(dge, model)
+    fit <- glmQLFit(dge, model, robust=robust)
+    if(!is.null(model.contrasts)){
+        mod.constrast <- makeContrasts(contrasts=model.contrasts, levels=model)
+        res <- as.data.frame(topTags(glmQLFTest(fit, contrast=mod.constrast),
+                                     sort.by='none', n=Inf))
+    } else{
+        n.coef <- ncol(model)
+        res <- as.data.frame(topTags(glmQLFTest(fit, coef=n.coef), sort.by='none', n=Inf))
+    }
+
+    res$Nhood <- as.numeric(rownames(res))
+    message("Performing spatial FDR correction with", fdr.weighting[1], " weighting")
+    mod.spatialfdr <- graphSpatialFDR(x.nhoods=nhoods(x),
+                                      graph=graph(x),
+                                      weighting=fdr.weighting,
+                                      k=x@.k,
+                                      pvalues=res[order(res$Nhood), ]$PValue,
+                                      indices=nhoodIndex(x),
+                                      distances=nhoodDistances(x),
+                                      reduced.dimensions=reducedDim(x, reduced.dim))
+
+    res$SpatialFDR[order(res$Nhood)] <- mod.spatialfdr
+    res
+}
 ```
 
 
