@@ -1028,7 +1028,7 @@ cellDF = data.frame(cell = Cells(raw_counts)) %>%
 summary(cellDF$sample %>% as.factor())
 sampleDF = data.frame(sample = c("old_1", "old_2", "old_3", "old_4", "old_5", "old_6", "old_7", "young_1", "young_2", "young_3", "young_4", "young_5", "young_6", "young_7", "young_8"), identifier = c("muc3838", "muc3839", "muc3840", "muc3841", "muc4166", "muc4167", "muc4168", "muc4169", "muc4170", "muc4172", "muc4173", "muc4174", "muc4175", "muc4654", "muc4657"))
 meta_Schiller2019 = meta_Schiller2019 %>% left_join(sampleDF) %>% 
-  rename(cell = ...1) %>%
+  dplyr::rename(cell = ...1) %>%
   mutate(barcode = str_remove(cell, "muc[0-9][0-9][0-9][0-9]:muc[0-9][0-9][0-9][0-9]:")) %>% 
   mutate(cell = str_c(sample, ":", barcode))
 ```
@@ -1062,29 +1062,11 @@ svmDF_Schiller2019 = seurat_Schiller2019@reductions$pca@cell.embeddings %>%
   dplyr::select(-barcode, -batch)
 
 svmDF_Schiller2019['clusterRes'] = seurat_Schiller2019$cell_type 
+set.seed(123)
 svm_mat = svm_simMat(svmDF_Schiller2019)
-```
-
-```{r}
-svm_simMat = function(dataframe){
-  set.seed(123)
-  dataframe$clusterRes = as.factor(dataframe$clusterRes)
-  row_num = nrow(dataframe)
-  pred = rep(NA, row_num)
-  idx1 = sample(1:row_num, round(row_num/5))
-  idx2 = sample((1:row_num)[-idx1], round(row_num/5))
-  idx3 = sample((1:row_num)[-c(idx1, idx2)], round(row_num/5))
-  idx4 = sample((1:row_num)[-c(idx1, idx2, idx3)], round(row_num/5))
-  idx5 = (1:row_num)[-c(idx1, idx2, idx3, idx4)]
-  idxV = list(idx1, idx2, idx3, idx4, idx5)
-  for (i in 1:5){
-    svmfit = e1071::svm(clusterRes ~ ., data = dataframe[-idxV[[i]],], kernel = "radial")
-    pred[idxV[[i]]] = as.character(predict(svmfit, subset(dataframe, select = -clusterRes)[idxV[[i]],]))
-    }
-    conf.mat <- table(dataframe$clusterRes, as.factor(pred))
-    simil_mat <- t(t(conf.mat)/apply(conf.mat,2,sum))
-  return(simil_mat)
-}
+dim(svm_mat)
+#svm_mat = cbind(svm_mat, rep(0,33), rep(0,33))
+#colnames(svm_mat) = c(colnames(svm_mat)[1:31], "Gamma-Delta_T_cells", "low_quality_cells")
 ```
 
 Start the testing
@@ -1094,21 +1076,25 @@ countM = meta_Schiller2019 %>%
   group_by(celltype, sample) %>% 
   summarize(n = n()) %>% 
   pivot_wider(names_from = celltype, values_from = n) %>% 
-  filter(sample %in% c("old_1", "old_2", "young_7", "young_8")) %>% 
-  select(-`NA`) %>% 
+  filter(sample %in% c("old_1", "old_2", "young_7", "young_8")) %>%
+  dplyr::select(-`NA`) %>% 
+  #dplyr::select(-`NA`,- `Gamma-Delta_T_cells`, -low_quality_cells) %>% 
   column_to_rownames("sample")
 countM[is.na(countM)] = 0
 designM = data.frame(condition = c("old", "old", "young", "young"))
-save(countM, designM, svm_mat, file = "/storage/holab/linxy/DCATS/real_world/Schiller_2019/dcats_input.RData")
+#save(countM, designM, svm_mat, file = "/storage/holab/linxy/DCATS/real_world/Schiller_2019/dcats_input.RData")
 ```
 
+
+
 ```{r}
+svm_mat = svm_mat[colnames(countM), colnames(countM)]
 betabin_null = dcats_GLM(countM, designM)
 betabin_null_ref = dcats_GLM(countM, designM, reference = "Club_cells")
-wtoPhi_emSVM = dcats_GLM(countM, designM, similarity_mat = svm_mat)
+#wtoPhi_emSVM = dcats_GLM(countM, designM, similarity_mat = svm_mat)
 estPhi = getPhi(countM, designM)
 estPhi_null = dcats_GLM(countM, designM, fix_phi = estPhi)
-estPhi_emSVM = dcats_GLM(countM, designM, similarity_mat = svm_mat, fix_phi = estPhi)
+#estPhi_emSVM = dcats_GLM(countM, designM, similarity_mat = svm_mat, fix_phi = estPhi)
 ## Fisher's exact test
 fisher_pvals = getFisher(as.matrix(countM[1:2,]), as.matrix(countM[3:4,]))
 
@@ -1131,7 +1117,9 @@ res_GLM <- fitGLM(res_scDC, c(rep("cond1",dim(Kang2017$count_ctrl)[1]*cluster_nu
 scDCRes_temp = summary(res_GLM$pool_res_fixed)
 scDCRes = scDCRes_temp[c(cluster_num+1,(dim(scDCRes_temp)[1]-cluster_num+2):dim(scDCRes_temp)[1]),]
 ```
+
 ```{r}
-cbind(betabin_null$LRT_pvals < 0.05, betabin_null$fdr < 0.05, betabin_null_ref$LRT_pvals < 0.05, betabin_null_ref$fdr < 0.05)
+cbind(betabin_null$LRT_pvals , betabin_null$fdr , betabin_null_ref$LRT_pvals , betabin_null_ref$fdr)
+cbind(betabin_null$LRT_pvals < 0.05 , betabin_null$fdr < 0.05 , betabin_null_ref$LRT_pvals < 0.05 , betabin_null_ref$fdr < 0.05)
 ```
 
