@@ -2175,7 +2175,7 @@ betabin_null_ref = dcats_GLM(countM, designM, reference = "Club_cells")
 ```
 
 ```{r}
-cbind(betabin_null$LRT_pvals , betabin_null$fdr , betabin_null_ref$LRT_pvals , betabin_null_ref$fdr) %>% knitr::kable()
+cbind(betabin_null$LRT_pvals %>% round(4) , betabin_null$fdr %>% round(4) , betabin_null_ref$LRT_pvals %>% round(4) , betabin_null_ref$fdr %>% round(4)) %>% knitr::kable()
 cbind(betabin_null$LRT_pvals < 0.05 , betabin_null$fdr < 0.05 , betabin_null_ref$LRT_pvals < 0.05 , betabin_null_ref$fdr < 0.05)
 ```
 
