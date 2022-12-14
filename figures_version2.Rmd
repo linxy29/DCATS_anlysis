@@ -79,6 +79,7 @@ p1 + p2
 load("/storage/holab/linxy/DCATS/real_world/Kaufmann_2021/Kaufmann2021Res.RData")
 Kaufmann2021L$proportionDF %>% as.matrix() %>% t() %>% as.data.frame()
 rmseDF = Kaufmann2021L$rmseL %>% unlist() %>% as.data.frame()
+print(rmseDF)
 colnames(rmseDF) = "rmse"
 p2b = rmseDF %>% rownames_to_column("proportion") %>% 
   arrange(desc(rmse)) %>% 
@@ -564,7 +565,7 @@ res_all %>%
          F1 = round(F1, 3))
 ```
 
-```{r}
+```{r, eval=FALSE}
 sim2_auc = ggroc(list(DCATS=rocobj_dcats, Fisher=rocobj_fisher, diffcyt=rocobj_diffcyt, speckle=rocobj_speckle, scDC=rocobj_scDC, milo=rocobj_milo))+
   geom_point(aes(x=0.926, y=0.685), colour="black", shape = 4) +
   geom_point(aes(x=0.954, y=0.509), colour="black", shape = 4) +
@@ -1262,12 +1263,11 @@ ggsave("./plot/sim2_nhood2.png", bg = "transparent", width = 10, height = 6)
 ### Figure 2 - C
 
 ```{r}
-load("/storage/holab/linxy/DCATS/simulation/replicates10&10_K8_con100_splatter2000&2000_paraResDF.RData")
+load("/storage/holab/linxy/DCATS/simulation/replicates10&10_K8_con100_splatter2000&2000_para.RData")
 ```
 
 
 ```{r}
-
 conditionRes = data.frame()
 genderRes = data.frame()
 ageRes = data.frame()
@@ -1356,8 +1356,7 @@ sim3_main = res_all %>%
     geom_text(aes(label = ifelse(is.na(mcc), "N.A.", as.character(round(mcc, 3))))) +
     scale_fill_gradient(low = "white", high = "red")+
   xlab("covariates") +
-  theme(axis.title.y = element_blank(),
-        legend.position = "bottom")
+  theme(axis.title.y = element_blank())
 sim3_main
 ggsave("./plot/sim3_main.png", bg = "transparent")
 ```
@@ -1612,7 +1611,7 @@ sim4_mainHM1 = res %>%
   pivot_longer(auc:F1, names_to = "statistics", values_to = "value") %>% 
   #dplyr::select(method, auc, mcc, clustersN) %>% 
   #pivot_longer(auc, names_to = "statistics", values_to = "value") %>% 
-  mutate(statistics = factor(statistics, levels = c("mcc", "auc"))) %>% 
+  mutate(statistics = factor(statistics, levels = c("mcc", "auc", "F1"))) %>% 
   group_by(statistics) %>% 
   mutate(order_pre = rank(round(value, 3)),
          value_order = 7-ceiling(rank(order_pre))) %>% 
@@ -2167,9 +2166,17 @@ pB1 + add_pvalue(stat.testp1, tip.length = 0.015, step.increase = 0.03, colour =
 ggsave("./plot/Ren_main.png", height = 8, width = 10)
 ```
 
-### UMAP plot
+### Real world data 4
 
 ```{r}
-
+load("/storage/holab/linxy/DCATS/real_world/Schiller_2019/dcats_input.RData")
+betabin_null = dcats_GLM(countM, designM)
+betabin_null_ref = dcats_GLM(countM, designM, reference = "Club_cells")
 ```
+
+```{r}
+cbind(betabin_null$LRT_pvals , betabin_null$fdr , betabin_null_ref$LRT_pvals , betabin_null_ref$fdr)
+cbind(betabin_null$LRT_pvals < 0.05 , betabin_null$fdr < 0.05 , betabin_null_ref$LRT_pvals < 0.05 , betabin_null_ref$fdr < 0.05)
+```
+
 
