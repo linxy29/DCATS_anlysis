@@ -1078,7 +1078,7 @@ Details of statistics value
 ```{r}
 res_all %>% 
   filter(method %in% c("speckle", "diffcyt", "fisher", "scDC", "betabin_null", "estPhi_null", "wtoPhi_emK", "estPhi_emK", "milo", "ancombc", "ancombc_knn")) %>%
-  mutate(method = ifelse(method == "fisher", "Fisher", method)) %>% 
+  #mutate(method = ifelse(method == "fisher", "Fisher", method)) %>% 
   mutate(method = ifelse(method == "estPhi_null", "estPhi_wtoEM", method),
          method = ifelse(method == "betabin_null", "wtoPhi_wtoEM", method),
          method = ifelse(method == "ancombc_knn", "bcancombc", method)) %>% 
@@ -2175,7 +2175,7 @@ betabin_null_ref = dcats_GLM(countM, designM, reference = "Club_cells")
 ```
 
 ```{r}
-cbind(betabin_null$LRT_pvals , betabin_null$fdr , betabin_null_ref$LRT_pvals , betabin_null_ref$fdr)
+cbind(betabin_null$LRT_pvals , betabin_null$fdr , betabin_null_ref$LRT_pvals , betabin_null_ref$fdr) %>% knitr::kable()
 cbind(betabin_null$LRT_pvals < 0.05 , betabin_null$fdr < 0.05 , betabin_null_ref$LRT_pvals < 0.05 , betabin_null_ref$fdr < 0.05)
 ```
 
