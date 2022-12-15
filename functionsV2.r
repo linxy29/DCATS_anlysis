@@ -1124,8 +1124,8 @@ dcats_new = function (count_mat, design_mat, similarity_mat = NULL, pseudo_count
 }
 
 ## function: detect reference
-detect_reference = function(count_mat, design_mat, similarity_mat = NULL){
-  res = dcats_GLM(count_mat, design_mat, similarity_mat)
+detect_reference = function(count_mat, design_mat, similarity_mat = NULL, fix_phi = NULL){
+  res = dcats_GLM(count_mat, design_mat, similarity_mat, fix_phi)
   resDF = data.frame(celltype = rownames(res$LRT_pval), pval = as.vector(res$LRT_pvals))
   resDF = resDF[order(-resDF$pval),]
   return(resDF)

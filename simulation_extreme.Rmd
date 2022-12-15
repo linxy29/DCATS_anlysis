@@ -265,9 +265,9 @@ for (idx in 1:simulation_times) {
   wtoPhi_emSVM = dcats_GLM(sim_count, sim_design, simil_matSVM)
   estPhi_emSVM = dcats_GLM(sim_count, sim_design, simil_matSVM, fix_phi = phi)
   ## add reference
-  ref_order = detect_reference(sim_count, sim_design)$celltype
-  knnref_order = detect_reference(sim_count, sim_design, simil_matK)$celltype
-  svmref_order = detect_reference(sim_count, sim_design, simil_matSVM)$celltype
+  ref_order = detect_reference(sim_count, sim_design, fix_phi = phi)$celltype
+  knnref_order = detect_reference(sim_count, sim_design, simil_matK, phi)$celltype
+  svmref_order = detect_reference(sim_count, sim_design, simil_matSVM, phi)$celltype
   reference_orderL[[idx]] = data.frame(ref_order = ref_order, knnref_order = knnref_order, svmref_order = svmref_order)
   print(reference_orderL[[idx]])
   emSVM_refSVM3 = dcats_new(sim_count, sim_design, simil_matSVM, fix_phi = phi, reference = svmref_order[1:3])
