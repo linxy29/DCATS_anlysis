@@ -44,7 +44,7 @@ for (file in filenames[1]) {
 }
 
 ## simulation 3
-file = filenames[1]
+file = filenames[2]
 load(file)
 for (i in 1:length(oper)) {
   if (is.na(oper[[i]])[1]) next
@@ -54,9 +54,9 @@ for (i in 1:length(oper)) {
   assay_data = count_info %>% 
     #select(-condition) %>% 
     as.matrix() %>% t()
-  col_data = data.frame(condition = rownames(count_info) %>% str_remove("s[1-9]"))
+  col_data = design_mat
   t9start = Sys.time()
-  ancombcRes = getANCOMBC(assay_data, col_data)
+  ancombc_nbc = getANCOMBC(assay_data, col_data)
   oper[[i]]$time = c(oper[[i]]$time, Sys.time() - t9start)
   ## ancombc test with bias correction
   dcats_bc_knn = dcats_bc(assay_data %>% t(), oper[[i]]$knn_matrix)
@@ -66,13 +66,26 @@ for (i in 1:length(oper)) {
   ancombc_true = getANCOMBC(dcats_bc_true %>% t(), col_data)
   ancombc_svm = getANCOMBC(dcats_bc_svm %>% t(), col_data)
   ## merge results
-  ancombcRes = ancombcRes %>% 
+  ancombcRes = ancombc_nbc %>% 
     dplyr::rename(cluster = taxon) %>% 
     dplyr::rename(ancombc_pvals = q_conditioncond2) %>% 
+    dplyr::select(cluster, ancombc_pvals) %>% 
     mutate(ancombc_knn_pvals = ancombc_knn$q_conditioncond2,
            ancombc_true_pvals = ancombc_true$q_conditioncond2,
            ancombc_svm_pvals = ancombc_svm$q_conditioncond2)
-  oper[[i]]$clusterDF = oper[[i]]$clusterDF %>% 
+  oper[[i]]$conditionDF = oper[[i]]$conditionDF %>% 
+    merge(ancombcRes)
+  ancombcRes = ancombc_nbc %>% 
+    dplyr::rename(cluster = taxon) %>% 
+    dplyr::rename(ancombc_pvals = q_gendermale) %>% 
+    dplyr::select(cluster, ancombc_pvals) %>% 
+    mutate(ancombc_knn_pvals = ancombc_knn$q_gendermale,
+           ancombc_true_pvals = ancombc_true$q_gendermale,
+           ancombc_svm_pvals = ancombc_svm$q_gendermale)
+  oper[[i]]$genderDF = oper[[i]]$genderDF %>% 
     merge(ancombcRes)
 }
 save(oper, file = file)
+
+
+

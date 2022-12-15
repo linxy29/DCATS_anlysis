@@ -1125,7 +1125,7 @@ dcats_new = function (count_mat, design_mat, similarity_mat = NULL, pseudo_count
 
 ## function: detect reference
 detect_reference = function(count_mat, design_mat, similarity_mat = NULL, fix_phi = NULL){
-  res = dcats_GLM(count_mat, design_mat, similarity_mat, fix_phi)
+  res = dcats_GLM(count_mat, design_mat, similarity_mat, fix_phi = fix_phi)
   resDF = data.frame(celltype = rownames(res$LRT_pval), pval = as.vector(res$LRT_pvals))
   resDF = resDF[order(-resDF$pval),]
   return(resDF)
@@ -1137,8 +1137,14 @@ getANCOMBC = function(assay_data, col_data){
   #library(TreeSummarizedExperiment)
   #library(tidyverse)
   tse = TreeSummarizedExperiment(assays = list(counts = assay_data), colData = col_data)
-  output = ancombc2(data = tse, assay_name = "counts",fix_formula = "condition",p_adj_method = "holm")
-  return(output$res %>% select(taxon, q_conditioncond2))
+  if ("age" %in% colnames(col_data)){
+    temp = ancombc2(data = tse, assay_name = "counts",fix_formula = "condition + age + gender",p_adj_method = "holm", group = "condition")
+    output = temp$res %>% select(taxon, q_conditioncond2, q_gendermale)
+  } else {
+    temp = ancombc2(data = tse, assay_name = "counts",fix_formula = "condition",p_adj_method = "holm")
+    output = temp$res %>% select(taxon, q_conditioncond2)
+  }
+  return(output)
 }
 
 ## function: bias correction part in DCATS
