@@ -67,8 +67,8 @@ probC1 = countC1/sum(countC1)
 probC2 = countC2/sum(countC2)
 #truthRes = c("N", "N", "N", "N", "N", "N", "N", "P")
 truthRes = c("P", "N", "N", "N", "N", "N", "N", "N")
-print(probC1)
-print(probC2)
+print(probC1) %>% round(3)
+print(probC2) %>% round(3)
 file_name = "/storage/holab/linxy/DCATS/simulation/current/one_increase.RData"
 ```
 
