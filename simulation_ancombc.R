@@ -87,5 +87,42 @@ for (i in 1:length(oper)) {
 }
 save(oper, file = file)
 
-
+## simulation 4
+file = filenames[1]
+load(file)
+clusterRes = data.frame()
+resL$clusterRes = resL$clusterRes %>% mutate(sim = rep(1:30, each = 8))
+for (i in 1:30) {
+  print(i)
+  #if (is.na(oper[[i]])[1]) next
+  count_info = resL$seurat_countDF %>% filter(sim == i) %>% 
+    dplyr::select(-sim)
+  #count_info = rbind(oper[[i]]$seurat_count$cond1, oper[[i]]$seurat_count$cond2) %>%  mutate(condition = str_replace(condition, "Condition ", "cond"))
+  assay_data = count_info %>% 
+    #select(-condition) %>% 
+    as.matrix() %>% t()
+  col_data = data.frame(condition = c(rep("cond1",3), rep("cond2", 3)))
+  ancombcRes = getANCOMBC(assay_data, col_data)
+  ## ancombc test with bias correction
+  dcats_bc_knn = dcats_bc(assay_data %>% t(), resL$knn_matrixL[[i]])
+  dcats_bc_true = dcats_bc(assay_data %>% t(), resL$true_matrixL[[i]])
+  dcats_bc_svm = dcats_bc(assay_data %>% t(), resL$svm_matrixL[[i]])
+  ancombc_knn = getANCOMBC(dcats_bc_knn %>% t(), col_data)
+  ancombc_true = getANCOMBC(dcats_bc_true %>% t(), col_data)
+  ancombc_svm = getANCOMBC(dcats_bc_svm %>% t(), col_data)
+  ## merge results
+  ancombcRes = ancombcRes %>% 
+    dplyr::rename(cluster = taxon) %>% 
+    dplyr::rename(ancombc_pvals = q_conditioncond2) %>% 
+    mutate(ancombc_knn_pvals = ancombc_knn$q_conditioncond2,
+           ancombc_true_pvals = ancombc_true$q_conditioncond2,
+           ancombc_svm_pvals = ancombc_svm$q_conditioncond2)
+  clusterDF = resL$clusterRes %>% 
+    filter(sim == i) %>% 
+    select(-sim) %>% 
+    merge(ancombcRes)
+  clusterRes = rbind(clusterRes, clusterDF)
+}
+resL$clusterRes = clusterRes
+save(resL, file = "/Users/linxy29/Documents/Data/DCATS/simulation/current/one_increase_wANCOMBC.RData")
 
