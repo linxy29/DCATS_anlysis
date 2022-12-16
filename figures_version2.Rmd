@@ -451,7 +451,7 @@ prauc_ancombc_bs = getPRC(clusterRes$truth, clusterRes$ancombc_knn_pvals)$df %>%
   dplyr::select(recall, fdr, precision) %>% 
   mutate(method = "bcancombc")
 
-praucDF = rbind(prauc_dcats, prauc_fisher, prauc_scDC, prauc_speckle, prauc_diffcyt, prauc_milo, prauc_ancombc, prauc_ancombc_bs)
+praucDF = rbind(prauc_dcats, prauc_fisher, prauc_scDC, prauc_speckle, prauc_diffcyt, prauc_ancombc, prauc_ancombc_bs)
 ```
 
 ```{r}
