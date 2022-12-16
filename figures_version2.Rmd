@@ -405,7 +405,7 @@ rocobj_diffcyt = roc(clusterRes$truth, clusterRes$diffcyt_pvals)
 rocobj_milo = roc(clusterRes$truth, clusterRes$milo_pct)
 ```
 
-```{r, eval=FALSE}
+```{r}
 sim2_auc = ggroc(list(DCATS=rocobj_dcats, Fisher=rocobj_fisher, diffcyt=rocobj_diffcyt, speckle=rocobj_speckle, scDC=rocobj_scDC, milo=rocobj_milo))+
   geom_point(aes(x=0.926, y=0.685), colour="black", shape = 4) +
   geom_point(aes(x=0.954, y=0.509), colour="black", shape = 4) +
@@ -564,8 +564,8 @@ cluster8_CI
 
 ```{r}
 ## cluster number = 8
-filenames = list.files("/Users/linxy29/Documents/Data/DCATS/simulation/current", full.names = TRUE)
-#filenames = list.files("/storage/holab/linxy/DCATS/simulation/current", full.names = TRUE)
+#filenames = list.files("/Users/linxy29/Documents/Data/DCATS/simulation/current", full.names = TRUE)
+filenames = list.files("/storage/holab/linxy/DCATS/simulation/current", full.names = TRUE)
 filenames = filenames[grep("_K8_con100_splatter3000&3000para", filenames)]
 filenames
 ```
@@ -651,7 +651,7 @@ replicate2_CI = res_bootstrap %>%
 replicate2_CI
 ```
 
-```{r}
+```{r, eval=FALSE}
 replicate2_CI/replicate3_CI/replicate4_CI
 ggsave("./plot/statistics_replicatesCI.png", bg = "transparent", height = 14, width = 10)
 ```
@@ -1027,8 +1027,8 @@ ggsave("./plot/sim2_nhood1.png", bg = "transparent", width = 10, height = 6)
 
 ```{r}
 ## replicates number 3&3
-filenames = list.files("/Users/linxy29/Documents/Data/DCATS/simulation/current", full.names = TRUE)
-#filenames = list.files("/storage/holab/linxy/DCATS/simulation/current", full.names = TRUE)
+#filenames = list.files("/Users/linxy29/Documents/Data/DCATS/simulation/current", full.names = TRUE)
+filenames = list.files("/storage/holab/linxy/DCATS/simulation/current", full.names = TRUE)
 filenames = filenames[grep("replicates3&3", filenames)]
 filenames
 ```
@@ -1114,7 +1114,7 @@ cluster8_CI = res_bootstrap %>%
 cluster8_CI
 ```
 
-```{r}
+```{r, eval=FALSE}
 cluster8_CI/cluster10_CI/cluster12_CI
 ggsave("./plot/statistics_clusterCI.png", bg = "transparent", height = 14, width = 10)
 ```
@@ -1727,7 +1727,7 @@ sim4_mainHM1 = res %>%
   mutate(methods = ifelse(methods == "ancombc_knn", "bcancombc", methods)) %>% 
   mutate(methods = ifelse(methods == "emK_org3", "dcats_autoRef", methods)) %>% 
   mutate(methods = ifelse(methods == "emK_truth3", "dcats_defRef", methods)) %>% 
-  mutate(methods = factor(methods, level = c("Fisher", "scDC", "milo", "diffcyt", "speckle",  "DCATS", "dcats_autoRef", "dcats_defRef", "ancombc", "bcancombc"))) %>% 
+  mutate(methods = factor(methods, level = c("scDC", "Fisher", "milo", "diffcyt", "speckle",  "DCATS", "dcats_autoRef", "dcats_defRef", "ancombc", "bcancombc"))) %>% 
   dplyr::select(methods, mcc, F1, auc) %>% 
   pivot_longer(mcc:auc, names_to = "statistics", values_to = "value") %>% 
   group_by(statistics) %>% 
@@ -1777,67 +1777,6 @@ ggsave("./plot/version2/Fig2_3.png", bg = "transparent", height = 14, width = 12
 ```
 
 
-
-### extreme case1
-
-```{r}
-load("/storage/holab/linxy/DCATS/simulation/three_increase_conc100.RData")
-```
-
-```{r}
-## calculate statistics of "three_increase.RData" results
-#load(file_name)
-clusterRes = resL$clusterRes
-methods = colnames(clusterRes)[colnames(clusterRes) %>% str_detect("_pvals")] %>% str_remove("_pvals")
-#methods = colnames(clusterRes)[colnames(clusterRes) %>% str_detect("_pvals")] %>% str_remove("_pvals")
-methods = c(methods, "milo")
-numb_mthd = length(methods)
-mcc = rep(NA, numb_mthd)
-auc = rep(NA, numb_mthd)
-prauc = rep(NA, numb_mthd)
-sensitivity = rep(NA, numb_mthd)
-specificity = rep(NA, numb_mthd)
-precision = rep(NA, numb_mthd)
-F1 = rep(NA, numb_mthd)
-truth = clusterRes$truth
-clusterRes = clusterRes %>% 
-  mutate(milo_main = ifelse(milo_less > milo_more, milo_less, milo_more),
-         milo_pct = milo_main/(milo_less + neutral + milo_more),
-         milo_diff = abs(milo_less - milo_more)) %>% 
-  dplyr::select(-milo_less, -milo_more, - neutral, -milo_main)
-
-for (i in 3:(dim(clusterRes)[2]-1)){
-  pred = clusterRes[,i]
-  if (colnames(clusterRes)[i] == "milo_pct") {
-    pred_res = ifelse(clusterRes$milo_diff > 0, "P", "N")
-    ## most of them are negative, can't calculate this value
-    auc[i-2] = getROC(clusterRes$truth, 1-pred)$auc
-    #prauc[i-2] = getPRC(clusterRes$truth, 1-pred)$prauc
-    }
-  else {
-    pred_res = ifelse(pred < 0.1, "P", "N")
-    auc[i-2] = getROC(clusterRes$truth, pred)$auc
-    prauc[i-2] = getPRC(clusterRes$truth, pred)$prauc}
-  TP <- sum(pred_res=="P"&truth=="P")
-  TN <- sum(pred_res=="N"&truth=="N")
-  FP <- sum(pred_res=="P"&truth=="N")
-  FN <- sum(pred_res=="N"&truth=="P")
-  truthN = TN + FP
-  truthP = FN + TP
-  predP = TP + FP
-  predN = FN + TN
-  sensitivity[i-2] = TP/truthP
-  specificity[i-2] = TN/truthN
-  precision[i-2] = TP/predP
-  #mcc[i-2] = sqrt(sensitivity[i]*specificity[i]*precision[i]*(TN/(TN+FN))) - sqrt((1-sensitivity[i])*(1-specificity[i])*(FN/predN)*(FP/predP))
-  mcc[i-2] = (TP*TN-FP*FN)/sqrt(predP*truthP*truthN*predN)
-  F1[i-2] = 2*TP/(2*TP+FP+FN)
-}
-res = data.frame(methods = methods, mcc = mcc, auc = auc, prauc = prauc, sensitivity = sensitivity, specificity = specificity, precision = precision, F1 = F1) %>% 
-  arrange(desc(mcc))
-  #filter(methods == "wtoPhi_fullK" | methods == "diffcyt" | methods == "speckle" | methods == "fisher" | methods == "scDC")
-print(res)
-```
 
 ```{r}
 sim4_mainHM1 = res %>% 
