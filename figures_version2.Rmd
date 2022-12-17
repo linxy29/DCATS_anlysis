@@ -564,15 +564,15 @@ cluster8_CI
 
 ```{r}
 ## cluster number = 8
-filenames = list.files("/Users/linxy29/Documents/Data/DCATS/simulation/current", full.names = TRUE)
-#filenames = list.files("/storage/holab/linxy/DCATS/simulation/current", full.names = TRUE)
+#filenames = list.files("/Users/linxy29/Documents/Data/DCATS/simulation/current", full.names = TRUE)
+filenames = list.files("/storage/holab/linxy/DCATS/simulation/current", full.names = TRUE)
 filenames = filenames[grep("_K8_con100_splatter3000&3000para", filenames)]
 filenames
 ```
 
 ### calculate confidence interval
 
-```{r}
+```{r, eval=FALSE}
 file = filenames[3]
 load(file)
 clusterRes = data.frame()
@@ -587,7 +587,7 @@ clusterRes = clusterRes %>%
 ```
 
 
-```{r}
+```{r, eval=FALSE}
 res_bootstrap = data.frame()
 set.seed(123)
 for (idx in 1:50) {
@@ -634,7 +634,7 @@ for (idx in 1:50) {
   }
 ```
 
-```{r}
+```{r, eval=FALSE}
 replicates4_CI = res_bootstrap %>% 
   filter(method %in% c("speckle", "diffcyt", "fisher", "scDC", "estPhi_emK", "milo", "ancombc", "ancombc_knn")) %>%
   mutate(method = ifelse(method == "fisher", "Fisher", method)) %>% 
@@ -668,7 +668,7 @@ save(replicates_CI, file = "/Users/linxy29/Documents/Data/DCATS/simulation/repli
 ```
 
 ```{r}
-load("/Users/linxy29/Documents/Data/DCATS/simulation/replicates_CI.RData")
+load("/storage/holab/linxy/DCATS/simulation/replicates_CI.RData")
 replicates_CI %>% knitr::kable()
 ```
 
@@ -1041,7 +1041,7 @@ ggsave("./plot/sim2_nhood1.png", bg = "transparent", width = 10, height = 6)
 
 #### Different numbers of clusters
 
-```{r}
+```{r, eval=FALSE}
 ## replicates number 3&3
 filenames = list.files("/Users/linxy29/Documents/Data/DCATS/simulation/current", full.names = TRUE)
 #filenames = list.files("/storage/holab/linxy/DCATS/simulation/current", full.names = TRUE)
@@ -1051,7 +1051,7 @@ filenames
 
 ### calculate confidence interval
 
-```{r}
+```{r, eval=FALSE}
 file = filenames[3]
 load(file)
 clusterRes = data.frame()
@@ -1066,7 +1066,7 @@ clusterRes = clusterRes %>%
 ```
 
 
-```{r}
+```{r, eval=FALSE}
 res_bootstrap = data.frame()
 set.seed(123)
 for (idx in 1:50) {
@@ -1113,7 +1113,7 @@ for (idx in 1:50) {
   }
 ```
 
-```{r}
+```{r, eval=FALSE}
 clusters8_CI = res_bootstrap %>% 
   filter(method %in% c("speckle", "diffcyt", "fisher", "scDC", "estPhi_emK", "milo", "ancombc", "ancombc_knn")) %>%
   mutate(method = ifelse(method == "fisher", "Fisher", method)) %>% 
@@ -1147,7 +1147,7 @@ save(clusters_CI, file = "/Users/linxy29/Documents/Data/DCATS/simulation/cluster
 ```
 
 ```{r}
-load("/Users/linxy29/Documents/Data/DCATS/simulation/clusters_CI.RData")
+load("/storage/holab/linxy/DCATS/simulation/clusters_CI.RData")
 clusters_CI %>% knitr::kable()
 ```
 
