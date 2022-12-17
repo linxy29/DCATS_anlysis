@@ -1642,13 +1642,13 @@ ggsave("./plot/sim3_mcc.png", bg = "transparent")
 ```{r}
 res_all %>% 
   dplyr::select(method, F1, factor) %>% 
-  pivot_wider(names_from = factor, values_from = F1) %>% 
+ pivot_wider(names_from = factor, values_from = F1) %>% 
   pivot_longer(condition:gender, names_to = "factor", values_to = "F1") %>% 
-  filter(method %in% c("speckle", "diffcyt", "fisher", "scDC", "betabin_null", "estPhi_null", "wtoPhi_emK", "estPhi_emK", "milo_null", "milo_full")) %>%
-  mutate(method = ifelse(method == "fisher", "Fisher", method)) %>% 
-  mutate(method = ifelse(method == "estPhi_null", "estPhi_wtoEM", method),
-         method = ifelse(method == "betabin_null", "wtoPhi_wtoEM", method)) %>% 
-  mutate(method = factor(method, level = sim3_order2),
+  filter(method %in% c("speckle", "diffcyt", "fisher", "scDC", "estPhi_emK", "milo", "ancombc", "ancombc_knn")) %>%
+  mutate(method = ifelse(method == "fisher", "Fisher", method),
+         method = ifelse(method == "estPhi_emK", "DCATS", method),
+         method = ifelse(method == "ancombc_knn", "bcancombc", method)) %>% 
+  mutate(method = factor(method, level = sim3_order),
          factor = factor(factor, level = c("condition", "age", "gender"))) %>% 
   ggplot(aes(factor, method)) +
     geom_tile(aes(fill = F1)) + 
@@ -1748,13 +1748,13 @@ sim4_mainHM1
 
 ```{r}
 res %>% 
-  filter(methods %in% c("speckle", "diffcyt", "fisher", "scDC", "estPhi_emK", "milo", "ancombc", "ancombc_knn", "emK_org2", "emK_truth2")) %>%
+   filter(methods %in% c("speckle", "diffcyt", "fisher", "scDC", "estPhi_emK", "milo", "ancombc", "ancombc_knn", "emK_org3", "emK_truth3")) %>%
   mutate(methods = ifelse(methods == "fisher", "Fisher", methods)) %>% 
   mutate(methods = ifelse(methods == "estPhi_emK", "DCATS", methods)) %>% 
   mutate(methods = ifelse(methods == "ancombc_knn", "bcancombc", methods)) %>% 
-  mutate(methods = ifelse(methods == "emK_org2", "emK_autoRef", methods)) %>% 
-  mutate(methods = ifelse(methods == "emK_truth2", "emK_defRef", methods)) %>% 
-  mutate(methods = factor(methods, level = c("Fisher", "scDC", "ancombc", "bcancombc", "milo", "diffcyt", "speckle", "dcats_defRef", "dcats_autoRef",  "DCATS"))) %>% 
+  mutate(methods = ifelse(methods == "emK_org3", "dcats_autoRef", methods)) %>% 
+  mutate(methods = ifelse(methods == "emK_truth3", "dcats_defRef", methods)) %>% 
+   mutate(methods = factor(methods, level = c("scDC", "Fisher", "milo", "diffcyt", "speckle",  "DCATS", "dcats_autoRef", "dcats_defRef", "ancombc", "bcancombc"))) %>% 
 mutate(mcc = round(mcc, 3),
          auc = round(auc, 3),
          F1 = round(F1, 3),
@@ -1762,8 +1762,36 @@ mutate(mcc = round(mcc, 3),
          prauc = round(prauc,3),
          specificity = round(specificity, 3),
          precision = round(precision, 3)) %>% 
-  arrange(desc(auc)) %>% 
+  arrange(desc(mcc)) %>% 
   knitr::kable()
+```
+
+```{r}
+sim4_seuratCount = resL$seurat_countDF %>% 
+  rownames_to_column("condition") %>% 
+  mutate(condition = str_sub(condition, 1,5)) %>% 
+  pivot_longer(D:B, names_to = "cellType", values_to = "count") %>% 
+  mutate(proportion = count/3000) %>% 
+  ggplot(aes(cellType, proportion)) +
+  geom_boxplot(aes(col = condition)) +
+  theme(legend.position = "top") + 
+  xlab("Cell type")
+sim4_seuratCount
+```
+
+```{r}
+sim4_trueCount = resL$true_countDF %>% 
+  group_by(sim) %>% 
+  mutate(condition = c(rep("cond1", 3), rep("cond2", 3))) %>% 
+  #rownames_to_column("condition") %>% 
+  #mutate(condition = str_sub(condition, 1,5)) %>% 
+  pivot_longer(V1:V8, names_to = "cellType", values_to = "count") %>% 
+  mutate(proportion = count/3000) %>% 
+  ggplot(aes(cellType, proportion)) +
+  geom_boxplot(aes(col = condition)) +
+  xlab("Cell type")
+sim4_trueCount
+ggsave("./plot/sim4_trueCount.png", bg = "transparent")
 ```
 
 ```{r}
