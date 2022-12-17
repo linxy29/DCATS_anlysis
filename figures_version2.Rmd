@@ -669,7 +669,10 @@ save(replicates_CI, file = "/Users/linxy29/Documents/Data/DCATS/simulation/repli
 
 ```{r}
 load("/storage/holab/linxy/DCATS/simulation/replicates_CI.RData")
-replicates_CI %>% knitr::kable()
+replicates_CI[,2:(ncol(replicates_CI)-1)] %>% round(digits = 3) %>% 
+  mutate(method = replicates_CI$method,
+         replicates = replicates_CI$replicates) %>% 
+  dplyr::select(method, everything()) %>% knitr::kable()
 ```
 
 
@@ -1148,7 +1151,10 @@ save(clusters_CI, file = "/Users/linxy29/Documents/Data/DCATS/simulation/cluster
 
 ```{r}
 load("/storage/holab/linxy/DCATS/simulation/clusters_CI.RData")
-clusters_CI %>% knitr::kable()
+clusters_CI[,2:(ncol(clusters_CI)-1)] %>% round(digits = 3) %>% 
+  mutate(method = clusters_CI$method,
+         clusterN = clusters_CI$clusterN) %>% 
+  dplyr::select(method, everything()) %>% knitr::kable()
 ```
 
 ```{r, warning=FALSE}
