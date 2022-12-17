@@ -1748,13 +1748,12 @@ sim4_mainHM1
 
 ```{r}
 res %>% 
-   filter(methods %in% c("speckle", "diffcyt", "fisher", "scDC", "estPhi_emK", "milo", "ancombc", "ancombc_knn", "emK_org3", "emK_truth3")) %>%
+   filter(methods %in% c("speckle", "diffcyt", "fisher", "scDC", "estPhi_emK", "milo", "ancombc", "ancombc_knn", "emK_org3", "emK_truth3", "wtoPhi_emK")) %>%
   mutate(methods = ifelse(methods == "fisher", "Fisher", methods)) %>% 
   mutate(methods = ifelse(methods == "estPhi_emK", "DCATS", methods)) %>% 
   mutate(methods = ifelse(methods == "ancombc_knn", "bcancombc", methods)) %>% 
   mutate(methods = ifelse(methods == "emK_org3", "dcats_autoRef", methods)) %>% 
   mutate(methods = ifelse(methods == "emK_truth3", "dcats_defRef", methods)) %>% 
-   mutate(methods = factor(methods, level = c("scDC", "Fisher", "milo", "diffcyt", "speckle",  "DCATS", "dcats_autoRef", "dcats_defRef", "ancombc", "bcancombc"))) %>% 
 mutate(mcc = round(mcc, 3),
          auc = round(auc, 3),
          F1 = round(F1, 3),
