@@ -564,8 +564,8 @@ cluster8_CI
 
 ```{r}
 ## cluster number = 8
-#filenames = list.files("/Users/linxy29/Documents/Data/DCATS/simulation/current", full.names = TRUE)
-filenames = list.files("/storage/holab/linxy/DCATS/simulation/current", full.names = TRUE)
+filenames = list.files("/Users/linxy29/Documents/Data/DCATS/simulation/current", full.names = TRUE)
+#filenames = list.files("/storage/holab/linxy/DCATS/simulation/current", full.names = TRUE)
 filenames = filenames[grep("_K8_con100_splatter3000&3000para", filenames)]
 filenames
 ```
@@ -573,7 +573,7 @@ filenames
 ### calculate confidence interval
 
 ```{r}
-file = filenames[1]
+file = filenames[3]
 load(file)
 clusterRes = data.frame()
 for (idx in 1:length(oper)){
@@ -635,25 +635,41 @@ for (idx in 1:50) {
 ```
 
 ```{r}
-replicate2_CI = res_bootstrap %>% 
+replicates4_CI = res_bootstrap %>% 
   filter(method %in% c("speckle", "diffcyt", "fisher", "scDC", "estPhi_emK", "milo", "ancombc", "ancombc_knn")) %>%
   mutate(method = ifelse(method == "fisher", "Fisher", method)) %>% 
   mutate(method = ifelse(method == "estPhi_emK", "DCATS", method)) %>% 
   mutate(method = ifelse(method == "ancombc_knn", "bcancombc", method)) %>% 
   dplyr::select(method, mcc, prauc, F1, auc) %>% 
-  pivot_longer(mcc:auc, names_to = "statistics", values_to = "value") %>% 
-  mutate(statistics = factor(statistics, levels = c("mcc", "F1", "auc", "prauc"))) %>% 
-  ggplot(aes(x = statistics, y = value, color = method)) +
-  geom_boxplot() +
-  theme(axis.title.y = element_blank(),
-        axis.title.x = element_blank()) +
-  ggtitle("Boxplot of MCC, F1, AUC, PRAUC in simulation with 2 replicates (8 cell types)")
-replicate2_CI
+  group_by(method) %>% 
+  mutate(mcc_lower_CI = quantile(mcc, probs = 0.025),
+         mcc_upper_CI = quantile(mcc, probs = 0.975),
+         mcc_mean = mean(mcc),
+         prauc_lower_CI = quantile(prauc, probs = 0.025),
+         prauc_upper_CI = quantile(prauc, probs = 0.975),
+         prauc_mean = mean(prauc),
+         F1_lower_CI = quantile(F1, probs = 0.025),
+         F1_upper_CI = quantile(F1, probs = 0.975),
+         F1_mean = mean(F1),
+         auc_lower_CI = quantile(auc, probs = 0.025),
+         auc_upper_CI = quantile(auc, probs = 0.975),
+         auc_mean = mean(auc)) %>% 
+  head(n = 8) %>% 
+  mutate(replicates = "4&4") %>% 
+  select(-mcc, -prauc, -F1, -auc) %>% 
+  arrange(desc(mcc_mean))
+replicates4_CI
 ```
 
 ```{r, eval=FALSE}
-replicate2_CI/replicate3_CI/replicate4_CI
-ggsave("./plot/statistics_replicatesCI.png", bg = "transparent", height = 14, width = 10)
+replicates_CI = rbind(replicates2_CI, replicates3_CI, replicates4_CI)
+replicates_CI
+save(replicates_CI, file = "/Users/linxy29/Documents/Data/DCATS/simulation/replicates_CI.RData")
+```
+
+```{r}
+load("/Users/linxy29/Documents/Data/DCATS/simulation/replicates_CI.RData")
+replicates_CI %>% knitr::kable()
 ```
 
 
@@ -1027,8 +1043,8 @@ ggsave("./plot/sim2_nhood1.png", bg = "transparent", width = 10, height = 6)
 
 ```{r}
 ## replicates number 3&3
-#filenames = list.files("/Users/linxy29/Documents/Data/DCATS/simulation/current", full.names = TRUE)
-filenames = list.files("/storage/holab/linxy/DCATS/simulation/current", full.names = TRUE)
+filenames = list.files("/Users/linxy29/Documents/Data/DCATS/simulation/current", full.names = TRUE)
+#filenames = list.files("/storage/holab/linxy/DCATS/simulation/current", full.names = TRUE)
 filenames = filenames[grep("replicates3&3", filenames)]
 filenames
 ```
@@ -1098,25 +1114,41 @@ for (idx in 1:50) {
 ```
 
 ```{r}
-cluster8_CI = res_bootstrap %>% 
+clusters8_CI = res_bootstrap %>% 
   filter(method %in% c("speckle", "diffcyt", "fisher", "scDC", "estPhi_emK", "milo", "ancombc", "ancombc_knn")) %>%
   mutate(method = ifelse(method == "fisher", "Fisher", method)) %>% 
   mutate(method = ifelse(method == "estPhi_emK", "DCATS", method)) %>% 
   mutate(method = ifelse(method == "ancombc_knn", "bcancombc", method)) %>% 
   dplyr::select(method, mcc, prauc, F1, auc) %>% 
-  pivot_longer(mcc:auc, names_to = "statistics", values_to = "value") %>% 
-  mutate(statistics = factor(statistics, levels = c("mcc", "F1", "auc", "prauc"))) %>% 
-  ggplot(aes(x = statistics, y = value, color = method)) +
-  geom_boxplot() +
-  theme(axis.title.y = element_blank(),
-        axis.title.x = element_blank()) +
-  ggtitle("Boxplot of MCC, F1, AUC, PRAUC in simulation with 8 cell types (3 replicates)")
-cluster8_CI
+  group_by(method) %>% 
+  mutate(mcc_lower_CI = quantile(mcc, probs = 0.025),
+         mcc_upper_CI = quantile(mcc, probs = 0.975),
+         mcc_mean = mean(mcc),
+         prauc_lower_CI = quantile(prauc, probs = 0.025),
+         prauc_upper_CI = quantile(prauc, probs = 0.975),
+         prauc_mean = mean(prauc),
+         F1_lower_CI = quantile(F1, probs = 0.025),
+         F1_upper_CI = quantile(F1, probs = 0.975),
+         F1_mean = mean(F1),
+         auc_lower_CI = quantile(auc, probs = 0.025),
+         auc_upper_CI = quantile(auc, probs = 0.975),
+         auc_mean = mean(auc)) %>% 
+  head(n = 8) %>% 
+  mutate(clusterN = "8") %>% 
+  select(-mcc, -prauc, -F1, -auc) %>% 
+  arrange(desc(mcc_mean))
+clusters8_CI
 ```
 
 ```{r, eval=FALSE}
-cluster8_CI/cluster10_CI/cluster12_CI
-ggsave("./plot/statistics_clusterCI.png", bg = "transparent", height = 14, width = 10)
+clusters_CI = rbind(clusters8_CI, clusters10_CI, clusters12_CI)
+clusters_CI
+save(clusters_CI, file = "/Users/linxy29/Documents/Data/DCATS/simulation/clusters_CI.RData")
+```
+
+```{r}
+load("/Users/linxy29/Documents/Data/DCATS/simulation/clusters_CI.RData")
+clusters_CI %>% knitr::kable()
 ```
 
 ```{r, warning=FALSE}
