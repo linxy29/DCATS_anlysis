@@ -462,6 +462,7 @@ prcurve = praucDF %>%
   xlab("False discovery rate") +
   ylab("True positive rate")
 prcurve
+ggsave("./plot/sim2_prauc.png", bg = "transparent")
 ```
 
 ```{r}
