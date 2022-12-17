@@ -497,13 +497,13 @@ probC1 = countC1/sum(countC1)
 #probC2 = countC2/sum(countC2)
 truthRes = c("N", "N", "N", "N", "N", "N", "P", "P")
 #print(probC2)
-file_name = "/storage/holab/linxy/DCATS/simulation/current/two_increase_toy.RData"
+file_name = "/Users/linxy29/Documents/Data/DCATS/simulation/current/two_increase_toy.RData"
 ```
 
 ```{r}
 ## load data and function
-#load("/storage/holab/linxy/DCATS/cells_pool8_splatter.RData")
-load("/storage/holab/linxy/DCATS/cells_pool8_splatter_large.RData") ## for extreme case2
+load("/Users/linxy29/Documents/Data/DCATS/cells_pool8_splatter.RData")
+#load("/storage/holab/linxy/DCATS/cells_pool8_splatter_large.RData") ## for extreme case2
 source("functionsV2.r")
 source("glm.R")     # for scDC
 options(future.globals.maxSize = 15000 * 1024^2)
@@ -516,7 +516,6 @@ options(future.globals.maxSize = 15000 * 1024^2)
 resL = list()
 valueV = seq(10, 20, 2)
 for (v in 1:length(valueV)){
-  resDF = data.frame()
   countC2 = c(rep(8,6),valueV[v],valueV[v])
   probC2 = countC2/sum(countC2)
   print(probC2)
@@ -537,8 +536,7 @@ for (v in 1:length(valueV)){
   truth_res3 = dcats_new(sim_count, sim_design, fix_phi = phi, reference = c(4,5,6))
   truth_res2 = dcats_new(sim_count, sim_design, fix_phi = phi, reference = c(5,6))
   truth_res1 = dcats_new(sim_count, sim_design, fix_phi = phi, reference = 6)
-  sub_res = data.frame(truth = truthRes, ref_pval1 = as.vector(ref_res1$LRT_pvals), ref_pval2 = as.vector(ref_res2$LRT_pvals), ref_pval3 = as.vector(ref_res3$LRT_pvals), org_pval = as.vector(org_res$LRT_pvals), truth_pval1 = as.vector(truth_res1$LRT_pvals), truth_pval2 = as.vector(truth_res2$LRT_pvals), truth_pval3 = as.vector(truth_res3$LRT_pvals))
-  resDF = rbind(resDF, sub_res)
+  resDF = data.frame(truth = truthRes, ref_pval1 = as.vector(ref_res1$LRT_pvals), ref_pval2 = as.vector(ref_res2$LRT_pvals), ref_pval3 = as.vector(ref_res3$LRT_pvals), org_pval = as.vector(org_res$LRT_pvals), truth_pval1 = as.vector(truth_res1$LRT_pvals), truth_pval2 = as.vector(truth_res2$LRT_pvals), truth_pval3 = as.vector(truth_res3$LRT_pvals))
   }
   resL[[v]] = resDF
 }
