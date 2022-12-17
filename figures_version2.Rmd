@@ -406,12 +406,11 @@ rocobj_milo = roc(clusterRes$truth, clusterRes$milo_pct)
 ```
 
 ```{r}
-sim2_auc = ggroc(list(DCATS=rocobj_dcats, Fisher=rocobj_fisher, diffcyt=rocobj_diffcyt, speckle=rocobj_speckle, scDC=rocobj_scDC, milo=rocobj_milo))+
+sim2_auc = ggroc(list(DCATS=rocobj_dcats, Fisher=rocobj_fisher, diffcyt=rocobj_diffcyt, speckle=rocobj_speckle, scDC=rocobj_scDC))+
   geom_point(aes(x=0.926, y=0.685), colour="black", shape = 4) +
   geom_point(aes(x=0.954, y=0.509), colour="black", shape = 4) +
   geom_point(aes(x=0.944, y=0.509), colour="black", shape = 4) +
   geom_point(aes(x=0.250, y=0.972), colour="black", shape = 4) +
-  geom_point(aes(x=0.750, y=0.630), colour="black", shape = 4) +
   geom_point(aes(x=0.333, y=0.861), colour="black", shape = 4) +
   labs(color='method')
 sim2_auc
