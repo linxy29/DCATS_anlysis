@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+<meta charset="utf-8" />
+<meta name="generator" content="pandoc" />
+<meta http-equiv="X-UA-Compatible" content="IE=EDGE" />
+
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+
+
+
+<title>Integrate DCATS with Seurat pipeline</title>
+
+<script src="data:application/javascript;base64,Ly8gUGFuZG9jIDIuOSBhZGRzIGF0dHJpYnV0ZXMgb24gYm90aCBoZWFkZXIgYW5kIGRpdi4gV2UgcmVtb3ZlIHRoZSBmb3JtZXIgKHRvCi8vIGJlIGNvbXBhdGlibGUgd2l0aCB0aGUgYmVoYXZpb3Igb2YgUGFuZG9jIDwgMi44KS4KZG9jdW1lbnQuYWRkRXZlbnRMaXN0ZW5lcignRE9NQ29udGVudExvYWRlZCcsIGZ1bmN0aW9uKGUpIHsKICB2YXIgaHMgPSBkb2N1bWVudC5xdWVyeVNlbGVjdG9yQWxsKCJkaXYuc2VjdGlvbltjbGFzcyo9J2xldmVsJ10gPiA6Zmlyc3QtY2hpbGQiKTsKICB2YXIgaSwgaCwgYTsKICBmb3IgKGkgPSAwOyBpIDwgaHMubGVuZ3RoOyBpKyspIHsKICAgIGggPSBoc1tpXTsKICAgIGlmICghL15oWzEtNl0kL2kudGVzdChoLnRhZ05hbWUpKSBjb250aW51ZTsgIC8vIGl0IHNob3VsZCBiZSBhIGhlYWRlciBoMS1oNgogICAgYSA9IGguYXR0cmlidXRlczsKICAgIHdoaWxlIChhLmxlbmd0aCA+IDApIGgucmVtb3ZlQXR0cmlidXRlKGFbMF0ubmFtZSk7CiAgfQp9KTsK"></script>
+
+<style type="text/css">
+  code{white-space: pre-wrap;}
+  span.smallcaps{font-variant: small-caps;}
+  span.underline{text-decoration: underline;}
+  div.column{display: inline-block; vertical-align: top; width: 50%;}
+  div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+  ul.task-list{list-style: none;}
+    </style>
+
+
+
+<style type="text/css">
+  code {
+    white-space: pre;
+  }
+  .sourceCode {
+    overflow: visible;
+  }
+</style>
+<style type="text/css" data-origin="pandoc">
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+    color: #aaaaaa;
+  }
+pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+code span.al { color: #ff0000; font-weight: bold; } /* Alert */
+code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+code span.at { color: #7d9029; } /* Attribute */
+code span.bn { color: #40a070; } /* BaseN */
+code span.bu { } /* BuiltIn */
+code span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+code span.ch { color: #4070a0; } /* Char */
+code span.cn { color: #880000; } /* Constant */
+code span.co { color: #60a0b0; font-style: italic; } /* Comment */
+code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+code span.do { color: #ba2121; font-style: italic; } /* Documentation */
+code span.dt { color: #902000; } /* DataType */
+code span.dv { color: #40a070; } /* DecVal */
+code span.er { color: #ff0000; font-weight: bold; } /* Error */
+code span.ex { } /* Extension */
+code span.fl { color: #40a070; } /* Float */
+code span.fu { color: #06287e; } /* Function */
+code span.im { } /* Import */
+code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+code span.kw { color: #007020; font-weight: bold; } /* Keyword */
+code span.op { color: #666666; } /* Operator */
+code span.ot { color: #007020; } /* Other */
+code span.pp { color: #bc7a00; } /* Preprocessor */
+code span.sc { color: #4070a0; } /* SpecialChar */
+code span.ss { color: #bb6688; } /* SpecialString */
+code span.st { color: #4070a0; } /* String */
+code span.va { color: #19177c; } /* Variable */
+code span.vs { color: #4070a0; } /* VerbatimString */
+code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+
+</style>
+<script>
+// apply pandoc div.sourceCode style to pre.sourceCode instead
+(function() {
+  var sheets = document.styleSheets;
+  for (var i = 0; i < sheets.length; i++) {
+    if (sheets[i].ownerNode.dataset["origin"] !== "pandoc") continue;
+    try { var rules = sheets[i].cssRules; } catch (e) { continue; }
+    var j = 0;
+    while (j < rules.length) {
+      var rule = rules[j];
+      // check if there is a div.sourceCode rule
+      if (rule.type !== rule.STYLE_RULE || rule.selectorText !== "div.sourceCode") {
+        j++;
+        continue;
+      }
+      var style = rule.style.cssText;
+      // check if color or background-color is set
+      if (rule.style.color === '' && rule.style.backgroundColor === '') {
+        j++;
+        continue;
+      }
+      // replace div.sourceCode by a pre.sourceCode rule
+      sheets[i].deleteRule(j);
+      sheets[i].insertRule('pre.sourceCode{' + style + '}', j);
+    }
+  }
+})();
+</script>
+
+
+
+
+<link rel="stylesheet" href="data:text/css,body%20%7B%0Abackground%2Dcolor%3A%20%23fff%3B%0Amargin%3A%201em%20auto%3B%0Amax%2Dwidth%3A%20700px%3B%0Aoverflow%3A%20visible%3B%0Apadding%2Dleft%3A%202em%3B%0Apadding%2Dright%3A%202em%3B%0Afont%2Dfamily%3A%20%22Open%20Sans%22%2C%20%22Helvetica%20Neue%22%2C%20Helvetica%2C%20Arial%2C%20sans%2Dserif%3B%0Afont%2Dsize%3A%2014px%3B%0Aline%2Dheight%3A%201%2E35%3B%0A%7D%0A%23TOC%20%7B%0Aclear%3A%20both%3B%0Amargin%3A%200%200%2010px%2010px%3B%0Apadding%3A%204px%3B%0Awidth%3A%20400px%3B%0Aborder%3A%201px%20solid%20%23CCCCCC%3B%0Aborder%2Dradius%3A%205px%3B%0Abackground%2Dcolor%3A%20%23f6f6f6%3B%0Afont%2Dsize%3A%2013px%3B%0Aline%2Dheight%3A%201%2E3%3B%0A%7D%0A%23TOC%20%2Etoctitle%20%7B%0Afont%2Dweight%3A%20bold%3B%0Afont%2Dsize%3A%2015px%3B%0Amargin%2Dleft%3A%205px%3B%0A%7D%0A%23TOC%20ul%20%7B%0Apadding%2Dleft%3A%2040px%3B%0Amargin%2Dleft%3A%20%2D1%2E5em%3B%0Amargin%2Dtop%3A%205px%3B%0Amargin%2Dbottom%3A%205px%3B%0A%7D%0A%23TOC%20ul%20ul%20%7B%0Amargin%2Dleft%3A%20%2D2em%3B%0A%7D%0A%23TOC%20li%20%7B%0Aline%2Dheight%3A%2016px%3B%0A%7D%0Atable%20%7B%0Amargin%3A%201em%20auto%3B%0Aborder%2Dwidth%3A%201px%3B%0Aborder%2Dcolor%3A%20%23DDDDDD%3B%0Aborder%2Dstyle%3A%20outset%3B%0Aborder%2Dcollapse%3A%20collapse%3B%0A%7D%0Atable%20th%20%7B%0Aborder%2Dwidth%3A%202px%3B%0Apadding%3A%205px%3B%0Aborder%2Dstyle%3A%20inset%3B%0A%7D%0Atable%20td%20%7B%0Aborder%2Dwidth%3A%201px%3B%0Aborder%2Dstyle%3A%20inset%3B%0Aline%2Dheight%3A%2018px%3B%0Apadding%3A%205px%205px%3B%0A%7D%0Atable%2C%20table%20th%2C%20table%20td%20%7B%0Aborder%2Dleft%2Dstyle%3A%20none%3B%0Aborder%2Dright%2Dstyle%3A%20none%3B%0A%7D%0Atable%20thead%2C%20table%20tr%2Eeven%20%7B%0Abackground%2Dcolor%3A%20%23f7f7f7%3B%0A%7D%0Ap%20%7B%0Amargin%3A%200%2E5em%200%3B%0A%7D%0Ablockquote%20%7B%0Abackground%2Dcolor%3A%20%23f6f6f6%3B%0Apadding%3A%200%2E25em%200%2E75em%3B%0A%7D%0Ahr%20%7B%0Aborder%2Dstyle%3A%20solid%3B%0Aborder%3A%20none%3B%0Aborder%2Dtop%3A%201px%20solid%20%23777%3B%0Amargin%3A%2028px%200%3B%0A%7D%0Adl%20%7B%0Amargin%2Dleft%3A%200%3B%0A%7D%0Adl%20dd%20%7B%0Amargin%2Dbottom%3A%2013px%3B%0Amargin%2Dleft%3A%2013px%3B%0A%7D%0Adl%20dt%20%7B%0Afont%2Dweight%3A%20bold%3B%0A%7D%0Aul%20%7B%0Amargin%2Dtop%3A%200%3B%0A%7D%0Aul%20li%20%7B%0Alist%2Dstyle%3A%20circle%20outside%3B%0A%7D%0Aul%20ul%20%7B%0Amargin%2Dbottom%3A%200%3B%0A%7D%0Apre%2C%20code%20%7B%0Abackground%2Dcolor%3A%20%23f7f7f7%3B%0Aborder%2Dradius%3A%203px%3B%0Acolor%3A%20%23333%3B%0Awhite%2Dspace%3A%20pre%2Dwrap%3B%20%0A%7D%0Apre%20%7B%0Aborder%2Dradius%3A%203px%3B%0Amargin%3A%205px%200px%2010px%200px%3B%0Apadding%3A%2010px%3B%0A%7D%0Apre%3Anot%28%5Bclass%5D%29%20%7B%0Abackground%2Dcolor%3A%20%23f7f7f7%3B%0A%7D%0Acode%20%7B%0Afont%2Dfamily%3A%20Consolas%2C%20Monaco%2C%20%27Courier%20New%27%2C%20monospace%3B%0Afont%2Dsize%3A%2085%25%3B%0A%7D%0Ap%20%3E%20code%2C%20li%20%3E%20code%20%7B%0Apadding%3A%202px%200px%3B%0A%7D%0Adiv%2Efigure%20%7B%0Atext%2Dalign%3A%20center%3B%0A%7D%0Aimg%20%7B%0Abackground%2Dcolor%3A%20%23FFFFFF%3B%0Apadding%3A%202px%3B%0Aborder%3A%201px%20solid%20%23DDDDDD%3B%0Aborder%2Dradius%3A%203px%3B%0Aborder%3A%201px%20solid%20%23CCCCCC%3B%0Amargin%3A%200%205px%3B%0A%7D%0Ah1%20%7B%0Amargin%2Dtop%3A%200%3B%0Afont%2Dsize%3A%2035px%3B%0Aline%2Dheight%3A%2040px%3B%0A%7D%0Ah2%20%7B%0Aborder%2Dbottom%3A%204px%20solid%20%23f7f7f7%3B%0Apadding%2Dtop%3A%2010px%3B%0Apadding%2Dbottom%3A%202px%3B%0Afont%2Dsize%3A%20145%25%3B%0A%7D%0Ah3%20%7B%0Aborder%2Dbottom%3A%202px%20solid%20%23f7f7f7%3B%0Apadding%2Dtop%3A%2010px%3B%0Afont%2Dsize%3A%20120%25%3B%0A%7D%0Ah4%20%7B%0Aborder%2Dbottom%3A%201px%20solid%20%23f7f7f7%3B%0Amargin%2Dleft%3A%208px%3B%0Afont%2Dsize%3A%20105%25%3B%0A%7D%0Ah5%2C%20h6%20%7B%0Aborder%2Dbottom%3A%201px%20solid%20%23ccc%3B%0Afont%2Dsize%3A%20105%25%3B%0A%7D%0Aa%20%7B%0Acolor%3A%20%230033dd%3B%0Atext%2Ddecoration%3A%20none%3B%0A%7D%0Aa%3Ahover%20%7B%0Acolor%3A%20%236666ff%3B%20%7D%0Aa%3Avisited%20%7B%0Acolor%3A%20%23800080%3B%20%7D%0Aa%3Avisited%3Ahover%20%7B%0Acolor%3A%20%23BB00BB%3B%20%7D%0Aa%5Bhref%5E%3D%22http%3A%22%5D%20%7B%0Atext%2Ddecoration%3A%20underline%3B%20%7D%0Aa%5Bhref%5E%3D%22https%3A%22%5D%20%7B%0Atext%2Ddecoration%3A%20underline%3B%20%7D%0A%0Acode%20%3E%20span%2Ekw%20%7B%20color%3A%20%23555%3B%20font%2Dweight%3A%20bold%3B%20%7D%20%0Acode%20%3E%20span%2Edt%20%7B%20color%3A%20%23902000%3B%20%7D%20%0Acode%20%3E%20span%2Edv%20%7B%20color%3A%20%2340a070%3B%20%7D%20%0Acode%20%3E%20span%2Ebn%20%7B%20color%3A%20%23d14%3B%20%7D%20%0Acode%20%3E%20span%2Efl%20%7B%20color%3A%20%23d14%3B%20%7D%20%0Acode%20%3E%20span%2Ech%20%7B%20color%3A%20%23d14%3B%20%7D%20%0Acode%20%3E%20span%2Est%20%7B%20color%3A%20%23d14%3B%20%7D%20%0Acode%20%3E%20span%2Eco%20%7B%20color%3A%20%23888888%3B%20font%2Dstyle%3A%20italic%3B%20%7D%20%0Acode%20%3E%20span%2Eot%20%7B%20color%3A%20%23007020%3B%20%7D%20%0Acode%20%3E%20span%2Eal%20%7B%20color%3A%20%23ff0000%3B%20font%2Dweight%3A%20bold%3B%20%7D%20%0Acode%20%3E%20span%2Efu%20%7B%20color%3A%20%23900%3B%20font%2Dweight%3A%20bold%3B%20%7D%20%0Acode%20%3E%20span%2Eer%20%7B%20color%3A%20%23a61717%3B%20background%2Dcolor%3A%20%23e3d2d2%3B%20%7D%20%0A" type="text/css" />
+
+
+
+
+</head>
+
+<body>
+
+
+
+
+<h1 class="title toc-ignore">Integrate DCATS with Seurat pipeline</h1>
+
+
+
+<p>This tutorial demonstrates how to use <code>DCATS</code> after using <a href="https://satijalab.org/seurat/index.html"><code>Seurat</code></a> pipeline to process data. To fully understand the usage of <code>DCATS</code>, please read the vignette “Intro_to_DCATS (Differential Composition Analysis with DCATS)” first.</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(DCATS)</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(SeuratData)</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(tidyverse)</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(Seurat)</span></code></pre></div>
+<p>The data we used here is the data used in Seurat vignette: <a href="https://satijalab.org/seurat/articles/integration_introduction.html"><code>Introduction to scRNA-seq integration</code></a>. It contains IFNB-stimulated and control PBMCs.</p>
+<div id="using-standard-seurat-pipeline-to-process-data" class="section level2">
+<h2>Using standard seurat pipeline to process data</h2>
+<p>We first follow this tutorial to load and process this data.</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co"># install dataset</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="fu">InstallData</span>(<span class="st">&quot;ifnb&quot;</span>)</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="co"># load dataset</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="fu">LoadData</span>(<span class="st">&quot;ifnb&quot;</span>)</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; An object of class Seurat </span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; 14053 features across 13999 samples within 1 assay </span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Active assay: RNA (14053 features, 0 variable features)</span></span></code></pre></div>
+<div class="sourceCode" id="cb3"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co"># split the dataset into a list of two seurat objects (stim and CTRL)</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>ifnb.list <span class="ot">&lt;-</span> <span class="fu">SplitObject</span>(ifnb, <span class="at">split.by =</span> <span class="st">&quot;stim&quot;</span>)</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="co"># normalize and identify variable features for each dataset independently</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>ifnb.list <span class="ot">&lt;-</span> <span class="fu">lapply</span>(<span class="at">X =</span> ifnb.list, <span class="at">FUN =</span> <span class="cf">function</span>(x) {</span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>    x <span class="ot">&lt;-</span> <span class="fu">NormalizeData</span>(x)</span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>    x <span class="ot">&lt;-</span> <span class="fu">FindVariableFeatures</span>(x, <span class="at">selection.method =</span> <span class="st">&quot;vst&quot;</span>, <span class="at">nfeatures =</span> <span class="dv">2000</span>)</span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>})</span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a><span class="co"># select features that are repeatedly variable across datasets for integration</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>features <span class="ot">&lt;-</span> <span class="fu">SelectIntegrationFeatures</span>(<span class="at">object.list =</span> ifnb.list)</span></code></pre></div>
+<div class="sourceCode" id="cb4"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="co"># perform integration</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>immune.anchors <span class="ot">&lt;-</span> <span class="fu">FindIntegrationAnchors</span>(<span class="at">object.list =</span> ifnb.list, <span class="at">anchor.features =</span> features)</span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>immune.combined <span class="ot">&lt;-</span> <span class="fu">IntegrateData</span>(<span class="at">anchorset =</span> immune.anchors)</span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a><span class="co"># perform an integrated analysis</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a><span class="fu">DefaultAssay</span>(immune.combined) <span class="ot">&lt;-</span> <span class="st">&quot;integrated&quot;</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a><span class="co"># Run the standard workflow for visualization and clustering</span></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>immune.combined <span class="ot">&lt;-</span> <span class="fu">ScaleData</span>(immune.combined, <span class="at">verbose =</span> <span class="cn">FALSE</span>)</span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>immune.combined <span class="ot">&lt;-</span> <span class="fu">RunPCA</span>(immune.combined, <span class="at">npcs =</span> <span class="dv">30</span>, <span class="at">verbose =</span> <span class="cn">FALSE</span>)</span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>immune.combined <span class="ot">&lt;-</span> <span class="fu">RunUMAP</span>(immune.combined, <span class="at">reduction =</span> <span class="st">&quot;pca&quot;</span>, <span class="at">dims =</span> <span class="dv">1</span><span class="sc">:</span><span class="dv">30</span>)</span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Warning: The default method for RunUMAP has changed from calling Python UMAP via reticulate to the R-native UWOT using the cosine metric</span></span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; To use Python UMAP via reticulate, set umap.method to &#39;umap-learn&#39; and metric to &#39;correlation&#39;</span></span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; This message will be shown once per session</span></span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>immune.combined <span class="ot">&lt;-</span> <span class="fu">FindNeighbors</span>(immune.combined, <span class="at">reduction =</span> <span class="st">&quot;pca&quot;</span>, <span class="at">dims =</span> <span class="dv">1</span><span class="sc">:</span><span class="dv">30</span>)</span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a>immune.combined <span class="ot">&lt;-</span> <span class="fu">FindClusters</span>(immune.combined, <span class="at">resolution =</span> <span class="fl">0.5</span>)</span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Modularity Optimizer version 1.3.0 by Ludo Waltman and Nees Jan van Eck</span></span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Number of nodes: 13999</span></span>
+<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Number of edges: 569703</span></span>
+<span id="cb4-21"><a href="#cb4-21" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb4-22"><a href="#cb4-22" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Running Louvain algorithm...</span></span>
+<span id="cb4-23"><a href="#cb4-23" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Maximum modularity in 10 random starts: 0.9057</span></span>
+<span id="cb4-24"><a href="#cb4-24" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Number of communities: 16</span></span>
+<span id="cb4-25"><a href="#cb4-25" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Elapsed time: 1 seconds</span></span></code></pre></div>
+</div>
+<div id="using-dcats-to-do-differential-anlysis" class="section level2">
+<h2>Using DCATS to do differential anlysis</h2>
+<p>After annotating cells with different cell types, we can use <code>DCATS</code> to do the differential abundance analysis.This dataset contains cells coming from different treatment groups. Treatment here can be the covariate we are interested in. However, this dataset doesn’t contain the sample information which is also required by <code>DCATS</code>. To demonstrate the usage of DCATS, we randomly assign two sample IDs for the control group and IFNB-stimulated group separately. In practice, this information should be real sample IDs.</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>sampleID <span class="ot">=</span> <span class="fu">str_c</span>(immune.combined<span class="sc">$</span>stim,<span class="fu">sample</span>(<span class="fu">c</span>(<span class="st">&quot;s1&quot;</span>, <span class="st">&quot;s2&quot;</span>), <span class="fu">length</span>(<span class="fu">Idents</span>(immune.combined)), <span class="at">replace =</span> <span class="cn">TRUE</span>))</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>immune.combined <span class="ot">=</span> <span class="fu">AddMetaData</span>(immune.combined, sampleID, <span class="st">&#39;sample&#39;</span>)</span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a><span class="co"># Visualization</span></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a><span class="fu">DimPlot</span>(immune.combined, <span class="at">reduction =</span> <span class="st">&quot;umap&quot;</span>, <span class="at">group.by =</span> <span class="st">&quot;sample&quot;</span>)</span></code></pre></div>
+<p><img src="data:image/png;base64,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" /><!-- --></p>
+<p>Since we has a seurat object with information about KNN graph, we can estimate the similarity matrix based on this.</p>
+<div class="sourceCode" id="cb6"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>knn_mat <span class="ot">=</span> <span class="fu">knn_simMat</span>(immune.combined<span class="sc">@</span>graphs<span class="sc">$</span>integrated_snn, immune.combined<span class="sc">$</span>seurat_annotations)</span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a><span class="fu">print</span>(knn_mat)</span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;                 CD14 Mono          pDC CD4 Memory T  T activated  CD4 Naive T</span></span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; CD14 Mono    9.883097e-01 0.000000e+00 1.264356e-04 0.0000000000 1.893398e-05</span></span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; pDC          0.000000e+00 9.907809e-01 3.716552e-05 0.0023068643 8.809606e-05</span></span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; CD4 Memory T 2.752372e-04 4.076439e-06 9.035148e-01 0.0056878185 6.158903e-02</span></span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; T activated  0.000000e+00 6.464440e-04 1.453162e-02 0.9389244077 3.686354e-02</span></span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; CD4 Naive T  2.889812e-05 6.774650e-06 4.318104e-02 0.0101162271 9.417302e-01</span></span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; CD8 T        0.000000e+00 4.728865e-04 5.385225e-02 0.0033774495 5.258194e-03</span></span>
+<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Mk           1.072185e-02 0.000000e+00 9.733776e-03 0.0012143389 2.384418e-02</span></span>
+<span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; B Activated  4.614591e-05 1.452742e-05 0.000000e+00 0.0028419591 4.358225e-05</span></span>
+<span id="cb6-12"><a href="#cb6-12" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; B            0.000000e+00 1.919928e-04 8.465826e-05 0.0009716012 8.360405e-04</span></span>
+<span id="cb6-13"><a href="#cb6-13" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; DC           3.065481e-02 1.011127e-03 0.000000e+00 0.0000000000 0.000000e+00</span></span>
+<span id="cb6-14"><a href="#cb6-14" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; CD16 Mono    1.692288e-02 0.000000e+00 5.467536e-05 0.0000000000 0.000000e+00</span></span>
+<span id="cb6-15"><a href="#cb6-15" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; NK           0.000000e+00 0.000000e+00 2.215769e-04 0.0003139006 1.215341e-05</span></span>
+<span id="cb6-16"><a href="#cb6-16" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Eryth        1.230569e-02 0.000000e+00 3.080093e-04 0.0000000000 7.936918e-03</span></span>
+<span id="cb6-17"><a href="#cb6-17" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;                     CD8 T           Mk  B Activated            B           DC</span></span>
+<span id="cb6-18"><a href="#cb6-18" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; CD14 Mono    0.0000000000 0.0007052227 5.948231e-06 0.000000e+00 0.0050240199</span></span>
+<span id="cb6-19"><a href="#cb6-19" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; pDC          0.0021872021 0.0000000000 3.716552e-05 1.273657e-03 0.0032889380</span></span>
+<span id="cb6-20"><a href="#cb6-20" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; CD4 Memory T 0.0273197303 0.0013937213 0.000000e+00 6.159952e-05 0.0000000000</span></span>
+<span id="cb6-21"><a href="#cb6-21" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; T activated  0.0043775357 0.0004442248 2.037411e-03 1.806194e-03 0.0000000000</span></span>
+<span id="cb6-22"><a href="#cb6-22" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; CD4 Naive T  0.0018702468 0.0023936840 8.574166e-06 4.265059e-04 0.0000000000</span></span>
+<span id="cb6-23"><a href="#cb6-23" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; CD8 T        0.9184567346 0.0001235117 0.000000e+00 5.500912e-04 0.0000000000</span></span>
+<span id="cb6-24"><a href="#cb6-24" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Mk           0.0004376087 0.9450444586 0.000000e+00 2.922203e-03 0.0000000000</span></span>
+<span id="cb6-25"><a href="#cb6-25" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; B Activated  0.0000000000 0.0000000000 9.470849e-01 4.934129e-02 0.0000000000</span></span>
+<span id="cb6-26"><a href="#cb6-26" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; B            0.0003835300 0.0005750386 1.902809e-02 9.778826e-01 0.0000000000</span></span>
+<span id="cb6-27"><a href="#cb6-27" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; DC           0.0000000000 0.0000000000 0.000000e+00 0.000000e+00 0.9683112152</span></span>
+<span id="cb6-28"><a href="#cb6-28" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; CD16 Mono    0.0000000000 0.0008702277 7.793571e-06 0.000000e+00 0.0000113744</span></span>
+<span id="cb6-29"><a href="#cb6-29" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; NK           0.0197660821 0.0005374372 0.000000e+00 0.000000e+00 0.0000000000</span></span>
+<span id="cb6-30"><a href="#cb6-30" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Eryth        0.0000000000 0.0000000000 4.055949e-03 8.036127e-04 0.0000000000</span></span>
+<span id="cb6-31"><a href="#cb6-31" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;                 CD16 Mono           NK        Eryth</span></span>
+<span id="cb6-32"><a href="#cb6-32" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; CD14 Mono    5.572097e-03 0.000000e+00 2.376457e-04</span></span>
+<span id="cb6-33"><a href="#cb6-33" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; pDC          0.000000e+00 0.000000e+00 0.000000e+00</span></span>
+<span id="cb6-34"><a href="#cb6-34" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; CD4 Memory T 3.918989e-05 1.018463e-04 1.294869e-05</span></span>
+<span id="cb6-35"><a href="#cb6-35" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; T activated  0.000000e+00 3.686218e-04 0.000000e+00</span></span>
+<span id="cb6-36"><a href="#cb6-36" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; CD4 Naive T  0.000000e+00 3.916594e-06 2.339395e-04</span></span>
+<span id="cb6-37"><a href="#cb6-37" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; CD8 T        0.000000e+00 1.790889e-02 0.000000e+00</span></span>
+<span id="cb6-38"><a href="#cb6-38" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Mk           4.356329e-03 1.725256e-03 0.000000e+00</span></span>
+<span id="cb6-39"><a href="#cb6-39" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; B Activated  1.990794e-05 0.000000e+00 6.076617e-04</span></span>
+<span id="cb6-40"><a href="#cb6-40" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; B            0.000000e+00 0.000000e+00 4.643022e-05</span></span>
+<span id="cb6-41"><a href="#cb6-41" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; DC           2.285179e-05 0.000000e+00 0.000000e+00</span></span>
+<span id="cb6-42"><a href="#cb6-42" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; CD16 Mono    9.820534e-01 0.000000e+00 7.962081e-05</span></span>
+<span id="cb6-43"><a href="#cb6-43" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; NK           0.000000e+00 9.791488e-01 0.000000e+00</span></span>
+<span id="cb6-44"><a href="#cb6-44" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Eryth        1.357522e-03 0.000000e+00 9.732323e-01</span></span></code></pre></div>
+<p>Then, we can get the count matrix which contains the numbers of cell for each cell type in each sample.</p>
+<div class="sourceCode" id="cb7"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a>count_mat <span class="ot">=</span> <span class="fu">table</span>(immune.combined<span class="sc">$</span>sample, immune.combined<span class="sc">$</span>seurat_annotations)</span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>count_mat</span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;         </span></span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;             B B Activated CD14 Mono CD16 Mono CD4 Memory T CD4 Naive T CD8 T</span></span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   CTRLs1  191          86      1090       273          431         489   172</span></span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   CTRLs2  216          99      1125       234          428         489   180</span></span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   STIMs1  289         101      1094       286          452         767   207</span></span>
+<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   STIMs2  282         102      1053       251          451         759   255</span></span>
+<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;         </span></span>
+<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;            DC Eryth   Mk   NK  pDC T activated</span></span>
+<span id="cb7-11"><a href="#cb7-11" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   CTRLs1  132     7   54  140   25         165</span></span>
+<span id="cb7-12"><a href="#cb7-12" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   CTRLs2  126    16   61  158   26         135</span></span>
+<span id="cb7-13"><a href="#cb7-13" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   STIMs1  113    13   61  158   43         176</span></span>
+<span id="cb7-14"><a href="#cb7-14" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;   STIMs2  101    19   60  163   38         157</span></span></code></pre></div>
+<p>As the ‘CTRLs1’ and ‘CTRLs2’ sample come from the control group, and the ‘STIMs1’ and ‘STIMs2’ come from the IFNB-stimulated group, we can get the design matrix as following.</p>
+<p><strong>Noted</strong> Even though we call it design matrix, we allow it to be both <code>matrix</code> and <code>data.frame</code>.</p>
+<div class="sourceCode" id="cb8"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a>design_mat <span class="ot">=</span> <span class="fu">data.frame</span>(<span class="at">condition =</span> <span class="fu">c</span>(<span class="st">&quot;CTRL&quot;</span>, <span class="st">&quot;CTRL&quot;</span>, <span class="st">&quot;STIM&quot;</span>, <span class="st">&quot;STIM&quot;</span>))</span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a><span class="fu">dcats_GLM</span>(count_mat, design_mat, <span class="at">similarity_mat =</span> knn_mat)</span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; $ceoffs</span></span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;                condition</span></span>
+<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; B             0.23177237</span></span>
+<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; B Activated   0.07884980</span></span>
+<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; CD14 Mono    -0.26737753</span></span>
+<span id="cb8-8"><a href="#cb8-8" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; CD16 Mono    -0.07593537</span></span>
+<span id="cb8-9"><a href="#cb8-9" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; CD4 Memory T -0.07553238</span></span>
+<span id="cb8-10"><a href="#cb8-10" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; CD4 Naive T   0.39868333</span></span>
+<span id="cb8-11"><a href="#cb8-11" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; CD8 T         0.15499088</span></span>
+<span id="cb8-12"><a href="#cb8-12" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; DC           -0.32840436</span></span>
+<span id="cb8-13"><a href="#cb8-13" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Eryth         1.07648846</span></span>
+<span id="cb8-14"><a href="#cb8-14" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Mk           -0.07341539</span></span>
+<span id="cb8-15"><a href="#cb8-15" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; NK           -0.06332788</span></span>
+<span id="cb8-16"><a href="#cb8-16" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; pDC           0.34526291</span></span>
+<span id="cb8-17"><a href="#cb8-17" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; T activated  -0.02217299</span></span>
+<span id="cb8-18"><a href="#cb8-18" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb8-19"><a href="#cb8-19" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; $coeffs_err</span></span>
+<span id="cb8-20"><a href="#cb8-20" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;                condition</span></span>
+<span id="cb8-21"><a href="#cb8-21" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; B            0.004627290</span></span>
+<span id="cb8-22"><a href="#cb8-22" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; B Activated  0.010701148</span></span>
+<span id="cb8-23"><a href="#cb8-23" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; CD14 Mono    0.001300995</span></span>
+<span id="cb8-24"><a href="#cb8-24" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; CD16 Mono    0.006426227</span></span>
+<span id="cb8-25"><a href="#cb8-25" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; CD4 Memory T 0.003005361</span></span>
+<span id="cb8-26"><a href="#cb8-26" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; CD4 Naive T  0.002072767</span></span>
+<span id="cb8-27"><a href="#cb8-27" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; CD8 T        0.008892030</span></span>
+<span id="cb8-28"><a href="#cb8-28" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; DC           0.008469540</span></span>
+<span id="cb8-29"><a href="#cb8-29" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Eryth        0.900246212</span></span>
+<span id="cb8-30"><a href="#cb8-30" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Mk           0.017505097</span></span>
+<span id="cb8-31"><a href="#cb8-31" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; NK           0.006750144</span></span>
+<span id="cb8-32"><a href="#cb8-32" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; pDC          0.049847003</span></span>
+<span id="cb8-33"><a href="#cb8-33" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; T activated  0.007110138</span></span>
+<span id="cb8-34"><a href="#cb8-34" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb8-35"><a href="#cb8-35" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; $LR_vals</span></span>
+<span id="cb8-36"><a href="#cb8-36" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;                condition</span></span>
+<span id="cb8-37"><a href="#cb8-37" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; B             7.41654946</span></span>
+<span id="cb8-38"><a href="#cb8-38" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; B Activated  -1.14023161</span></span>
+<span id="cb8-39"><a href="#cb8-39" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; CD14 Mono    13.70702554</span></span>
+<span id="cb8-40"><a href="#cb8-40" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; CD16 Mono     0.80504995</span></span>
+<span id="cb8-41"><a href="#cb8-41" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; CD4 Memory T  1.89945030</span></span>
+<span id="cb8-42"><a href="#cb8-42" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; CD4 Naive T  15.99792623</span></span>
+<span id="cb8-43"><a href="#cb8-43" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; CD8 T         2.06782088</span></span>
+<span id="cb8-44"><a href="#cb8-44" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; DC            8.15748648</span></span>
+<span id="cb8-45"><a href="#cb8-45" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Eryth         1.49778603</span></span>
+<span id="cb8-46"><a href="#cb8-46" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Mk            0.39595127</span></span>
+<span id="cb8-47"><a href="#cb8-47" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; NK            0.54981899</span></span>
+<span id="cb8-48"><a href="#cb8-48" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; pDC           2.48190814</span></span>
+<span id="cb8-49"><a href="#cb8-49" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; T activated   0.06791093</span></span>
+<span id="cb8-50"><a href="#cb8-50" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb8-51"><a href="#cb8-51" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; $LRT_pvals</span></span>
+<span id="cb8-52"><a href="#cb8-52" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;                 condition</span></span>
+<span id="cb8-53"><a href="#cb8-53" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; B            6.462663e-03</span></span>
+<span id="cb8-54"><a href="#cb8-54" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; B Activated  1.000000e+00</span></span>
+<span id="cb8-55"><a href="#cb8-55" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; CD14 Mono    2.136537e-04</span></span>
+<span id="cb8-56"><a href="#cb8-56" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; CD16 Mono    3.695878e-01</span></span>
+<span id="cb8-57"><a href="#cb8-57" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; CD4 Memory T 1.681399e-01</span></span>
+<span id="cb8-58"><a href="#cb8-58" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; CD4 Naive T  6.341191e-05</span></span>
+<span id="cb8-59"><a href="#cb8-59" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; CD8 T        1.504363e-01</span></span>
+<span id="cb8-60"><a href="#cb8-60" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; DC           4.288376e-03</span></span>
+<span id="cb8-61"><a href="#cb8-61" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Eryth        2.210123e-01</span></span>
+<span id="cb8-62"><a href="#cb8-62" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Mk           5.291876e-01</span></span>
+<span id="cb8-63"><a href="#cb8-63" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; NK           4.583917e-01</span></span>
+<span id="cb8-64"><a href="#cb8-64" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; pDC          1.151625e-01</span></span>
+<span id="cb8-65"><a href="#cb8-65" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; T activated  7.944031e-01</span></span>
+<span id="cb8-66"><a href="#cb8-66" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb8-67"><a href="#cb8-67" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; $fdr</span></span>
+<span id="cb8-68"><a href="#cb8-68" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;                 condition</span></span>
+<span id="cb8-69"><a href="#cb8-69" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; B            0.0210036563</span></span>
+<span id="cb8-70"><a href="#cb8-70" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; B Activated  1.0000000000</span></span>
+<span id="cb8-71"><a href="#cb8-71" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; CD14 Mono    0.0013887493</span></span>
+<span id="cb8-72"><a href="#cb8-72" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; CD16 Mono    0.5338490355</span></span>
+<span id="cb8-73"><a href="#cb8-73" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; CD4 Memory T 0.3122597411</span></span>
+<span id="cb8-74"><a href="#cb8-74" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; CD4 Naive T  0.0008243548</span></span>
+<span id="cb8-75"><a href="#cb8-75" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; CD8 T        0.3122597411</span></span>
+<span id="cb8-76"><a href="#cb8-76" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; DC           0.0185829644</span></span>
+<span id="cb8-77"><a href="#cb8-77" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Eryth        0.3591450382</span></span>
+<span id="cb8-78"><a href="#cb8-78" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Mk           0.6254035647</span></span>
+<span id="cb8-79"><a href="#cb8-79" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; NK           0.5959091620</span></span>
+<span id="cb8-80"><a href="#cb8-80" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; pDC          0.2994224007</span></span>
+<span id="cb8-81"><a href="#cb8-81" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; T activated  0.8606033568</span></span></code></pre></div>
+<p><strong>Noted</strong>: You might sometime receive a warning like <code>Possible convergence problem. Optimization process code: 10 (see ?optim).</code>, it is caused by the low number of replicates and won’t influence the final results.</p>
+<p>The <code>ceoffs</code> indicates the estimated values of coefficients, the <code>coeffs_err</code> indicates the standard errors of coefficients, the <code>pvals</code> indicates the p-values calculated from the Ward test, the <code>LRT_pvals</code> indicates the p-values calculated from the likelihood ratio test, and the <code>fdr</code> indicates the adjusted p-values given by <a href="https://www.jstor.org/stable/2346101?seq=1#metadata_info_tab_contents">Benjamini &amp; Hochberg method</a>.</p>
+<p>The <code>LRT_pvals</code> can be used to define whether one cell type shows differential proportion among different conditions by setting threshold as 0.05 or 0.01. You can also use <code>pvals</code> or <code>fdr</code> if you need.</p>
+</div>
+
+
+
+<!-- code folding -->
+
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
+</html>
