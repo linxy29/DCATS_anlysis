@@ -419,7 +419,7 @@ estPhi = getPhi(countM, designM)
 estPhi_null = dcats_GLM(countM, designM, fix_phi = estPhi)
 estPhi_emSVM = dcats_GLM(countM, designM, similarity_mat = Haber2017$svm_mat, fix_phi = estPhi)
 ref_group = detect_reference(countM, designM, similarity_mat = Haber2017$svm_mat, fix_phi = estPhi)
-estPhi_ref = dcats_GLM(countM, designM, similarity_mat = Haber2017$svm_mat, fix_phi = estPhi, reference = ref_group$celltype[1:3])
+estPhi_ref = dcats_GLM(countM, designM, similarity_mat = Haber2017$svm_mat, fix_phi = estPhi, reference = ref_group$celltype[1:4])
 ## ANCOMBC
 assay_data = countM %>% t()
 ancombcRes = getANCOMBC(assay_data, designM)
