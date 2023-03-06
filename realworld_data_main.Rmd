@@ -17,6 +17,8 @@ library(scDC)
 library(Matrix)
 library(miloR)
 library(SingleCellExperiment)
+library(TreeSummarizedExperiment)
+library(ANCOMBC)
 ```
 
 ```{r}
@@ -133,6 +135,11 @@ designM = data.frame(condition = c(rep("g1", nrow(Haber2017$count_ctrl)), rep("g
 estPhi = getPhi(countM, designM)
 estPhi_null = dcats_GLM(countM, designM, fix_phi = estPhi)
 estPhi_emSVM = dcats_GLM(countM, designM, similarity_mat = Haber2017$svm_mat, fix_phi = estPhi)
+ref_group = detect_reference(countM, designM, similarity_mat = Haber2017$svm_mat, fix_phi = estPhi)
+estPhi_ref = dcats_GLM(countM, designM, similarity_mat = Haber2017$svm_mat, fix_phi = estPhi, reference = ref_group$celltype[1:2])
+## ANCOMBC
+assay_data = countM %>% t()
+ancombcRes = getANCOMBC(assay_data, designM)
 ## Fisher's exact test
 fisher_pvals = getFisher(as.matrix(Haber2017$count_ctrl), as.matrix(Haber2017$count_Hpoly3))
 ## speckle
@@ -178,6 +185,11 @@ miloRes = getMilo(testObj)$da_results %>%
 ```
 
 ```{r}
+#load("/storage/holab/linxy/DCATS/real_world/Exp7_Adam_2017/Haber2017_res.RData")      # sbms server
+load("/Users/linxy29/Documents/Data/DCATS/real_world/Exp7_Adam_2017/Haber2017_res.RData")    # my labtop
+```
+
+```{r}
 ## results
 all_resC3 = data.frame(cluster = rownames(betabin_null$LRT_pvals), truth = c(rep("N", 7), "P")) %>% 
   mutate(betabin_null_pvals = as.vector(betabin_null$LRT_pvals),
@@ -219,6 +231,22 @@ all_resC3 %>%
   dplyr::select(cluster, truth, contains("_Res"))
 ```
 
+Add ANCOMBC and DCATS_ref
+
+```{r}
+all_resC3 = all_resC3 %>% 
+  mutate(estPhi_ref_pvals = as.vector(estPhi_ref$LRT_pvals),
+         ancombc_pvals = as.vector(ancombcRes$q_conditiong2)) %>% 
+  mutate(estPhi_ref_Res = ifelse(estPhi_ref_pvals < 0.01, "***", "n.s."),
+         estPhi_ref_Res = ifelse(0.01<estPhi_ref_pvals&estPhi_ref_pvals<0.05, "**", estPhi_ref_Res),
+         estPhi_ref_Res = ifelse(0.05<estPhi_ref_pvals&estPhi_ref_pvals<0.1, "*", estPhi_ref_Res)) %>%
+  mutate(ancombc_Res = ifelse(ancombc_pvals < 0.01, "***", "n.s."),
+         ancombc_Res = ifelse(0.01<ancombc_pvals&ancombc_pvals<0.05, "**", ancombc_Res),
+         ancombc_Res = ifelse(0.05<ancombc_pvals&ancombc_pvals<0.1, "*", ancombc_Res))
+all_resC3
+```
+
+
 control vs Hpoly.Day10
 
 ```{r}
@@ -252,6 +280,11 @@ wtoPhi_emSVM = eachPhi(countM, designM, similarity_mat = Haber2017$svm_mat)
 estPhi = getPhi(countM, designM)
 estPhi_null = dcats_GLM(countM, designM, fix_phi = estPhi)
 estPhi_emSVM = dcats_GLM(countM, designM, similarity_mat = Haber2017$svm_mat, fix_phi = estPhi)
+ref_group = detect_reference(countM, designM, similarity_mat = Haber2017$svm_mat, fix_phi = estPhi)
+estPhi_ref = dcats_GLM(countM, designM, similarity_mat = Haber2017$svm_mat, fix_phi = estPhi, reference = ref_group$celltype[1:2])
+## ANCOMBC
+assay_data = countM %>% t()
+ancombcRes = getANCOMBC(assay_data, designM)
 ## Fisher's exact test
 fisher_pvals = getFisher(as.matrix(Haber2017$count_ctrl), as.matrix(Haber2017$count_Hpoly10))
 ## speckle
@@ -337,6 +370,21 @@ all_resC10 %>%
   dplyr::select(cluster, truth, contains("_Res"))
 ```
 
+Add ANCOMBC and DCATS_ref
+
+```{r}
+all_resC10 = all_resC10 %>% 
+  mutate(estPhi_ref_pvals = as.vector(estPhi_ref$LRT_pvals),
+         ancombc_pvals = as.vector(ancombcRes$q_conditiong2)) %>% 
+  mutate(estPhi_ref_Res = ifelse(estPhi_ref_pvals < 0.01, "***", "n.s."),
+         estPhi_ref_Res = ifelse(0.01<estPhi_ref_pvals&estPhi_ref_pvals<0.05, "**", estPhi_ref_Res),
+         estPhi_ref_Res = ifelse(0.05<estPhi_ref_pvals&estPhi_ref_pvals<0.1, "*", estPhi_ref_Res)) %>%
+  mutate(ancombc_Res = ifelse(ancombc_pvals < 0.01, "***", "n.s."),
+         ancombc_Res = ifelse(0.01<ancombc_pvals&ancombc_pvals<0.05, "**", ancombc_Res),
+         ancombc_Res = ifelse(0.05<ancombc_pvals&ancombc_pvals<0.1, "*", ancombc_Res))
+all_resC10
+```
+
 control vs Salmonella
 
 ```{r}
@@ -370,6 +418,11 @@ wtoPhi_emSVM = eachPhi(countM, designM, similarity_mat = Haber2017$svm_mat)
 estPhi = getPhi(countM, designM)
 estPhi_null = dcats_GLM(countM, designM, fix_phi = estPhi)
 estPhi_emSVM = dcats_GLM(countM, designM, similarity_mat = Haber2017$svm_mat, fix_phi = estPhi)
+ref_group = detect_reference(countM, designM, similarity_mat = Haber2017$svm_mat, fix_phi = estPhi)
+estPhi_ref = dcats_GLM(countM, designM, similarity_mat = Haber2017$svm_mat, fix_phi = estPhi, reference = ref_group$celltype[1:2])
+## ANCOMBC
+assay_data = countM %>% t()
+ancombcRes = getANCOMBC(assay_data, designM)
 ## Fisher's exact test
 fisher_pvals = getFisher(as.matrix(Haber2017$count_ctrl), as.matrix(Haber2017$count_Salma))
 ## speckle
@@ -457,8 +510,23 @@ all_resCS %>%
   dplyr::select(cluster, truth, contains("_Res"))
 ```
 
+Add ANCOMBC and DCATS_ref
+
 ```{r}
-save(all_resC3, all_resC10, all_resCS, file = "D:/Data/DCATS/real_world/Haber2017_res.RData")
+all_resCS = all_resCS %>% 
+  mutate(estPhi_ref_pvals = as.vector(estPhi_ref$LRT_pvals),
+         ancombc_pvals = as.vector(ancombcRes$q_conditiong2)) %>% 
+  mutate(estPhi_ref_Res = ifelse(estPhi_ref_pvals < 0.01, "***", "n.s."),
+         estPhi_ref_Res = ifelse(0.01<estPhi_ref_pvals&estPhi_ref_pvals<0.05, "**", estPhi_ref_Res),
+         estPhi_ref_Res = ifelse(0.05<estPhi_ref_pvals&estPhi_ref_pvals<0.1, "*", estPhi_ref_Res)) %>%
+  mutate(ancombc_Res = ifelse(ancombc_pvals < 0.01, "***", "n.s."),
+         ancombc_Res = ifelse(0.01<ancombc_pvals&ancombc_pvals<0.05, "**", ancombc_Res),
+         ancombc_Res = ifelse(0.05<ancombc_pvals&ancombc_pvals<0.1, "*", ancombc_Res))
+all_resCS
+```
+
+```{r}
+save(all_resC3, all_resC10, all_resCS, file = "/Users/linxy29/Documents/Data/DCATS/real_world/Exp7_Adam_2017/Haber2017_res.RData")
 ```
 
 ## real-world data 5: Exp6-demuxlet

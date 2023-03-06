@@ -1142,7 +1142,7 @@ getANCOMBC = function(assay_data, col_data){
     output = temp$res %>% select(taxon, q_conditioncond2, q_gendermale)
   } else {
     temp = ancombc2(data = tse, assay_name = "counts",fix_formula = "condition",p_adj_method = "holm")
-    output = temp$res %>% select(taxon, q_conditioncond2)
+    output = temp$res %>% select(taxon, contains('q_condition'))
   }
   return(output)
 }
