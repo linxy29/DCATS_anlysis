@@ -1,6 +1,8 @@
 ---
 title: "The figure3"
-output: html_document
+output:
+  word_document: default
+  html_document: default
 ---
 
 ```{r setup, include=FALSE}
@@ -156,12 +158,14 @@ all_resC3 %>%
   mutate(milo_pct = ifelse(milo_more > milo_less, (milo_more-milo_less)/(milo_more+milo_less+neutral), (milo_less-milo_more)/(milo_more+milo_less+neutral)),
          milo_Res = ifelse(milo_pct > 0.2, "P", "N")) %>% 
   dplyr::select(cluster, truth, contains('_Res')) %>% 
+  dplyr::select(cluster, truth, estPhi_emSVM_Res, estPhi_ref_Res, everything()) %>% 
   dplyr::rename(origin = truth) %>% 
   pivot_longer(origin:milo_Res, names_to = "method", values_to = "res") %>% 
   pivot_wider(names_from = cluster, values_from = res) %>% 
   mutate(method = str_remove(method, "_Res")) %>% 
-  filter(method %in% c("origin", "estPhi_emSVM", "fisher", "scDC", "speckle", "milo")) %>% 
-  mutate(method = ifelse(method == "estPhi_emSVM", "DCATS", method)) %>% 
+  filter(method %in% c("origin", "estPhi_emSVM", "estPhi_ref", "fisher", "scDC", "speckle", "milo", "ancombc")) %>% 
+  mutate(method = ifelse(method == "estPhi_emSVM", "DCATS", method),
+         method = ifelse(method == "estPhi_ref", "DCATS^", method)) %>% 
   column_to_rownames("method") %>% 
   dplyr::select(Tuft, Endocrine, Enterocyte.Progenitor, Stem, Goblet, TA.Early, Enterocyte, TA) %>% 
   knitr::kable()
@@ -170,12 +174,14 @@ all_resC10 %>%
   mutate(milo_pct = ifelse(milo_more > milo_less, (milo_more-milo_less)/(milo_more+milo_less+neutral), (milo_less-milo_more)/(milo_more+milo_less+neutral)),
          milo_Res = ifelse(milo_pct > 0.2, "P", "N")) %>% 
   dplyr::select(cluster, truth, contains('_Res')) %>% 
+  dplyr::select(cluster, truth, estPhi_emSVM_Res, estPhi_ref_Res, everything()) %>% 
   dplyr::rename(origin = truth) %>% 
   pivot_longer(origin:milo_Res, names_to = "method", values_to = "res") %>% 
   pivot_wider(names_from = cluster, values_from = res) %>% 
   mutate(method = str_remove(method, "_Res")) %>% 
-  filter(method %in% c("origin", "estPhi_emSVM", "fisher", "scDC", "speckle", "milo")) %>% 
-  mutate(method = ifelse(method == "estPhi_emSVM", "DCATS", method)) %>% 
+  filter(method %in% c("origin", "estPhi_emSVM", "estPhi_ref", "fisher", "scDC", "speckle", "milo", "ancombc")) %>% 
+  mutate(method = ifelse(method == "estPhi_emSVM", "DCATS", method),
+         method = ifelse(method == "estPhi_ref", "DCATS^", method)) %>% 
   column_to_rownames("method") %>% 
   dplyr::select(Tuft, TA.Early, Goblet, Enterocyte, Enterocyte.Progenitor, Endocrine, Stem, TA) %>% 
   knitr::kable()
@@ -184,12 +190,14 @@ all_resCS %>%
   mutate(milo_pct = ifelse(milo_more > milo_less, (milo_more-milo_less)/(milo_more+milo_less+neutral), (milo_less-milo_more)/(milo_more+milo_less+neutral)),
          milo_Res = ifelse(milo_pct > 0.2, "P", "N")) %>% 
   dplyr::select(cluster, truth, contains('_Res')) %>% 
+  dplyr::select(cluster, truth, estPhi_emSVM_Res, estPhi_ref_Res, everything()) %>% 
   dplyr::rename(origin = truth) %>% 
   pivot_longer(origin:milo_Res, names_to = "method", values_to = "res") %>% 
   pivot_wider(names_from = cluster, values_from = res) %>% 
   mutate(method = str_remove(method, "_Res")) %>% 
-  filter(method %in% c("origin", "estPhi_emSVM", "fisher", "scDC", "speckle", "milo")) %>% 
-  mutate(method = ifelse(method == "estPhi_emSVM", "DCATS", method)) %>% 
+  filter(method %in% c("origin", "estPhi_emSVM", "estPhi_ref", "fisher", "scDC", "speckle", "milo", "ancombc")) %>% 
+  mutate(method = ifelse(method == "estPhi_emSVM", "DCATS", method),
+         method = ifelse(method == "estPhi_ref", "DCATS^", method)) %>% 
   column_to_rownames("method") %>% 
   dplyr::select(Enterocyte, Stem, TA, TA.Early, Enterocyte.Progenitor, Tuft, Goblet, Endocrine) %>% 
   knitr::kable()
@@ -228,7 +236,7 @@ corrected_cellnumDF = count_use %>% as.data.frame() %>%
   mutate(condition = cellnumDF$condition)
 ```
 
-```{r}
+```{r, eval=FALSE}
 haber1 = corrected_cellnumDF %>% 
   filter(condition == "Control" | condition == "Hpoly.Day3") %>% 
   mutate(clusterRes = factor(clusterRes, levels = c("Tuft", "Edo", "EP", "Stem", "Gob", "TAE", "E", "TA"))) %>% 
@@ -337,6 +345,7 @@ all_res %>%
   mutate(milo_pct = ifelse(milo_more > milo_less, (milo_more-milo_less)/(milo_more+milo_less+neutral), (milo_less-milo_more)/(milo_more+milo_less+neutral)),
          milo_Res = ifelse(milo_pct > 0.2, "P", "N")) %>% 
   dplyr::select(cluster, truth, contains('_Res')) %>% 
+  dplyr::select(cluster, truth, estPhi_emSVM_Res, estPhi_ref_Res, everything()) %>% 
   dplyr::rename(origin = truth) %>% 
   mutate(cluster = ifelse(cluster == "B cells", "B", cluster),
          cluster = ifelse(cluster == "CD14+ Monocytes", "cM", cluster),
@@ -349,14 +358,15 @@ all_res %>%
   pivot_longer(origin:milo_Res, names_to = "method", values_to = "res") %>% 
   pivot_wider(names_from = cluster, values_from = res) %>% 
   mutate(method = str_remove(method, "_Res")) %>% 
-  filter(method %in% c("origin", "estPhi_emSVM", "fisher", "scDC", "speckle", "milo")) %>% 
-  mutate(method = ifelse(method == "estPhi_emSVM", "DCATS", method)) %>% 
+  filter(method %in% c("origin", "estPhi_emSVM", "estPhi_ref", "fisher", "scDC", "speckle", "milo", "ancombc")) %>% 
+  mutate(method = ifelse(method == "estPhi_emSVM", "DCATS", method),
+         method = ifelse(method == "estPhi_ref", "DCATS^", method)) %>% 
   dplyr::select(method, NK, Tc, cM, ncM, B, Th, DC, Mkc) %>% 
   column_to_rownames("method") %>% 
   knitr::kable()
 ```
 
-```{r}
+```{r, eval=FALSE}
 kang_main + haber1 + haber2 + haber3
 ggsave("./plot/Fig3.png", bg = "transparent", height = 7.5, width = 10)
 ```
