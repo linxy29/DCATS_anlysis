@@ -136,7 +136,7 @@ estPhi = getPhi(countM, designM)
 estPhi_null = dcats_GLM(countM, designM, fix_phi = estPhi)
 estPhi_emSVM = dcats_GLM(countM, designM, similarity_mat = Haber2017$svm_mat, fix_phi = estPhi)
 ref_group = detect_reference(countM, designM, similarity_mat = Haber2017$svm_mat, fix_phi = estPhi)
-estPhi_ref = dcats_GLM(countM, designM, similarity_mat = Haber2017$svm_mat, fix_phi = estPhi, reference = ref_group$celltype[1:2])
+estPhi_ref = dcats_GLM(countM, designM, similarity_mat = Haber2017$svm_mat, fix_phi = estPhi, reference = ref_group$celltype[1:3])
 ## ANCOMBC
 assay_data = countM %>% t()
 ancombcRes = getANCOMBC(assay_data, designM)
@@ -186,7 +186,7 @@ miloRes = getMilo(testObj)$da_results %>%
 
 ```{r}
 #load("/storage/holab/linxy/DCATS/real_world/Exp7_Adam_2017/Haber2017_res.RData")      # sbms server
-load("/Users/linxy29/Documents/Data/DCATS/real_world/Exp7_Adam_2017/Haber2017_res.RData")    # my labtop
+load("/Users/linxy29/Documents/Data/DCATS/real_world/Exp7_Adam_2017/Haber2017_res_v2.RData")    # my labtop
 ```
 
 ```{r}
@@ -281,7 +281,7 @@ estPhi = getPhi(countM, designM)
 estPhi_null = dcats_GLM(countM, designM, fix_phi = estPhi)
 estPhi_emSVM = dcats_GLM(countM, designM, similarity_mat = Haber2017$svm_mat, fix_phi = estPhi)
 ref_group = detect_reference(countM, designM, similarity_mat = Haber2017$svm_mat, fix_phi = estPhi)
-estPhi_ref = dcats_GLM(countM, designM, similarity_mat = Haber2017$svm_mat, fix_phi = estPhi, reference = ref_group$celltype[1:2])
+estPhi_ref = dcats_GLM(countM, designM, similarity_mat = Haber2017$svm_mat, fix_phi = estPhi, reference = ref_group$celltype[1:3])
 ## ANCOMBC
 assay_data = countM %>% t()
 ancombcRes = getANCOMBC(assay_data, designM)
@@ -419,7 +419,7 @@ estPhi = getPhi(countM, designM)
 estPhi_null = dcats_GLM(countM, designM, fix_phi = estPhi)
 estPhi_emSVM = dcats_GLM(countM, designM, similarity_mat = Haber2017$svm_mat, fix_phi = estPhi)
 ref_group = detect_reference(countM, designM, similarity_mat = Haber2017$svm_mat, fix_phi = estPhi)
-estPhi_ref = dcats_GLM(countM, designM, similarity_mat = Haber2017$svm_mat, fix_phi = estPhi, reference = ref_group$celltype[1:2])
+estPhi_ref = dcats_GLM(countM, designM, similarity_mat = Haber2017$svm_mat, fix_phi = estPhi, reference = ref_group$celltype[1:3])
 ## ANCOMBC
 assay_data = countM %>% t()
 ancombcRes = getANCOMBC(assay_data, designM)
@@ -654,6 +654,11 @@ wtoPhi_emSVM = eachPhi(countM, designM, similarity_mat = Haber2017$svm_mat)
 estPhi = getPhi(countM, designM)
 estPhi_null = dcats_GLM(countM, designM, fix_phi = estPhi)
 estPhi_emSVM = dcats_GLM(countM, designM, similarity_mat = Haber2017$svm_mat, fix_phi = estPhi)
+ref_group = detect_reference(countM, designM, similarity_mat = Haber2017$svm_mat, fix_phi = estPhi)
+estPhi_ref = dcats_GLM(countM, designM, similarity_mat = Haber2017$svm_mat, fix_phi = estPhi, reference = ref_group$celltype[1:2])
+## ANCOMBC
+assay_data = countM %>% t()
+ancombcRes = getANCOMBC(assay_data, designM)
 ## Fisher's exact test
 fisher_pvals = getFisher(as.matrix(Kang2017$count_ctrl), as.matrix(Kang2017$count_stim))
 ## speckle
@@ -725,6 +730,23 @@ all_res = data.frame(cluster = rownames(betabin_null$LRT_pvals), truth = rep("N"
 all_res %>% 
   dplyr::select(cluster, truth, contains("_Res"))
 save(all_res, file = "D:/Data/DCATS/real_world/Kang2017_res.RData")
+```
+
+Add ANCOMBC and DCATS_ref
+
+```{r}
+load("/Users/linxy29/Documents/Data/DCATS/real_world/Exp6_Kang/Kang2017_res.RData")    # my labtop
+all_res = all_res %>% 
+  mutate(estPhi_ref_pvals = as.vector(estPhi_ref$LRT_pvals),
+         ancombc_pvals = as.vector(ancombcRes$q_conditiong2)) %>% 
+  mutate(estPhi_ref_Res = ifelse(estPhi_ref_pvals < 0.01, "***", "n.s."),
+         estPhi_ref_Res = ifelse(0.01<estPhi_ref_pvals&estPhi_ref_pvals<0.05, "**", estPhi_ref_Res),
+         estPhi_ref_Res = ifelse(0.05<estPhi_ref_pvals&estPhi_ref_pvals<0.1, "*", estPhi_ref_Res)) %>%
+  mutate(ancombc_Res = ifelse(ancombc_pvals < 0.01, "***", "n.s."),
+         ancombc_Res = ifelse(0.01<ancombc_pvals&ancombc_pvals<0.05, "**", ancombc_Res),
+         ancombc_Res = ifelse(0.05<ancombc_pvals&ancombc_pvals<0.1, "*", ancombc_Res))
+all_res
+save(all_res, file = "/Users/linxy29/Documents/Data/DCATS/real_world/Exp6_Kang/Kang2017_res.RData")
 ```
 
 ## Ren 2021
