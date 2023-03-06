@@ -1,0 +1,95 @@
+---
+title: "The bias correction validation figure"
+output: word_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE)
+knitr::opts_chunk$set(fig.width=12, fig.height=7)
+```
+
+```{r,message=FALSE,warning=FALSE}
+#library(splatter)
+library(Seurat)
+library(speckle)
+library(DCATS)
+library(ggplot2)
+library(tidyverse)
+library(MCMCpack)
+library(pROC)
+library(patchwork)
+library(ggpubr)
+library(lattice)
+```
+
+```{r}
+source("functionsV2.r")
+options(future.globals.maxSize = 20000 * 1024^2) # 20G memory
+```
+
+```{r}
+theme_set(theme_classic()+
+            theme(panel.border = element_blank(),
+          legend.key = element_blank(),
+          axis.ticks = element_blank(),
+          panel.grid = element_blank(),
+          panel.grid.minor = element_blank(), 
+          panel.grid.major = element_blank(),
+          panel.background = element_blank(),
+          legend.background = element_blank(),
+          plot.background = element_rect(fill = "transparent",colour = NA)) + 
+            theme(axis.text=element_text(size=12), axis.title=element_text(size=13))+
+            theme(legend.title = element_text(size=13), #change legend title font size
+                  legend.text = element_text(size=10)))
+theme_set(theme_classic()+
+            theme(panel.border = element_blank(),
+          legend.key = element_blank(),
+          axis.ticks = element_blank(),
+          panel.grid = element_blank(),
+          panel.grid.minor = element_blank(), 
+          panel.grid.major = element_blank(),
+          panel.background = element_blank(),
+          legend.background = element_blank(),
+          plot.background = element_rect(fill = "transparent",colour = NA)) + 
+            theme(axis.text=element_text(size=12), axis.title=element_text(size=13))+
+            theme(strip.text.x = element_text(size = 13), strip.text.y = element_text(size = 13)) +
+            theme(plot.title = element_text(size = 13),plot.subtitle = element_text(size = 13)) +
+            theme(legend.title = element_text(size=13), #change legend title font size
+                  legend.text = element_text(size=10)) + 
+  theme(plot.title = element_text(hjust = 0.5)))
+```
+
+## Bias Correction validation
+
+Supplementary figures
+
+```{r}
+load("/storage/holab/linxy/DCATS/real_world/Kaufmann_2021/further_subset.RData")
+p1 = DimPlot(Kaufmann2021_subset2, group.by = 'clusterRes') + ggtitle("Cell type annotation")
+p2 = DimPlot(Kaufmann2021_subset2) + ggtitle("Seurat clustering")
+p1 + p2
+#ggsave("./plot/version2/bias_corretion_validate.png", bg = "transparent")
+```
+
+```{r}
+load("/storage/holab/linxy/DCATS/real_world/Kaufmann_2021/Kaufmann2021Res.RData")
+Kaufmann2021L$proportionDF %>% as.matrix() %>% t() %>% as.data.frame()
+rmseDF = Kaufmann2021L$rmseL %>% unlist() %>% as.data.frame()
+print(rmseDF)
+colnames(rmseDF) = "rmse"
+p2b = rmseDF %>% rownames_to_column("proportion") %>% 
+  arrange(desc(rmse)) %>% 
+  mutate(proportion = c("noBC","BC (svm)", "BC (knn)", "BC (empirical)"),
+         proportion = factor(proportion, levels = c("noBC","BC (svm)", "BC (knn)", "BC (empirical)"))) %>% 
+  ggplot(aes(x = proportion, y = rmse, fill = proportion)) +
+  geom_bar(stat = "identity") +
+  NoLegend()+
+  ylab("Root mean square error") + 
+  theme(axis.title.x = element_blank())
+p2b
+```
+
+```{r}
+(p1 + p2)/(p2b + p2b)
+ggsave("./plot/bias_correction.png", bg = "transparent")
+```

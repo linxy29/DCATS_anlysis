@@ -1,0 +1,362 @@
+---
+title: "The figure3"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE)
+knitr::opts_chunk$set(fig.width=12, fig.height=7)
+```
+
+```{r,message=FALSE,warning=FALSE}
+#library(splatter)
+library(Seurat)
+library(speckle)
+library(DCATS)
+library(ggplot2)
+library(tidyverse)
+library(MCMCpack)
+library(pROC)
+library(patchwork)
+library(ggpubr)
+library(lattice)
+```
+
+```{r}
+source("functionsV2.r")
+options(future.globals.maxSize = 20000 * 1024^2) # 20G memory
+```
+
+```{r}
+theme_set(theme_classic()+
+            theme(panel.border = element_blank(),
+          legend.key = element_blank(),
+          axis.ticks = element_blank(),
+          panel.grid = element_blank(),
+          panel.grid.minor = element_blank(), 
+          panel.grid.major = element_blank(),
+          panel.background = element_blank(),
+          legend.background = element_blank(),
+          plot.background = element_rect(fill = "transparent",colour = NA)) + 
+            theme(axis.text=element_text(size=12), axis.title=element_text(size=13))+
+            theme(legend.title = element_text(size=13), #change legend title font size
+                  legend.text = element_text(size=10)))
+theme_set(theme_classic()+
+            theme(panel.border = element_blank(),
+          legend.key = element_blank(),
+          axis.ticks = element_blank(),
+          panel.grid = element_blank(),
+          panel.grid.minor = element_blank(), 
+          panel.grid.major = element_blank(),
+          panel.background = element_blank(),
+          legend.background = element_blank(),
+          plot.background = element_rect(fill = "transparent",colour = NA)) + 
+            theme(axis.text=element_text(size=12), axis.title=element_text(size=13))+
+            theme(strip.text.x = element_text(size = 13), strip.text.y = element_text(size = 13)) +
+            theme(plot.title = element_text(size = 13),plot.subtitle = element_text(size = 13)) +
+            theme(legend.title = element_text(size=13), #change legend title font size
+                  legend.text = element_text(size=10)) + 
+  theme(plot.title = element_text(hjust = 0.5)))
+```
+
+## Figure 3
+
+### real-world data 1 - Experiment 7
+
+The 'group' column started with 'B' is the indicators of replicates
+
+```{r, echo=FALSE}
+exp7_data <- read.csv("/storage/holab/linxy/DCATS/real_world/Exp7_Adam_2017/celltypelabels_Haber.txt", sep="") %>% 
+  rownames_to_column("cell") %>% 
+  separate(cell, c("batch", "barcode", "condition", "clusterRes"), sep = "_") 
+```
+
+```{r}
+cellnumDF = exp7_data %>% 
+  group_by(batch, condition, clusterRes) %>% 
+  summarise(n = n()) %>% 
+  mutate(freq = round(n/sum(n), 3)) %>% 
+  mutate(clusterRes = ifelse(clusterRes == "Endocrine", "Edo", clusterRes),
+         clusterRes = ifelse(clusterRes == "Enterocyte", "E", clusterRes),
+         clusterRes = ifelse(clusterRes == "Enterocyte.Progenitor", "EP", clusterRes),
+         clusterRes = ifelse(clusterRes == "Goblet", "Gob", clusterRes),
+         clusterRes = ifelse(clusterRes == "TA.Early", "TAE", clusterRes))
+```
+
+```{r}
+order = cellnumDF %>% 
+  filter(condition == "Control" | condition == "Hpoly.Day3") %>% 
+  group_by(condition, clusterRes) %>% 
+  summarise(mean = mean(freq)) %>% 
+  pivot_wider(names_from = condition, values_from = mean) %>% 
+  mutate(diff = abs(Control - Hpoly.Day3)) %>% 
+  arrange(desc(diff))
+haber1 = cellnumDF %>% 
+  filter(condition == "Control" | condition == "Hpoly.Day3") %>% 
+  mutate(clusterRes = factor(clusterRes, levels = c("Tuft", "Edo", "EP", "Stem", "Gob", "TAE", "E", "TA"))) %>% 
+  ggplot(aes(x = clusterRes, y = freq, fill = condition, color = condition)) +
+  geom_dotplot(binaxis='y', stackdir='center', 
+               dotsize = 0.6,position = position_dodge(0.5)) + 
+  ylab("proportion") +
+  xlab("Haber2017") +
+  theme(axis.text.x = element_text(angle = 45, hjust=1),
+        axis.title.y = element_blank()) +
+  theme(legend.position="top")
+haber2 = cellnumDF %>% 
+  filter(condition == "Control" | condition == "Hpoly.Day10") %>% 
+  mutate(clusterRes = factor(clusterRes, levels = c("Tuft", "TAE", "Gob", "E", "EP", "Edo", "Stem", "TA"))) %>% 
+  ggplot(aes(x = clusterRes, y = freq, fill = condition, color = condition)) +
+  geom_dotplot(binaxis='y', stackdir='center', 
+               dotsize = 0.6,position = position_dodge(0.5)) + 
+  ylab("proportion") +
+  xlab("Haber2017") +
+  theme(axis.text.x = element_text(angle = 45, hjust=1)) +
+  theme(legend.position="top") 
+haber3 = cellnumDF %>% 
+  filter(condition == "Control" | condition == "Salmonella") %>% 
+  mutate(clusterRes = factor(clusterRes, levels = c("E", "Stem", "TA", "TAE", "EP", "Tuft", "Gob", "Edo"))) %>% 
+  ggplot(aes(x = clusterRes, y = freq, fill = condition, color = condition)) +
+  geom_dotplot(binaxis='y', stackdir='center', 
+               dotsize = 0.6,position = position_dodge(0.5)) + 
+  ylab("proportion") +
+  xlab("Haber2017") +
+  theme(axis.text.x = element_text(angle = 45, hjust=1),
+        axis.title.y = element_blank()) +
+  theme(legend.position="top")
+```
+
+```{r}
+load("/storage/holab/linxy/DCATS/real_world/Exp7_Adam_2017/Haber2017_res.RData")
+
+all_resC3 %>% 
+  mutate(milo_pct = ifelse(milo_more > milo_less, (milo_more-milo_less)/(milo_more+milo_less+neutral), (milo_less-milo_more)/(milo_more+milo_less+neutral))) %>% 
+  dplyr::select(cluster, truth, contains('_pvals'), milo_pct) %>% 
+  mutate_if(is.numeric, round, 3) %>% 
+  mutate(treatment = "Hpoly.Day3") %>% 
+  rename_with(~ gsub('_pvals', '', .x)) %>% 
+  knitr::kable()
+all_resC10 %>% 
+  mutate(milo_pct = ifelse(milo_more > milo_less, (milo_more-milo_less)/(milo_more+milo_less+neutral), (milo_less-milo_more)/(milo_more+milo_less+neutral))) %>% 
+  dplyr::select(cluster, truth, contains('_pvals'), milo_pct) %>% 
+  mutate_if(is.numeric, round, 3) %>% 
+  mutate(treatment = "Hpoly.Day10") %>% 
+  rename_with(~ gsub('_pvals', '', .x)) %>% 
+  knitr::kable()
+all_resCS %>% 
+  mutate(milo_pct = ifelse(milo_more > milo_less, (milo_more-milo_less)/(milo_more+milo_less+neutral), (milo_less-milo_more)/(milo_more+milo_less+neutral))) %>% 
+  dplyr::select(cluster, truth, contains('_pvals'), milo_pct) %>% 
+  mutate_if(is.numeric, round, 3) %>% 
+  mutate(treatment = "Salmonella") %>% 
+  rename_with(~ gsub('_pvals', '', .x)) %>% 
+  knitr::kable()
+```
+
+```{r}
+all_resC3 %>% 
+  mutate(milo_pct = ifelse(milo_more > milo_less, (milo_more-milo_less)/(milo_more+milo_less+neutral), (milo_less-milo_more)/(milo_more+milo_less+neutral)),
+         milo_Res = ifelse(milo_pct > 0.2, "P", "N")) %>% 
+  dplyr::select(cluster, truth, contains('_Res')) %>% 
+  dplyr::rename(origin = truth) %>% 
+  pivot_longer(origin:milo_Res, names_to = "method", values_to = "res") %>% 
+  pivot_wider(names_from = cluster, values_from = res) %>% 
+  mutate(method = str_remove(method, "_Res")) %>% 
+  filter(method %in% c("origin", "estPhi_emSVM", "fisher", "scDC", "speckle", "milo")) %>% 
+  mutate(method = ifelse(method == "estPhi_emSVM", "DCATS", method)) %>% 
+  column_to_rownames("method") %>% 
+  dplyr::select(Tuft, Endocrine, Enterocyte.Progenitor, Stem, Goblet, TA.Early, Enterocyte, TA) %>% 
+  knitr::kable()
+
+all_resC10 %>% 
+  mutate(milo_pct = ifelse(milo_more > milo_less, (milo_more-milo_less)/(milo_more+milo_less+neutral), (milo_less-milo_more)/(milo_more+milo_less+neutral)),
+         milo_Res = ifelse(milo_pct > 0.2, "P", "N")) %>% 
+  dplyr::select(cluster, truth, contains('_Res')) %>% 
+  dplyr::rename(origin = truth) %>% 
+  pivot_longer(origin:milo_Res, names_to = "method", values_to = "res") %>% 
+  pivot_wider(names_from = cluster, values_from = res) %>% 
+  mutate(method = str_remove(method, "_Res")) %>% 
+  filter(method %in% c("origin", "estPhi_emSVM", "fisher", "scDC", "speckle", "milo")) %>% 
+  mutate(method = ifelse(method == "estPhi_emSVM", "DCATS", method)) %>% 
+  column_to_rownames("method") %>% 
+  dplyr::select(Tuft, TA.Early, Goblet, Enterocyte, Enterocyte.Progenitor, Endocrine, Stem, TA) %>% 
+  knitr::kable()
+
+all_resCS %>% 
+  mutate(milo_pct = ifelse(milo_more > milo_less, (milo_more-milo_less)/(milo_more+milo_less+neutral), (milo_less-milo_more)/(milo_more+milo_less+neutral)),
+         milo_Res = ifelse(milo_pct > 0.2, "P", "N")) %>% 
+  dplyr::select(cluster, truth, contains('_Res')) %>% 
+  dplyr::rename(origin = truth) %>% 
+  pivot_longer(origin:milo_Res, names_to = "method", values_to = "res") %>% 
+  pivot_wider(names_from = cluster, values_from = res) %>% 
+  mutate(method = str_remove(method, "_Res")) %>% 
+  filter(method %in% c("origin", "estPhi_emSVM", "fisher", "scDC", "speckle", "milo")) %>% 
+  mutate(method = ifelse(method == "estPhi_emSVM", "DCATS", method)) %>% 
+  column_to_rownames("method") %>% 
+  dplyr::select(Enterocyte, Stem, TA, TA.Early, Enterocyte.Progenitor, Tuft, Goblet, Endocrine) %>% 
+  knitr::kable()
+```
+
+```{r}
+data("Haber2017")
+Haber2017$svm_mat %>% knitr::kable()
+```
+
+Supplementary Figures: Distribution of each cell type after bias correction
+
+```{r}
+haberM = cellnumDF %>% 
+  ungroup() %>% 
+  dplyr::select(batch, clusterRes, n) %>% 
+  pivot_wider(names_from = clusterRes, values_from = n) %>% 
+  column_to_rownames("batch") %>% 
+  as.matrix()
+
+count_use = haberM
+similarity_mat = Haber2017$svm_mat
+  if(!is.null(similarity_mat)) {
+    for (i in seq_len(nrow(haberM))) {
+      count_use[i, ] <- sum(haberM[i, ]) *
+        multinom_EM(haberM[i, ], similarity_mat, verbose = FALSE)$mu
+    }
+  }
+
+corrected_cellnumDF = count_use %>% as.data.frame() %>% 
+  rownames_to_column("batch") %>% 
+  pivot_longer(Edo:Tuft, names_to = "clusterRes", values_to = "n") %>% 
+  group_by(batch) %>% 
+  mutate(freq = round(n/sum(n), 3)) %>% 
+  ungroup() %>% 
+  mutate(condition = cellnumDF$condition)
+```
+
+```{r}
+haber1 = corrected_cellnumDF %>% 
+  filter(condition == "Control" | condition == "Hpoly.Day3") %>% 
+  mutate(clusterRes = factor(clusterRes, levels = c("Tuft", "Edo", "EP", "Stem", "Gob", "TAE", "E", "TA"))) %>% 
+  ggplot(aes(x = clusterRes, y = freq, fill = condition, color = condition)) +
+  geom_dotplot(binaxis='y', stackdir='center', 
+               dotsize = 0.6,position = position_dodge(0.5)) + 
+  ylab("proportion") +
+  xlab("Haber2017") +
+  theme(axis.text.x = element_text(angle = 45, hjust=1)) +
+  theme(legend.position="top")
+haber2 = corrected_cellnumDF %>% 
+  filter(condition == "Control" | condition == "Hpoly.Day10") %>% 
+  mutate(clusterRes = factor(clusterRes, levels = c("Tuft", "TAE", "Gob", "E", "EP", "Edo", "Stem", "TA"))) %>% 
+  ggplot(aes(x = clusterRes, y = freq, fill = condition, color = condition)) +
+  geom_dotplot(binaxis='y', stackdir='center', 
+               dotsize = 0.6,position = position_dodge(0.5)) + 
+  ylab("proportion") +
+  xlab("Haber2017") +
+  theme(axis.text.x = element_text(angle = 45, hjust=1),
+        axis.title.y = element_blank()) +
+  theme(legend.position="top") 
+haber3 = corrected_cellnumDF %>% 
+  filter(condition == "Control" | condition == "Salmonella") %>% 
+  mutate(clusterRes = factor(clusterRes, levels = c("E", "Stem", "TA", "TAE", "EP", "Tuft", "Gob", "Edo"))) %>% 
+  ggplot(aes(x = clusterRes, y = freq, fill = condition, color = condition)) +
+  geom_dotplot(binaxis='y', stackdir='center', 
+               dotsize = 0.6,position = position_dodge(0.5)) + 
+  ylab("proportion") +
+  xlab("Haber2017") +
+  theme(axis.text.x = element_text(angle = 45, hjust=1),
+        axis.title.y = element_blank()) +
+  theme(legend.position="top")
+haber1 + haber2 + haber3
+ggsave("./plot/haber_corrected.png", bg = "transparent", height = 4, width = 15)
+```
+
+
+## real-world data2 
+
+```{r, echo=FALSE}
+exp6_clusterInfo = read.delim("/storage/holab/linxy/DCATS/real_world/Exp6_Kang/GSE96583_batch2.total.tsne.df.tsv") %>% 
+  dplyr::rename(clusterRes = cell, condition = stim) %>% 
+  rownames_to_column("cell") %>% 
+  filter(!is.na(clusterRes))
+head(exp6_clusterInfo)
+exp6_clusterInfo %>% group_by(condition, clusterRes) %>% 
+  summarise(n = n())
+## check whether exist duplicate barcode -> no
+exp6_clusterInfo %>% 
+  group_by(cell) %>% 
+  summarise(n = n()) %>% 
+  filter(n > 1)
+```
+
+```{r}
+ctrl_repInfo <- read.delim("/storage/holab/linxy/DCATS/real_world/Exp6_Kang/ye1.ctrl.8.10.sm.best")
+stim_repInfo <- read.delim("/storage/holab/linxy/DCATS/real_world/Exp6_Kang/ye2.stim.8.10.sm.best")
+head(ctrl_repInfo)
+head(stim_repInfo)
+
+exp6_repInfo = rbind(ctrl_repInfo, stim_repInfo) %>% 
+  dplyr::rename(cell = BARCODE, batch = BEST) %>% 
+  filter(str_detect(batch, 'SNG')) %>% 
+  dplyr::select(cell, batch)
+head(exp6_repInfo)
+```
+
+```{r}
+exp6DF = exp6_clusterInfo %>% 
+  merge(exp6_repInfo) %>% 
+  group_by(condition, clusterRes, batch) %>% 
+  summarise(n = n()) %>% 
+  mutate(freq = round(n/sum(n), 3)) %>% 
+  mutate(clusterRes = ifelse(clusterRes == "B cells", "B", clusterRes),
+         clusterRes = ifelse(clusterRes == "CD14+ Monocytes", "cM", clusterRes),
+         clusterRes = ifelse(clusterRes == "CD4 T cells", "Th", clusterRes),
+         clusterRes = ifelse(clusterRes == "CD8 T cells", "Tc", clusterRes),
+         clusterRes = ifelse(clusterRes == "FCGR3A+ Monocytes", "ncM", clusterRes),
+         clusterRes = ifelse(clusterRes == "Megakaryocytes", "Mkc", clusterRes),
+         clusterRes = ifelse(clusterRes == "NK cells", "NK", clusterRes),
+         clusterRes = ifelse(clusterRes == "Dendritic cells", "DC", clusterRes))
+kang_main = exp6DF %>% 
+  mutate(condition = ifelse(condition == "stim", "Stimulated", "Control")) %>% 
+  mutate(clusterRes = factor(clusterRes, levels = c("NK", "Tc", "cM", "ncM", "B", "Th", "DC", "Mkc"))) %>% 
+  ggplot(aes(x = clusterRes, y = freq)) +
+  geom_boxplot(aes(color = condition)) +
+  theme(axis.text.x = element_text(angle = 45, hjust=1)) +
+  theme(legend.position="top") +
+  ylab("proportion") + 
+  xlab("Kang2017")
+```
+
+```{r}
+load("/storage/holab/linxy/DCATS/real_world/Exp6_Kang/Kang2017_res.RData")
+all_res %>% 
+  mutate(milo_pct = ifelse(milo_more > milo_less, (milo_more-milo_less)/(milo_more+milo_less+neutral), (milo_less-milo_more)/(milo_more+milo_less+neutral))) %>% 
+  dplyr::select(cluster, truth, contains('_pvals'), milo_pct) %>% 
+  mutate_if(is.numeric, round, 3) %>% 
+  rename_with(~ gsub('_pvals', '', .x)) %>% 
+  knitr::kable()
+  
+```
+
+```{r}
+all_res %>% 
+  mutate(milo_pct = ifelse(milo_more > milo_less, (milo_more-milo_less)/(milo_more+milo_less+neutral), (milo_less-milo_more)/(milo_more+milo_less+neutral)),
+         milo_Res = ifelse(milo_pct > 0.2, "P", "N")) %>% 
+  dplyr::select(cluster, truth, contains('_Res')) %>% 
+  dplyr::rename(origin = truth) %>% 
+  mutate(cluster = ifelse(cluster == "B cells", "B", cluster),
+         cluster = ifelse(cluster == "CD14+ Monocytes", "cM", cluster),
+         cluster = ifelse(cluster == "CD4 T cells", "Th", cluster),
+         cluster = ifelse(cluster == "CD8 T cells", "Tc", cluster),
+         cluster = ifelse(cluster == "FCGR3A+ Monocytes", "ncM", cluster),
+         cluster = ifelse(cluster == "Megakaryocytes", "Mkc", cluster),
+         cluster = ifelse(cluster == "NK cells", "NK", cluster),
+         cluster = ifelse(cluster == "Dendritic cells", "DC", cluster)) %>% 
+  pivot_longer(origin:milo_Res, names_to = "method", values_to = "res") %>% 
+  pivot_wider(names_from = cluster, values_from = res) %>% 
+  mutate(method = str_remove(method, "_Res")) %>% 
+  filter(method %in% c("origin", "estPhi_emSVM", "fisher", "scDC", "speckle", "milo")) %>% 
+  mutate(method = ifelse(method == "estPhi_emSVM", "DCATS", method)) %>% 
+  dplyr::select(method, NK, Tc, cM, ncM, B, Th, DC, Mkc) %>% 
+  column_to_rownames("method") %>% 
+  knitr::kable()
+```
+
+```{r}
+kang_main + haber1 + haber2 + haber3
+ggsave("./plot/Fig3.png", bg = "transparent", height = 7.5, width = 10)
+```

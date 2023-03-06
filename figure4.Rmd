@@ -1,0 +1,287 @@
+---
+title: "The figure4"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE)
+knitr::opts_chunk$set(fig.width=12, fig.height=7)
+```
+
+```{r,message=FALSE,warning=FALSE}
+#library(splatter)
+library(Seurat)
+library(speckle)
+library(DCATS)
+library(ggplot2)
+library(tidyverse)
+library(MCMCpack)
+library(pROC)
+library(patchwork)
+library(ggpubr)
+library(lattice)
+```
+
+```{r}
+source("functionsV2.r")
+options(future.globals.maxSize = 20000 * 1024^2) # 20G memory
+```
+
+```{r}
+theme_set(theme_classic()+
+            theme(panel.border = element_blank(),
+          legend.key = element_blank(),
+          axis.ticks = element_blank(),
+          panel.grid = element_blank(),
+          panel.grid.minor = element_blank(), 
+          panel.grid.major = element_blank(),
+          panel.background = element_blank(),
+          legend.background = element_blank(),
+          plot.background = element_rect(fill = "transparent",colour = NA)) + 
+            theme(axis.text=element_text(size=12), axis.title=element_text(size=13))+
+            theme(legend.title = element_text(size=13), #change legend title font size
+                  legend.text = element_text(size=10)))
+theme_set(theme_classic()+
+            theme(panel.border = element_blank(),
+          legend.key = element_blank(),
+          axis.ticks = element_blank(),
+          panel.grid = element_blank(),
+          panel.grid.minor = element_blank(), 
+          panel.grid.major = element_blank(),
+          panel.background = element_blank(),
+          legend.background = element_blank(),
+          plot.background = element_rect(fill = "transparent",colour = NA)) + 
+            theme(axis.text=element_text(size=12), axis.title=element_text(size=13))+
+            theme(strip.text.x = element_text(size = 13), strip.text.y = element_text(size = 13)) +
+            theme(plot.title = element_text(size = 13),plot.subtitle = element_text(size = 13)) +
+            theme(legend.title = element_text(size=13), #change legend title font size
+                  legend.text = element_text(size=10)) + 
+  theme(plot.title = element_text(hjust = 0.5)))
+```
+
+## Figure 4
+
+### real-world data 3
+
+```{r}
+theme_set(theme_classic()+
+            theme(panel.border = element_blank(),
+          legend.key = element_blank(),
+          axis.ticks = element_blank(),
+          panel.grid = element_blank(),
+          panel.grid.minor = element_blank(), 
+          panel.grid.major = element_blank(),
+          panel.background = element_blank(),
+          legend.background = element_blank(),
+          plot.background = element_rect(fill = "transparent",colour = NA)) + 
+            theme(axis.text=element_text(size=12), axis.title=element_text(size=13))+
+            theme(strip.text.x = element_text(size = 13), strip.text.y = element_text(size = 13)) +
+            theme(plot.title = element_text(size = 15),plot.subtitle = element_text(size = 15)) +
+            theme(legend.title = element_text(size=13), #change legend title font size
+                  legend.text = element_text(size=13)))
+```
+
+
+```{r}
+load("/storage/holab/linxy/DCATS/real_world/Ren_2021/Ren2021_res.RData")
+data(Ren2021)
+```
+
+Test between different groups
+
+control vs mild/moderate_progression
+
+```{r, eval=FALSE, warning=FALSE}
+designM_sub = Ren2021$designM %>% 
+  filter(state == "control" | state == "mild/moderate_progression")
+countM_sub = Ren2021$countM[rownames(designM_sub),]
+
+simil_mat = create_simMat(dim(countM_sub)[2], confuse_rate=0.10)
+betabin_null = dcats_GLM(countM_sub, designM_sub, base_model = 'FULL')
+wtoPhi_emU = dcats_GLM(countM_sub, designM_sub, similarity_mat = simil_mat, base_model = 'FULL', pseudo_count = 1)
+phi = getPhi(countM_sub, designM_sub)
+estPhi_null = dcats_GLM(countM_sub, designM_sub, fix_phi = phi, base_model = 'FULL')
+estPhi_emU = dcats_GLM(countM_sub, designM_sub, similarity_mat = simil_mat, fix_phi = phi, base_model = 'FULL', pseudo_count = 1)
+
+stat.test1 = data.frame(group1 = "control", group2 = "mild/moderate (progression)", p = estPhi_emU$LRT_pvals[,4]) %>% 
+  rownames_to_column("clusterRes")
+
+wtoPhi_emU$LRT_pvals
+estPhi_emU$LRT_pvals
+```
+
+control vs severe/critical_progression
+
+```{r, eval=FALSE, warning=FALSE}
+designM_sub = Ren2021$designM %>% 
+  filter(state == "control" | state == "severe/critical_progression")
+countM_sub = Ren2021$countM[rownames(designM_sub),]
+
+simil_mat = create_simMat(dim(countM_sub)[2], confuse_rate=0.1)
+betabin_null = dcats_GLM(countM_sub, designM_sub, base_model = 'FULL')
+wtoPhi_emU = dcats_GLM(countM_sub, designM_sub, similarity_mat = simil_mat, base_model = 'FULL', pseudo_count = 1)
+phi = getPhi(countM_sub, designM_sub)
+estPhi_null = dcats_GLM(countM_sub, designM_sub, fix_phi = phi, base_model = 'FULL')
+estPhi_emU = dcats_GLM(countM_sub, designM_sub, similarity_mat = simil_mat, fix_phi = phi, base_model = 'FULL', pseudo_count = 1)
+
+stat.test2 = data.frame(group1 = "control", group2 = "severe/critical (progression)", p = estPhi_emU$LRT_pvals[,4]) %>% 
+  rownames_to_column("clusterRes")
+```
+
+mild/moderate_convalescence vs mild/moderate_progression
+
+```{r, eval=FALSE, warning=FALSE}
+designM_sub = Ren2021$designM %>% 
+  filter(state == "mild/moderate_convalescence" | state == "mild/moderate_progression")
+countM_sub = Ren2021$countM[rownames(designM_sub),]
+
+simil_mat = create_simMat(dim(countM_sub)[2], confuse_rate=0.1)
+betabin_null = dcats_GLM(countM_sub, designM_sub, base_model = 'FULL')
+wtoPhi_emU = dcats_GLM(countM_sub, designM_sub, similarity_mat = simil_mat, base_model = 'FULL', pseudo_count = 1)
+phi = getPhi(countM_sub, designM_sub)
+estPhi_null = dcats_GLM(countM_sub, designM_sub, fix_phi = phi, base_model = 'FULL')
+estPhi_emU = dcats_GLM(countM_sub, designM_sub, similarity_mat = simil_mat, fix_phi = phi, base_model = 'FULL', pseudo_count = 1)
+betabin_null$LRT_pvals < 0.05
+wtoPhi_emU$LRT_pvals < 0.05
+estPhi_null$LRT_pvals < 0.05
+estPhi_emU$LRT_pvals < 0.05
+
+stat.test3 = data.frame(group1 = "mild/moderate (convalescence)", group2 = "mild/moderate (progression)", p = estPhi_emU$LRT_pvals[,4]) %>% 
+  rownames_to_column("clusterRes")
+
+stat.test3
+```
+
+severe/critical_convalescence vs severe/critical_progression
+
+```{r, eval=FALSE, warning=FALSE}
+designM_sub = Ren2021$designM %>% 
+  filter(state == "severe/critical_convalescence" | state == "severe/critical_progression")
+countM_sub = Ren2021$countM[rownames(designM_sub),]
+
+simil_mat = create_simMat(dim(countM_sub)[2], confuse_rate=0.1)
+betabin_null = dcats_GLM(countM_sub, designM_sub, base_model = 'FULL')
+wtoPhi_emU = dcats_GLM(countM_sub, designM_sub, similarity_mat = simil_mat, base_model = 'FULL', pseudo_count = 1)
+phi = getPhi(countM_sub, designM_sub)
+estPhi_null = dcats_GLM(countM_sub, designM_sub, fix_phi = phi, base_model = 'FULL')
+estPhi_emU = dcats_GLM(countM_sub, designM_sub, similarity_mat = simil_mat, fix_phi = phi, base_model = 'FULL', pseudo_count = 1)
+betabin_null$LRT_pvals < 0.05
+wtoPhi_emU$LRT_pvals < 0.05
+estPhi_null$LRT_pvals < 0.05
+estPhi_emU$LRT_pvals < 0.05
+
+stat.test4 = data.frame(group1 = "severe/critical (convalescence)", group2 = "severe/critical (progression)", p = estPhi_emU$LRT_pvals[,4]) %>% 
+  rownames_to_column("clusterRes")
+```
+
+
+```{r}
+Ren2021_plotDF = Ren2021$countM %>% 
+  as.data.frame() %>% 
+  merge(Ren2021$designM, by = 0) %>% 
+  pivot_longer(B:Neu, names_to = "clusterRes", values_to = "count") %>% 
+  group_by(Row.names) %>% 
+  mutate(state = str_replace(state, "_convalescence", " (convalescence)"),
+         state = str_replace(state, "_progression", " (progression)")) %>% 
+  mutate(proportion = count / sum(count)) %>% 
+  mutate(clusterRes = ifelse(clusterRes=="B", "B cells", clusterRes),
+         clusterRes = ifelse(clusterRes=="CD4", "CD4+T cells", clusterRes),
+         clusterRes = ifelse(clusterRes=="CD8", "CD8+ T cells", clusterRes),
+         clusterRes = ifelse(clusterRes=="NK", "NK cells", clusterRes),
+         clusterRes = ifelse(clusterRes=="Mono", "Monocytes", clusterRes),
+         clusterRes = ifelse(clusterRes=="DC", "Dendritic cells", clusterRes),
+         clusterRes = ifelse(clusterRes=="Mega", "Megakaryocytes", clusterRes),
+         clusterRes = ifelse(clusterRes=="Macro", "Macrophages", clusterRes),
+         clusterRes = ifelse(clusterRes=="Neu", "Neutrophils", clusterRes))
+```
+
+```{r}
+p1 = ggplot(data = Ren2021_plotDF[Ren2021_plotDF$clusterRes %in% c("CD8+ T cells", "Monocytes", "CD4+T cells", "B cells", "Megakaryocytes", "Plasma"),], aes(x = state, y = proportion)) +
+    geom_boxplot(aes(color = state)) +
+    theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank()) + 
+    facet_grid(.~factor(clusterRes, levels=c("CD8+ T cells", "Monocytes", "CD4+T cells", "B cells", "Megakaryocytes", "Plasma"))) +
+    theme(legend.position="none")
+
+
+p2 = ggplot(data = Ren2021_plotDF[Ren2021_plotDF$clusterRes %in% c("NK cells", "Macrophages", "Dendritic cells", "Neutrophils"),], aes(x = state, y = proportion)) +
+    geom_boxplot(aes(color = state)) +
+    theme(axis.text.x=element_blank(),
+          axis.ticks.x=element_blank()) +
+    facet_grid(.~factor(clusterRes, levels=c("NK cells", "Macrophages", "Dendritic cells", "Neutrophils"))) + 
+    theme(legend.position="bottom") +
+  guides(color = guide_legend(nrow = 2))
+p1/p2
+```
+
+```{r,eval=FALSE}
+stat.test = stat.test1 %>% rbind(stat.test2) %>% rbind(stat.test3) %>% rbind(stat.test4) %>% 
+  mutate(p.signif = ifelse(p < 0.01, "***", "n.s."),
+         p.signif = ifelse(0.01<p&p<0.05, "**", p.signif),
+         p.signif = ifelse(0.05<p&p<0.1, "*", p.signif)) %>% 
+  filter(p.signif != 'n.s.') %>% 
+  mutate(clusterRes = ifelse(clusterRes=="B", "B cells", clusterRes),
+         clusterRes = ifelse(clusterRes=="CD4", "CD4+T cells", clusterRes),
+         clusterRes = ifelse(clusterRes=="CD8", "CD8+ T cells", clusterRes),
+         clusterRes = ifelse(clusterRes=="NK", "NK cells", clusterRes),
+         clusterRes = ifelse(clusterRes=="Mono", "Monocytes", clusterRes),
+         clusterRes = ifelse(clusterRes=="DC", "Dendritic cells", clusterRes),
+         clusterRes = ifelse(clusterRes=="Mega", "Megakaryocytes", clusterRes),
+         clusterRes = ifelse(clusterRes=="Macro", "Macrophages", clusterRes),
+         clusterRes = ifelse(clusterRes=="Neu", "Neutrophils", clusterRes)) %>% 
+  mutate(color = ifelse(!((clusterRes == "CD8+ T cells"&group1 == "control"&group2 == "mild/moderate (progression)") | (clusterRes == "Monocytes"&group1 == "mild/moderate (convalescence)"&group2 == "mild/moderate (progression)") | (clusterRes == "B cells"&group1 == "control"&group2 == "mild/moderate (progression)") | (clusterRes == "B cells"&group1 == "mild/moderate (convalescence)"&group2 == "mild/moderate (progression)")), "y1", "y2"))
+save(stat.test, file = "/storage/holab/linxy/DCATS/real_world/Ren_2021/Ren2021_res.RData")
+```
+
+```{r}
+#load("./data/real_world/Ren2021.RData")
+pB1 = ggplot(data = Ren2021_plotDF[Ren2021_plotDF$clusterRes %in% c("CD8+ T cells", "Monocytes", "CD4+T cells", "B cells", "Megakaryocytes", "Plasma"),], aes(x = state, y = proportion)) +
+    geom_boxplot(aes(color = state)) +
+    theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank()) + 
+    facet_grid(.~factor(clusterRes, levels=c("CD8+ T cells", "Monocytes", "CD4+T cells", "B cells", "Megakaryocytes", "Plasma"))) +
+    theme(legend.position="bottom")
+
+pB2 = ggplot(data = Ren2021_plotDF[Ren2021_plotDF$clusterRes %in% c("NK cells", "Macrophages", "Dendritic cells", "Neutrophils"),], aes(x = state, y = proportion)) +
+    geom_boxplot(aes(color = state)) +
+    theme(axis.text.x=element_blank(),
+          axis.ticks.x=element_blank()) +
+    facet_grid(.~factor(clusterRes, levels=c("NK cells", "Macrophages", "Dendritic cells", "Neutrophils"))) + 
+    theme(legend.position="bottom") +
+  guides(color = guide_legend(nrow = 2))
+
+stat.testp1 = stat.test %>% 
+  mutate(y.position = ifelse(group1 == "control" & group2 == "severe/critical_progression", 0.95, 0.9),
+         y.position = ifelse(group1 == "mild/moderate_convalescence" & group2 == "mild/moderate_progression", 0.1, y.position),
+         y.position = ifelse(group1 == "severe/critical_convalescence" & group2 == "severe/critical_progression", 0.15, y.position)) %>% 
+  filter(clusterRes %in% c("CD8+ T cells", "Monocytes", "CD4+T cells", "B cells", "Megakaryocytes", "Plasma"))
+stat.testp2 = stat.test %>% 
+  mutate(y.position = ifelse(group1 == "control" & group2 == "severe/critical_progression", 0.4, 0.35),
+         y.position = ifelse(group1 == "mild/moderate_convalescence" & group2 == "mild/moderate_progression", 0.45, y.position),
+         y.position = ifelse(group1 == "severe/critical_convalescence" & group2 == "severe/critical_progression", 0.5, y.position)) %>% 
+  filter(clusterRes %in% c("NK cells", "Macrophages", "Dendritic cells", "Neutrophils"))
+
+library(ggprism)
+#p1 + add_pvalue(stat.testp1, tip.length = 0.02)
+#p2 + add_pvalue(stat.testp2, tip.length = 0.002)
+
+pB1 + add_pvalue(stat.testp1, tip.length = 0.015, step.increase = 0.03, colour = "color") + scale_color_manual(values=c("#F8766D", "#A3A500", "#00BF7D", "#00B0F6", "#E76BF3", "black", "red"))
+ggsave("./plot/Ren_main.png", height = 8, width = 10)
+```
+
+### Real world data 4
+
+```{r}
+load("/storage/holab/linxy/DCATS/real_world/Schiller_2019/dcats_input.RData")
+betabin_null = dcats_GLM(countM, designM)
+betabin_null_ref = dcats_GLM(countM, designM, reference = "Club_cells")
+```
+
+```{r}
+cbind(betabin_null$LRT_pvals %>% round(4) , betabin_null$fdr %>% round(4) , betabin_null_ref$LRT_pvals %>% round(4) , betabin_null_ref$fdr %>% round(4)) %>% knitr::kable()
+cbind(betabin_null$LRT_pvals < 0.05 , betabin_null$fdr < 0.05 , betabin_null_ref$LRT_pvals < 0.05 , betabin_null_ref$fdr < 0.05)
+```
+
+

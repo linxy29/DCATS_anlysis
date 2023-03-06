@@ -1,0 +1,1688 @@
+---
+title: "The figure2"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE)
+knitr::opts_chunk$set(fig.width=12, fig.height=7)
+```
+
+```{r,message=FALSE,warning=FALSE}
+#library(splatter)
+library(Seurat)
+library(speckle)
+library(DCATS)
+library(ggplot2)
+library(tidyverse)
+library(MCMCpack)
+library(pROC)
+library(patchwork)
+library(ggpubr)
+library(lattice)
+```
+
+```{r}
+source("functionsV2.r")
+options(future.globals.maxSize = 20000 * 1024^2) # 20G memory
+```
+
+```{r}
+theme_set(theme_classic()+
+            theme(panel.border = element_blank(),
+          legend.key = element_blank(),
+          axis.ticks = element_blank(),
+          panel.grid = element_blank(),
+          panel.grid.minor = element_blank(), 
+          panel.grid.major = element_blank(),
+          panel.background = element_blank(),
+          legend.background = element_blank(),
+          plot.background = element_rect(fill = "transparent",colour = NA)) + 
+            theme(axis.text=element_text(size=12), axis.title=element_text(size=13))+
+            theme(legend.title = element_text(size=13), #change legend title font size
+                  legend.text = element_text(size=10)))
+theme_set(theme_classic()+
+            theme(panel.border = element_blank(),
+          legend.key = element_blank(),
+          axis.ticks = element_blank(),
+          panel.grid = element_blank(),
+          panel.grid.minor = element_blank(), 
+          panel.grid.major = element_blank(),
+          panel.background = element_blank(),
+          legend.background = element_blank(),
+          plot.background = element_rect(fill = "transparent",colour = NA)) + 
+            theme(axis.text=element_text(size=12), axis.title=element_text(size=13))+
+            theme(strip.text.x = element_text(size = 13), strip.text.y = element_text(size = 13)) +
+            theme(plot.title = element_text(size = 13),plot.subtitle = element_text(size = 13)) +
+            theme(legend.title = element_text(size=13), #change legend title font size
+                  legend.text = element_text(size=10)) + 
+  theme(plot.title = element_text(hjust = 0.5)))
+```
+
+## Figure 2
+
+### Figure 2-A
+
+The Distribution of cell pool
+
+```{r}
+#load("D:/Data/DCATS/cells_pool8_splatter.RData")
+load("/storage/holab/linxy/DCATS/cells_pool8_splatter.RData")
+```
+
+```{r}
+seuratObj <- CreateSeuratObject(counts = sim_mat, project="Splatter")
+seuratObj <- NormalizeData(seuratObj, verbose = FALSE)
+seuratObj <- FindVariableFeatures(seuratObj, selection.method = "vst", nfeatures = 2000, verbose = FALSE)
+seuratObj <- ScaleData(seuratObj)
+seuratObj <- RunPCA(seuratObj, features = VariableFeatures(object = seuratObj))
+seuratObj <- FindNeighbors(seuratObj, dims = 1:30, verbose = FALSE)
+seuratObj <- FindClusters(seuratObj, resolution = 0.5, verbose = FALSE)
+seuratObj <- RunUMAP(seuratObj, dims = 1:30, verbose = FALSE)
+seuratObj[['orig.ident']] <- origLabels
+DimPlot(seuratObj, reduction = "umap")
+p1 = DimPlot(seuratObj, reduction = "umap", group.by = "orig.ident") + theme(legend.position="none") + ggtitle("Simulation data (8 Cell Types)")
+```
+
+```{r}
+#load("D:/Data/DCATS/cells_pool10_splatter.RData")
+load("/storage/holab/linxy/DCATS/cells_pool10_splatter.RData")
+```
+
+```{r}
+seuratObj <- CreateSeuratObject(counts = sim_mat, project="Splatter")
+seuratObj <- NormalizeData(seuratObj, verbose = FALSE)
+seuratObj <- FindVariableFeatures(seuratObj, selection.method = "vst", nfeatures = 2000, verbose = FALSE)
+seuratObj <- ScaleData(seuratObj)
+seuratObj <- RunPCA(seuratObj, features = VariableFeatures(object = seuratObj))
+seuratObj <- FindNeighbors(seuratObj, dims = 1:30, verbose = FALSE)
+seuratObj <- FindClusters(seuratObj, resolution = 0.5, verbose = FALSE)
+seuratObj <- RunUMAP(seuratObj, dims = 1:30, verbose = FALSE)
+seuratObj[['orig.ident']] <- origLabels
+DimPlot(seuratObj, reduction = "umap")
+p2 = DimPlot(seuratObj, reduction = "umap", group.by = "orig.ident") + theme(legend.position="none", axis.title.y = element_blank())  + ggtitle("Simulation data (10 Cell Types)")
+```
+
+```{r}
+#load("D:/Data/DCATS/cells_pool12_splatter.RData")
+load("/storage/holab/linxy/DCATS/cells_pool12_splatter.RData")
+```
+
+```{r}
+seuratObj <- CreateSeuratObject(counts = sim_mat, project="Splatter")
+seuratObj <- NormalizeData(seuratObj, verbose = FALSE)
+seuratObj <- FindVariableFeatures(seuratObj, selection.method = "vst", nfeatures = 2000, verbose = FALSE)
+seuratObj <- ScaleData(seuratObj)
+seuratObj <- RunPCA(seuratObj, features = VariableFeatures(object = seuratObj))
+seuratObj <- FindNeighbors(seuratObj, dims = 1:30, verbose = FALSE)
+seuratObj <- FindClusters(seuratObj, resolution = 0.5, verbose = FALSE)
+seuratObj <- RunUMAP(seuratObj, dims = 1:30, verbose = FALSE)
+seuratObj[['orig.ident']] <- origLabels
+DimPlot(seuratObj, reduction = "umap")
+p3 = DimPlot(seuratObj, reduction = "umap", group.by = "orig.ident") + theme(legend.position="none", axis.title.y = element_blank()) + ggtitle("Simulation data (12 Cell Types)")
+```
+
+```{r}
+p1 + p2 + p3
+ggsave("./plot/sim2_cellpool.png", bg = "transparent", width = 12, height = 4)
+```
+
+```{r}
+load("/storage/holab/linxy/DCATS/simulation/current/replicates3&3_K8_con100_splatter3000&3000para.RData")
+#load("/Users/linxy29/Documents/Data/DCATS/simulation/current/replicates3&3_K8_con100_splatter3000&3000para.RData")
+```
+
+Draw the proportion of different cell types and ROC curves
+
+```{r}
+clusterRes = data.frame()
+seurat_count = data_frame()
+true_count = data.frame()
+for (idx in 1:length(oper)){
+    if (!is.na(oper[[idx]][1])) {
+      clusterRes = rbind(clusterRes, oper[[idx]]$clusterDF)
+      oper[[idx]]$seurat_count$cond1 = oper[[idx]]$seurat_count$cond1 %>% 
+        mutate(condition = "Condition 1")
+      oper[[idx]]$seurat_count$cond2 = oper[[idx]]$seurat_count$cond2 %>% 
+        mutate(condition = "Condition 2")
+      seurat_count = rbind(seurat_count, oper[[idx]]$seurat_count$cond1)
+      seurat_count = rbind(seurat_count, oper[[idx]]$seurat_count$cond2)
+      oper[[idx]]$true_count = oper[[idx]]$true_count %>% as.data.frame() %>% mutate(condition = c(rep("Condition 1", 3), rep("Condition 2", 3)))
+      true_count = rbind(true_count, oper[[idx]]$true_count)
+      }
+}
+colnames(seurat_count) = c("P1", "P2", "N1", "N2", "N3", "P3", "N4", "P4", "condition")
+colnames(true_count) = c("P1", "P2", "N1", "N2", "N3", "P3", "N4", "P4", "condition")
+```
+
+```{r}
+sim2_prop = true_count %>% 
+  pivot_longer(P1:P4, names_to = "cellType", values_to = "count") %>% 
+  mutate(proportion = count/3000) %>% 
+  ggplot(aes(cellType, proportion)) +
+  geom_boxplot(aes(col = condition)) +
+  theme(legend.position = "top") + 
+  xlab("Cell type")
+sim2_prop
+ggsave("./plot/sim2_trueCount_dist.png", bg = "transparent", width = 10, height = 4)
+```
+
+```{r}
+seurat_count %>% 
+  pivot_longer(P1:P4, names_to = "cellType", values_to = "count") %>% 
+  mutate(proportion = count/3000) %>% 
+  ggplot(aes(cellType, proportion)) +
+  geom_boxplot(aes(col = condition)) +
+  theme(legend.position = "top") + 
+  xlab("Cell type")
+ggsave("./plot/sim2_seuratCount_dist.png", bg = "transparent", width = 10, height = 4)
+```
+
+```{r}
+clusterRes = clusterRes %>% 
+    mutate(milo_main = ifelse(milo_less > milo_more, milo_less, milo_more),
+           milo_pct = milo_main/(milo_less + neutral + milo_more),
+           milo_diff = abs(milo_less - milo_more)) %>% 
+    dplyr::select(-milo_less, -milo_more, - neutral, -milo_main)
+```
+
+### AUC curve
+
+```{r}
+rocobj_dcats = roc(clusterRes$truth, clusterRes$estPhi_emK_pvals)
+rocobj_fisher = roc(clusterRes$truth, clusterRes$fisher_pvals)
+rocobj_scDC = roc(clusterRes$truth, clusterRes$scDC_pvals)
+rocobj_speckle = roc(clusterRes$truth, clusterRes$speckle_pvals)
+rocobj_diffcyt = roc(clusterRes$truth, clusterRes$diffcyt_pvals)
+rocobj_milo = roc(clusterRes$truth, clusterRes$milo_pct)
+```
+
+```{r}
+sim2_auc = ggroc(list(DCATS=rocobj_dcats, Fisher=rocobj_fisher, diffcyt=rocobj_diffcyt, speckle=rocobj_speckle, scDC=rocobj_scDC))+
+  geom_point(aes(x=0.926, y=0.685), colour="black", shape = 4) +
+  geom_point(aes(x=0.954, y=0.509), colour="black", shape = 4) +
+  geom_point(aes(x=0.944, y=0.509), colour="black", shape = 4) +
+  geom_point(aes(x=0.250, y=0.972), colour="black", shape = 4) +
+  geom_point(aes(x=0.333, y=0.861), colour="black", shape = 4) +
+  labs(color='method')
+sim2_auc
+```
+
+```{r}
+prauc_dcats = getPRC(clusterRes$truth, clusterRes$estPhi_emK_pvals)$df %>% 
+  mutate(fdr = 1-precision) %>% 
+  dplyr::select(recall, fdr, precision) %>% 
+  mutate(method = "DCATS")
+prauc_fisher = getPRC(clusterRes$truth, clusterRes$fisher_pvals)$df %>% 
+  mutate(fdr = 1-precision) %>% 
+  dplyr::select(recall, fdr, precision) %>% 
+  mutate(method = "fisher")
+prauc_scDC = getPRC(clusterRes$truth, clusterRes$scDC_pvals)$df %>% 
+  mutate(fdr = 1-precision) %>% 
+  dplyr::select(recall, fdr, precision) %>% 
+  mutate(method = "scDC")
+prauc_speckle = getPRC(clusterRes$truth, clusterRes$speckle_pvals)$df %>% 
+  mutate(fdr = 1-precision) %>% 
+  dplyr::select(recall, fdr, precision) %>% 
+  mutate(method = "speckle")
+prauc_diffcyt = getPRC(clusterRes$truth, clusterRes$diffcyt_pvals)$df %>% 
+  mutate(fdr = 1-precision) %>% 
+  dplyr::select(recall, fdr, precision) %>% 
+  mutate(method = "diffcyt")
+prauc_milo = getPRC(clusterRes$truth, clusterRes$milo_pct)$df %>% 
+  mutate(fdr = 1-precision) %>% 
+  dplyr::select(recall, fdr, precision) %>% 
+  mutate(method = "milo")
+prauc_ancombc = getPRC(clusterRes$truth, clusterRes$ancombc_pvals)$df %>% 
+  mutate(fdr = 1-precision) %>% 
+  dplyr::select(recall, fdr, precision) %>% 
+  mutate(method = "ancombc")
+prauc_ancombc_bs = getPRC(clusterRes$truth, clusterRes$ancombc_knn_pvals)$df %>% 
+  mutate(fdr = 1-precision) %>% 
+  dplyr::select(recall, fdr, precision) %>% 
+  mutate(method = "bcancombc")
+
+praucDF = rbind(prauc_dcats, prauc_fisher, prauc_scDC, prauc_speckle, prauc_diffcyt, prauc_ancombc, prauc_ancombc_bs)
+```
+
+```{r}
+prcurve = praucDF %>% 
+  arrange(desc(recall)) %>% 
+  ggplot(aes(x = fdr, y = recall, color = method)) +
+    geom_line(orientation = "y", size = 1) +
+  geom_vline(xintercept = 0.05, linetype = "dotted") +
+  xlab("False discovery rate") +
+  ylab("True positive rate")
+prcurve
+ggsave("./plot/sim2_prauc.png", bg = "transparent")
+```
+
+```{r}
+boxplot = praucDF %>% 
+  mutate(group = ifelse(fdr<=0.1, "0.1", "1"),
+         group = ifelse(fdr>0.1&fdr<=0.2, "0.2", group),
+         group = ifelse(fdr>0.2&fdr<=0.3, "0.3", group),
+         group = ifelse(fdr>0.3&fdr<=0.4, "0.4", group),
+         group = ifelse(fdr>0.4&fdr<=0.5, "0.5", group),
+         group = ifelse(fdr>0.5&fdr<=0.6, "0.6", group),
+         group = ifelse(fdr>0.6&fdr<=0.7, "0.7", group),
+         group = ifelse(fdr>0.7&fdr<=0.8, "0.8", group)) %>% 
+  arrange(desc(recall)) %>% 
+  ggplot(aes(x = group, y = recall, color = method)) +
+  geom_boxplot() +
+  xlab("False discovery rate") +
+  ylab("True positive rate")
+boxplot
+```
+
+```{r}
+sim2_auc + prcurve
+ggsave("./plot/sim2_auc_prauc.png", bg = "transparent", width = 10, height = 4)
+sim2_auc + boxplot
+ggsave("./plot/sim2_auc_prauc_boxplot.png", bg = "transparent", width = 10, height = 4)
+```
+
+
+### calculate confidence interval
+
+```{r}
+res_bootstrap = data.frame()
+set.seed(123)
+for (idx in 1:50) {
+  sampleID = sample(1:nrow(clusterRes), nrow(clusterRes), replace = TRUE)
+  clusterResNew = clusterRes[sampleID,]
+  methods = colnames(clusterResNew)[colnames(clusterResNew) %>% str_detect("_pvals")] %>% str_remove("_pvals")
+  methods = c(methods, "milo")
+  numb_mthd = length(methods)
+  mcc = rep(NA, numb_mthd)
+  auc = rep(NA, numb_mthd)
+  prauc = rep(NA, numb_mthd)
+  sensitivity = rep(NA, numb_mthd)
+  specificity = rep(NA, numb_mthd)
+  precision = rep(NA, numb_mthd)
+  F1 = rep(NA, numb_mthd)
+  truth = clusterResNew$truth
+  for (i in 3:(dim(clusterResNew)[2]-1)){
+    pred = clusterResNew[,i]
+    if (colnames(clusterResNew)[i] == "milo_pct") {
+      pred_res = ifelse(clusterResNew$milo_diff > 0, "P", "N")
+      auc[i-2] = getROC(clusterResNew$truth, 1-pred)$auc
+      prauc[i-2] = getPRC(clusterResNew$truth, 1-pred)$prauc}
+    else {
+      pred_res = ifelse(pred < 0.1, "P", "N")
+      auc[i-2] = getROC(clusterResNew$truth, pred)$auc
+      prauc[i-2] = getPRC(clusterResNew$truth, pred)$prauc}
+    TP <- sum(pred_res=="P"&truth=="P")
+    TN <- sum(pred_res=="N"&truth=="N")
+    FP <- sum(pred_res=="P"&truth=="N")
+    FN <- sum(pred_res=="N"&truth=="P")
+    truthN = TN + FP
+    truthP = FN + TP
+    predP = TP + FP
+    predN = FN + TN
+    sensitivity[i-2] = TP/truthP
+    specificity[i-2] = TN/truthN
+    precision[i-2] = TP/predP
+    mcc[i-2] = (TP*TN-FP*FN)/sqrt(predP*truthP*truthN*predN)
+    F1[i-2] = 2*TP/(2*TP+FP+FN)
+    }
+  res = data.frame(method = methods, mcc = mcc, auc = auc, prauc = prauc, sensitivity = sensitivity, specificity = specificity, precision = precision, F1 = F1) %>% 
+    mutate(bootstrapID = idx)
+  res_bootstrap = rbind(res_bootstrap, res)
+  }
+```
+
+```{r}
+cluster8_CI = res_bootstrap %>% 
+  filter(method %in% c("speckle", "diffcyt", "fisher", "scDC", "estPhi_emK", "milo", "ancombc", "ancombc_knn")) %>%
+  mutate(method = ifelse(method == "fisher", "Fisher", method)) %>% 
+  mutate(method = ifelse(method == "estPhi_emK", "DCATS", method)) %>% 
+  mutate(method = ifelse(method == "ancombc_knn", "bcancombc", method)) %>% 
+  dplyr::select(method, mcc, prauc, F1, auc) %>% 
+  pivot_longer(mcc:auc, names_to = "statistics", values_to = "value") %>% 
+  mutate(statistics = factor(statistics, levels = c("mcc", "F1", "auc", "prauc"))) %>% 
+  ggplot(aes(x = statistics, y = value, color = method)) +
+  geom_boxplot() +
+  theme(axis.title.y = element_blank(),
+        axis.title.x = element_blank()) +
+  theme(legend.position = "top")
+cluster8_CI
+```
+
+
+### Figure 2-CtoF
+
+#### Different numbers of replicates
+
+```{r}
+## cluster number = 8
+#filenames = list.files("/Users/linxy29/Documents/Data/DCATS/simulation/current", full.names = TRUE)
+filenames = list.files("/storage/holab/linxy/DCATS/simulation/current", full.names = TRUE)
+filenames = filenames[grep("_K8_con100_splatter3000&3000para", filenames)]
+filenames
+```
+
+##### calculate confidence interval
+
+```{r, eval=FALSE}
+file = filenames[3]
+load(file)
+clusterRes = data.frame()
+for (idx in 1:length(oper)){
+  if (!is.na(oper[[idx]][1])) {clusterRes = rbind(clusterRes, oper[[idx]]$clusterDF)}
+  }
+clusterRes = clusterRes %>% 
+  mutate(milo_main = ifelse(milo_less > milo_more, milo_less, milo_more),
+         milo_pct = milo_main/(milo_less + neutral + milo_more),
+         milo_diff = abs(milo_less - milo_more)) %>%
+  dplyr::select(-milo_less, -milo_more, - neutral, -milo_main)
+```
+
+
+```{r, eval=FALSE}
+res_bootstrap = data.frame()
+set.seed(123)
+for (idx in 1:50) {
+  sampleID = sample(1:nrow(clusterRes), nrow(clusterRes), replace = TRUE)
+  clusterResNew = clusterRes[sampleID,]
+  methods = colnames(clusterResNew)[colnames(clusterResNew) %>% str_detect("_pvals")] %>% str_remove("_pvals")
+  methods = c(methods, "milo")
+  numb_mthd = length(methods)
+  mcc = rep(NA, numb_mthd)
+  auc = rep(NA, numb_mthd)
+  prauc = rep(NA, numb_mthd)
+  sensitivity = rep(NA, numb_mthd)
+  specificity = rep(NA, numb_mthd)
+  precision = rep(NA, numb_mthd)
+  F1 = rep(NA, numb_mthd)
+  truth = clusterResNew$truth
+  for (i in 3:(dim(clusterResNew)[2]-1)){
+    pred = clusterResNew[,i]
+    if (colnames(clusterResNew)[i] == "milo_pct") {
+      pred_res = ifelse(clusterResNew$milo_diff > 0, "P", "N")
+      auc[i-2] = getROC(clusterResNew$truth, 1-pred)$auc
+      prauc[i-2] = getPRC(clusterResNew$truth, 1-pred)$prauc}
+    else {
+      pred_res = ifelse(pred < 0.1, "P", "N")
+      auc[i-2] = getROC(clusterResNew$truth, pred)$auc
+      prauc[i-2] = getPRC(clusterResNew$truth, pred)$prauc}
+    TP <- sum(pred_res=="P"&truth=="P")
+    TN <- sum(pred_res=="N"&truth=="N")
+    FP <- sum(pred_res=="P"&truth=="N")
+    FN <- sum(pred_res=="N"&truth=="P")
+    truthN = TN + FP
+    truthP = FN + TP
+    predP = TP + FP
+    predN = FN + TN
+    sensitivity[i-2] = TP/truthP
+    specificity[i-2] = TN/truthN
+    precision[i-2] = TP/predP
+    mcc[i-2] = (TP*TN-FP*FN)/sqrt(predP*truthP*truthN*predN)
+    F1[i-2] = 2*TP/(2*TP+FP+FN)
+    }
+  res = data.frame(method = methods, mcc = mcc, auc = auc, prauc = prauc, sensitivity = sensitivity, specificity = specificity, precision = precision, F1 = F1) %>% 
+    mutate(bootstrapID = idx)
+  res_bootstrap = rbind(res_bootstrap, res)
+  }
+```
+
+```{r, eval=FALSE}
+replicates4_CI = res_bootstrap %>% 
+  filter(method %in% c("speckle", "diffcyt", "fisher", "scDC", "estPhi_emK", "milo", "ancombc", "ancombc_knn")) %>%
+  mutate(method = ifelse(method == "fisher", "Fisher", method)) %>% 
+  mutate(method = ifelse(method == "estPhi_emK", "DCATS", method)) %>% 
+  mutate(method = ifelse(method == "ancombc_knn", "bcancombc", method)) %>% 
+  dplyr::select(method, mcc, prauc, F1, auc) %>% 
+  group_by(method) %>% 
+  mutate(mcc_lower_CI = quantile(mcc, probs = 0.025),
+         mcc_upper_CI = quantile(mcc, probs = 0.975),
+         mcc_mean = mean(mcc),
+         prauc_lower_CI = quantile(prauc, probs = 0.025),
+         prauc_upper_CI = quantile(prauc, probs = 0.975),
+         prauc_mean = mean(prauc),
+         F1_lower_CI = quantile(F1, probs = 0.025),
+         F1_upper_CI = quantile(F1, probs = 0.975),
+         F1_mean = mean(F1),
+         auc_lower_CI = quantile(auc, probs = 0.025),
+         auc_upper_CI = quantile(auc, probs = 0.975),
+         auc_mean = mean(auc)) %>% 
+  head(n = 8) %>% 
+  mutate(replicates = "4&4") %>% 
+  select(-mcc, -prauc, -F1, -auc) %>% 
+  arrange(desc(mcc_mean))
+replicates4_CI
+```
+
+```{r, eval=FALSE}
+replicates_CI = rbind(replicates2_CI, replicates3_CI, replicates4_CI)
+replicates_CI
+save(replicates_CI, file = "/Users/linxy29/Documents/Data/DCATS/simulation/replicates_CI.RData")
+```
+
+```{r}
+load("/storage/holab/linxy/DCATS/simulation/replicates_CI.RData")
+replicates_CI[,2:(ncol(replicates_CI)-1)] %>% round(digits = 3) %>% 
+  mutate(method = replicates_CI$method,
+         replicates = replicates_CI$replicates) %>% 
+  dplyr::select(method, everything()) %>% knitr::kable()
+```
+
+
+```{r, warning=TRUE}
+res_all = data.frame()
+
+for (file in filenames) {
+  load(file)
+  methods = colnames(oper[[1]]$clusterDF)[colnames(oper[[1]]$clusterDF) %>% str_detect("_pvals")] %>% str_remove("_pvals")
+  methods = c(methods, "milo")
+  numb_mthd = length(methods)
+  mcc = rep(NA, numb_mthd)
+  auc = rep(NA, numb_mthd)
+  prauc = rep(NA, numb_mthd)
+  sensitivity = rep(NA, numb_mthd)
+  specificity = rep(NA, numb_mthd)
+  precision = rep(NA, numb_mthd)
+  F1 = rep(NA, numb_mthd)
+  clusterRes = data.frame()
+  nhoodRes = data.frame()
+  for (idx in 1:length(oper)){
+    if (!is.na(oper[[idx]])) {clusterRes = rbind(clusterRes, oper[[idx]]$clusterDF)}
+    if (!is.na(oper[[idx]])) {nhoodRes = rbind(nhoodRes, oper[[idx]]$nhoodDF)}
+    }
+  truth = clusterRes$truth
+  clusterRes = clusterRes %>% 
+    mutate(milo_main = ifelse(milo_less > milo_more, milo_less, milo_more),
+           milo_pct = milo_main/(milo_less + neutral + milo_more),
+           milo_diff = abs(milo_less - milo_more)) %>% 
+    dplyr::select(-milo_less, -milo_more, - neutral, -milo_main)
+  for (i in 3:(dim(clusterRes)[2]-1)){
+    pred = clusterRes[,i]
+    if (colnames(clusterRes)[i] == "milo_pct") {
+      pred_res = ifelse(clusterRes$milo_diff > 0, "P", "N")
+      auc[i-2] = getROC(clusterRes$truth, 1-pred)$auc
+      prauc[i-2] = getPRC(clusterRes$truth, 1-pred)$prauc}
+    else {
+      pred_res = ifelse(pred < 0.1, "P", "N")
+      auc[i-2] = getROC(clusterRes$truth, pred)$auc
+      prauc[i-2] = getPRC(clusterRes$truth, pred)$prauc}
+    TP <- sum(pred_res=="P"&truth=="P")
+    TN <- sum(pred_res=="N"&truth=="N")
+    FP <- sum(pred_res=="P"&truth=="N")
+    FN <- sum(pred_res=="N"&truth=="P")
+    truthN = TN + FP
+    truthP = FN + TP
+    predP = TP + FP
+    predN = FN + TN
+    sensitivity[i-2] = TP/truthP
+    specificity[i-2] = TN/truthN
+    precision[i-2] = TP/predP
+    #mcc[i-2] = sqrt(sensitivity[i]*specificity[i]*precision[i]*(TN/(TN+FN))) - sqrt((1-sensitivity[i])*(1-specificity[i])*(FN/predN)*(FP/predP))
+    mcc[i-2] = (TP*TN-FP*FN)/sqrt(predP*truthP*truthN*predN)
+    F1[i-2] = 2*TP/(2*TP+FP+FN)
+    }
+  res = data.frame(method = methods, mcc = mcc, auc = auc, prauc = prauc, sensitivity = sensitivity, specificity = specificity, precision = precision, F1 = F1) %>% 
+    arrange(desc(prauc)) %>% 
+    mutate(replicates = str_extract(file, "\\d&\\d"))
+  res_all = rbind(res_all, res)
+  }
+
+res_all %>% 
+  filter(method %in% c("estPhi_null", "estPhi_emK", "estPhi_emU", "fisher", "speckle", "diffcyt", "betabin_null", "wtoPhi_emK", "scDC", "milo", "ancombc", "ancombc_knn")) %>% 
+  mutate(method = ifelse(method == "estPhi_null", "estPhi_wtoEM", method),
+         method = ifelse(method == "betabin_null", "wtoPhi_wtoEM", method)) %>% 
+  arrange(replicates, desc(auc)) %>% 
+  dplyr::select(method, mcc, auc, sensitivity, specificity, F1, replicates) %>% 
+  mutate(mcc = round(mcc, 3),
+         auc = round(auc, 3),
+         sensitivity = round(sensitivity, 3),
+         specificity = round(specificity, 3),
+         F1 = round(F1, 3))
+```
+
+
+```{r, warning=FALSE, eval=FALSE}
+sim2_mainAUC1 = res_all %>% 
+  filter(method %in% c("speckle", "diffcyt", "fisher", "scDC", "estPhi_emK", "milo", "ancombc", "ancombc_knn")) %>%
+  mutate(method = ifelse(method == "fisher", "Fisher", method)) %>% 
+  mutate(method = ifelse(method == "estPhi_emK", "DCATS", method)) %>% 
+  mutate(method = ifelse(method == "ancombc_knn", "bcancombc", method)) %>% 
+  mutate(method = factor(method, level = c("DCATS", "speckle", "diffcyt", "Fisher", "bcancombc", "ancombc", "milo", "scDC"))) %>% 
+  ggplot(aes(x = replicates, y = auc, color = method, group = method)) + 
+  geom_point(shape = 0) +
+  geom_line(size = 1.5)+
+  xlab("# of replicates") +
+  theme(legend.position = "none") + 
+  ylab("AUC")
+sim2_mainAUC1
+```
+
+```{r, warning=FALSE, eval=FALSE}
+sim2_mainMCC1 = res_all %>% 
+  filter(method %in% c("speckle", "diffcyt", "fisher", "scDC", "estPhi_emK", "milo", "ancombc", "ancombc_knn")) %>%
+  mutate(method = ifelse(method == "fisher", "Fisher", method)) %>% 
+  mutate(method = ifelse(method == "estPhi_emK", "DCATS", method)) %>% 
+  mutate(method = ifelse(method == "ancombc_knn", "bcancombc", method)) %>% 
+  mutate(method = factor(method, level = c("DCATS", "speckle", "diffcyt", "Fisher", "bcancombc", "ancombc", "milo", "scDC"))) %>% 
+  ggplot(aes(x = replicates, y = mcc, color = method, group = method)) + 
+  geom_point(shape = 0) +
+  geom_line(size = 1.5)+
+  xlab("# of Replicates") +
+  theme(legend.position = "none") + 
+  ylab("MCC")
+sim2_mainMCC1
+```
+
+```{r}
+short_order = c("scDC", "bcancombc", "ancombc", "Fisher", "milo", "diffcyt", "speckle", "DCATS")
+sim2_mainHM1 = res_all %>% 
+  filter(method %in% c("speckle", "diffcyt", "fisher", "scDC", "estPhi_emK", "milo", "ancombc", "ancombc_knn")) %>%
+  mutate(method = ifelse(method == "fisher", "Fisher", method)) %>% 
+  mutate(method = ifelse(method == "estPhi_emK", "DCATS", method)) %>% 
+  mutate(method = ifelse(method == "ancombc_knn", "bcancombc", method)) %>% 
+  mutate(method = factor(method, level = short_order)) %>% 
+  #dplyr::select(method, auc, mcc, F1, replicates) %>% 
+  #pivot_longer(auc:F1, names_to = "statistics", values_to = "value") %>% 
+  dplyr::select(method, mcc, replicates) %>% 
+  pivot_longer(mcc, names_to = "statistics", values_to = "value") %>% 
+  group_by(replicates, statistics) %>% 
+  mutate(order_pre = rank(round(value, 3)),
+         value_order = 7-ceiling(rank(order_pre))) %>% 
+  ggplot(aes(replicates, method)) +
+    geom_tile(aes(fill = value)) + 
+    geom_text(aes(label = round(value, 3))) +
+  #scale_fill_distiller(palette = "RdYIBu") +
+    scale_fill_gradient(low = "white", high = "red", breaks = c(0.2,0.4,0.6)) +
+  xlab("# of Replicates") +
+  theme(axis.title.y = element_blank()) +
+  theme(legend.position = "top") +
+  facet_grid(.~statistics) + labs(fill='value') 
+sim2_mainHM1
+```
+
+```{r}
+sim2_mainHM2 = res_all %>% 
+  filter(method %in% c("speckle", "diffcyt", "fisher", "scDC", "estPhi_emK", "milo", "ancombc", "ancombc_knn")) %>%
+  mutate(method = ifelse(method == "fisher", "Fisher", method)) %>% 
+  mutate(method = ifelse(method == "estPhi_emK", "DCATS", method)) %>% 
+  mutate(method = ifelse(method == "ancombc_knn", "bcancombc", method)) %>% 
+  mutate(method = factor(method, level = short_order)) %>% 
+  #dplyr::select(method, auc, mcc, F1, replicates) %>% 
+  #pivot_longer(auc:F1, names_to = "statistics", values_to = "value") %>% 
+  dplyr::select(method, auc, replicates) %>% 
+  pivot_longer(auc, names_to = "statistics", values_to = "value") %>% 
+  group_by(replicates, statistics) %>% 
+  mutate(order_pre = rank(round(value, 3)),
+         value_order = 7-ceiling(rank(order_pre))) %>% 
+  ggplot(aes(replicates, method)) +
+    geom_tile(aes(fill = value)) + 
+    geom_text(aes(label = round(value, 3))) +
+  #scale_fill_distiller(palette = "RdYIBu") +
+    scale_fill_gradient(low = "white", high = "red") +
+  xlab("# of Replicates") +
+  theme(axis.title.y = element_blank(),
+        axis.text.y = element_blank()) +
+  theme(legend.position = "top") +
+  facet_grid(.~statistics) + labs(fill='value') 
+sim2_mainHM2
+```
+
+Simulation 2: Supplementary Plots
+
+```{r}
+long_order = c("scDC", "ancombc", "bcancombc", "fisher", "milo", "diffcyt", "speckle", "wtoPhi_wtoEM", "wtoPhi_emK", "estPhi_wtoEM", "estPhi_emK")
+sim2_statistics_replicates = res_all %>% 
+  filter(method %in% c("scDC", "milo", "wtoPhi_emK", "betabin_null", "speckle", "diffcyt", "fisher", "estPhi_emK", "estPhi_null", "ancombc", "ancombc_knn")) %>%
+  #mutate(method = ifelse(method == "fisher", "Fisher", method)) %>% 
+  mutate(method = ifelse(method == "estPhi_null", "estPhi_wtoEM", method),
+         method = ifelse(method == "betabin_null", "wtoPhi_wtoEM", method),
+         method = ifelse(method == "ancombc_knn", "bcancombc", method)) %>%
+  mutate(method = factor(method, level = long_order)) %>% 
+  dplyr::select(method, mcc, prauc, F1, auc, replicates) %>% 
+  pivot_longer(mcc:auc, names_to = "statistics", values_to = "value") %>% 
+  mutate(statistics = factor(statistics, levels = c("mcc", "prauc", "F1", "auc"))) %>% 
+  group_by(replicates, statistics) %>% 
+  mutate(order_pre = rank(round(value, 3)),
+         value_order = 10-ceiling(rank(order_pre))) %>% 
+  ggplot(aes(replicates, method)) +
+    geom_tile(aes(fill = value)) + 
+    geom_text(aes(label = round(value, 3))) +
+    scale_fill_gradient(low = "white", high = "red") +
+  xlab("# of Replicates") +
+  theme(axis.title.y = element_blank()) +
+  facet_grid(.~statistics) + labs(fill='value')
+sim2_statistics_replicates
+#ggsave("./plot/sim2_statistics_replicates.png", bg = "transparent")
+```
+
+Details of statistics value
+
+```{r}
+res_all %>% 
+  filter(method %in% c("scDC", "milo", "wtoPhi_emK", "betabin_null", "speckle", "diffcyt", "fisher", "estPhi_emK", "estPhi_null", "ancombc", "ancombc_knn")) %>%
+  #mutate(method = ifelse(method == "fisher", "Fisher", method)) %>% 
+  mutate(method = ifelse(method == "estPhi_null", "estPhi_wtoEM", method),
+         method = ifelse(method == "betabin_null", "wtoPhi_wtoEM", method),
+         method = ifelse(method == "ancombc_knn", "bcancombc", method)) %>%
+  mutate(method = factor(method, level = long_order)) %>% 
+  mutate(mcc = round(mcc, 3),
+         auc = round(auc, 3),
+         prauc = round(prauc, 3),
+         F1 = round(F1, 3),
+         sensitivity = round(sensitivity, 3),
+         specificity = round(specificity, 3),
+         precision = round(precision, 3)) %>% 
+  arrange(replicates, desc(mcc)) %>% 
+  knitr::kable()
+```
+
+nhoods level
+
+```{r, eval=FALSE}
+nhoodsRes_all = data.frame()
+
+for (file in filenames) {
+  load(file)
+  nhoodRes = data.frame()
+  for (idx in 1:length(oper)){
+    if (!is.na(oper[[idx]])) {nhoodRes = rbind(nhoodRes, oper[[idx]]$nhoodDF)}
+  }
+  nhoodRes = nhoodRes %>% 
+  dplyr::rename(milo_pvals = SpatialFDR) %>% 
+  filter(ident_fraction > 0.8)  # get nhoods mainly contains one cell type -> 90%
+  methods = colnames(nhoodRes)[colnames(nhoodRes) %>% str_detect("_pvals")] %>% str_remove("_pvals")
+  numb_mthd = length(methods)
+  mcc = rep(NA, numb_mthd)
+  auc = rep(NA, numb_mthd)
+  prauc = rep(NA, numb_mthd)
+  sensitivity = rep(NA, numb_mthd)
+  specificity = rep(NA, numb_mthd)
+  precision = rep(NA, numb_mthd)
+  F1 = rep(NA, numb_mthd)
+  truth = nhoodRes$truth
+  select_col = colnames(nhoodRes)[colnames(nhoodRes) %>% str_detect("_pvals")]
+  for (i in 1:length(select_col)){
+    pred = nhoodRes[,select_col[i]]
+    auc[i] = getROC(truth[!is.na(pred)], pred[!is.na(pred)])$auc
+    if (i == 1) {pred_res = ifelse(pred < 0.30, "P", "N")}
+    else {pred_res = ifelse(pred < 0.10, "P", "N")}
+    TP <- sum(pred_res[!is.na(pred_res)]=="P"&truth[!is.na(pred_res)]=="P")
+    TN <- sum(pred_res[!is.na(pred_res)]=="N"&truth[!is.na(pred_res)]=="N")
+    FP <- sum(pred_res[!is.na(pred_res)]=="P"&truth[!is.na(pred_res)]=="N")
+    FN <- sum(pred_res[!is.na(pred_res)]=="N"&truth[!is.na(pred_res)]=="P")
+    truthN = TN + FP
+    truthP = FN + TP
+    predP = TP + FP
+    predN = FN + TN
+    sensitivity[i] = TP/truthP
+    specificity[i] = TN/truthN
+    precision[i] = TP/predP
+    mcc[i] = sqrt(sensitivity[i]*specificity[i]*precision[i]*(TN/(TN+FN))) - sqrt((1-sensitivity[i])*(1-specificity[i])*(FN/predN)*(FP/predP))
+    #mcc[i] = (TP*TN-FP*FN)/sqrt(predP*truthP*truthN*predN)
+    F1[i] = 2*TP/(2*TP+FP+FN)
+    prauc[i] = getPRC(truth[!is.na(pred)], pred[!is.na(pred)])$prauc
+  }
+  res = data.frame(method = methods, mcc = mcc, auc = auc, prauc = prauc, sensitivity = sensitivity, specificity = specificity, precision = precision, F1 = F1) %>% 
+    arrange(desc(prauc)) %>% 
+    mutate(replicates = str_extract(file, "\\d&\\d"))
+  nhoodsRes_all = rbind(nhoodsRes_all, res)
+}
+save(nhoodsRes_all, file = "/storage/holab/linxy/DCATS/simulation/nhoodsRes_all_replicates.RData")
+```
+
+```{r}
+load("/storage/holab/linxy/DCATS/simulation/nhoodsRes_all_replicates.RData")
+nhoodsRes_all %>% 
+  arrange(replicates, desc(auc)) %>% 
+  mutate(method = ifelse(method == "estPhi_null", "estPhi_wtoEM", method),
+         method = ifelse(method == "betabin_null", "wtoPhi_wtoEM", method)) %>% 
+  dplyr::select(method, mcc, auc, sensitivity, specificity, F1, replicates) %>% 
+  mutate(mcc = round(mcc, 3),
+         prauc = round(auc, 3),
+         sensitivity = round(sensitivity, 3),
+         specificity = round(specificity, 3),
+         F1 = round(F1, 3))
+```
+
+```{r}
+nhoodsH1_auc = nhoodsRes_all %>% 
+  mutate(method = ifelse(method == "fisher", "Fisher", method)) %>% 
+  mutate(method = ifelse(method == "estPhi_null", "estPhi_wtoEM", method),
+         method = ifelse(method == "betabin_null", "wtoPhi_wtoEM", method)) %>% 
+  mutate(method = factor(method, level = c("speckle", "estPhi_emU", "estPhi_wtoEM", "wtoPhi_emU", "wtoPhi_wtoEM", "milo", "Fisher"))) %>% 
+  dplyr::select(method, auc, replicates) %>% 
+  ggplot(aes(replicates, method)) +
+    geom_tile(aes(fill = auc)) + 
+    geom_text(aes(label = round(auc, 3))) +
+    scale_fill_gradient(low = "white", high = "red", limits = c(0.6,0.8)) +
+  xlab("# of Replicates") +
+  theme(axis.title.y = element_blank(),
+        axis.text.y = element_blank(),
+        axis.title.x = element_blank(),
+        axis.text.x = element_blank())
+
+nhoodsH1_mcc = nhoodsRes_all %>% 
+  mutate(method = ifelse(method == "fisher", "Fisher", method)) %>% 
+  mutate(method = ifelse(method == "estPhi_null", "estPhi_wtoEM", method),
+         method = ifelse(method == "betabin_null", "wtoPhi_wtoEM", method)) %>% 
+  mutate(method = factor(method, level = c("speckle", "estPhi_emU", "estPhi_wtoEM", "wtoPhi_emU", "wtoPhi_wtoEM", "milo", "Fisher"))) %>%
+  dplyr::select(method, mcc, replicates) %>% 
+  ggplot(aes(replicates, method)) +
+    geom_tile(aes(fill = mcc)) + 
+    geom_text(aes(label = ifelse(is.na(mcc), "N.A.", as.character(round(mcc, 3))))) +
+    scale_fill_gradient(low = "white", high = "red", limits = c(0,0.5)) +
+  xlab("# of Replicates") +
+  theme(axis.title.x = element_blank(),
+        axis.text.x = element_blank())
+
+nhoodsH1_sensitivity = nhoodsRes_all %>% 
+  mutate(method = ifelse(method == "fisher", "Fisher", method)) %>% 
+  mutate(method = ifelse(method == "estPhi_null", "estPhi_wtoEM", method),
+         method = ifelse(method == "betabin_null", "wtoPhi_wtoEM", method)) %>% 
+  mutate(method = factor(method, level = c("speckle", "estPhi_emU", "estPhi_wtoEM", "wtoPhi_emU", "wtoPhi_wtoEM", "milo", "Fisher"))) %>%
+  dplyr::select(method, sensitivity, replicates) %>% 
+  ggplot(aes(replicates, method)) +
+    geom_tile(aes(fill = sensitivity)) + 
+    geom_text(aes(label = round(sensitivity, 3))) +
+    scale_fill_gradient(low = "white", high = "red", limits = c(0,0.6)) +
+  xlab("# of Replicates")
+
+nhoodsH1_specificity = nhoodsRes_all %>% 
+  mutate(method = ifelse(method == "fisher", "Fisher", method)) %>% 
+  mutate(method = ifelse(method == "estPhi_null", "estPhi_wtoEM", method),
+         method = ifelse(method == "betabin_null", "wtoPhi_wtoEM", method)) %>% 
+  mutate(method = factor(method, level = c("speckle", "estPhi_emU", "estPhi_wtoEM", "wtoPhi_emU", "wtoPhi_wtoEM", "milo", "Fisher"))) %>%
+  dplyr::select(method, specificity, replicates) %>% 
+  ggplot(aes(replicates, method)) +
+    geom_tile(aes(fill = specificity)) + 
+    geom_text(aes(label = round(specificity, 3))) +
+    scale_fill_gradient(low = "white", high = "red", limits = c(0.8,1)) +
+  xlab("# of Replicates") +
+  theme(axis.title.y = element_blank(),
+        axis.text.y = element_blank())
+
+nhoodsH1_precision = nhoodsRes_all %>% 
+  mutate(method = ifelse(method == "fisher", "Fisher", method)) %>% 
+  mutate(method = ifelse(method == "estPhi_null", "estPhi_wtoEM", method),
+         method = ifelse(method == "betabin_null", "wtoPhi_wtoEM", method)) %>% 
+  mutate(method = factor(method, level = c("speckle", "estPhi_emU", "estPhi_wtoEM", "wtoPhi_emU", "wtoPhi_wtoEM", "milo", "Fisher"))) %>%
+  dplyr::select(method, precision, replicates) %>% 
+  ggplot(aes(replicates, method)) +
+    geom_tile(aes(fill = precision)) + 
+    geom_text(aes(label = ifelse(is.na(precision), "N.A.", as.character(round(precision, 3))))) +
+    scale_fill_gradient(low = "white", high = "red", limits = c(0.7,1)) +
+  xlab("# of Replicates") +
+  theme(axis.title.y = element_blank(),
+        axis.text.y = element_blank())
+
+nhoodsH1_F1 = nhoodsRes_all %>% 
+  mutate(method = ifelse(method == "fisher", "Fisher", method)) %>% 
+  mutate(method = ifelse(method == "estPhi_null", "estPhi_wtoEM", method),
+         method = ifelse(method == "betabin_null", "wtoPhi_wtoEM", method)) %>% 
+  mutate(method = factor(method, level = c("speckle", "estPhi_emU", "estPhi_wtoEM", "wtoPhi_emU", "wtoPhi_wtoEM", "milo", "Fisher"))) %>%
+  dplyr::select(method, F1, replicates) %>% 
+  ggplot(aes(replicates, method)) +
+    geom_tile(aes(fill = F1)) + 
+    geom_text(aes(label = round(F1, 3))) +
+    scale_fill_gradient(low = "white", high = "red", limits = c(0,0.7)) +
+  xlab("# of Replicates") +
+  theme(axis.title.y = element_blank(),
+        axis.text.y = element_blank(),
+        axis.title.x = element_blank(),
+        axis.text.x = element_blank())
+
+nhoodsH1_mcc + nhoodsH1_F1 + nhoodsH1_auc + nhoodsH1_sensitivity + nhoodsH1_specificity + nhoodsH1_precision
+ggsave("./plot/sim2_nhood1.png", bg = "transparent", width = 10, height = 6)
+```
+
+#### Different numbers of clusters
+
+```{r, eval=FALSE}
+## replicates number 3&3
+filenames = list.files("/Users/linxy29/Documents/Data/DCATS/simulation/current", full.names = TRUE)
+#filenames = list.files("/storage/holab/linxy/DCATS/simulation/current", full.names = TRUE)
+filenames = filenames[grep("replicates3&3", filenames)]
+filenames
+```
+
+##### calculate confidence interval
+
+```{r, eval=FALSE}
+file = filenames[3]
+load(file)
+clusterRes = data.frame()
+for (idx in 1:length(oper)){
+  if (!is.na(oper[[idx]][1])) {clusterRes = rbind(clusterRes, oper[[idx]]$clusterDF)}
+  }
+clusterRes = clusterRes %>% 
+  mutate(milo_main = ifelse(milo_less > milo_more, milo_less, milo_more),
+         milo_pct = milo_main/(milo_less + neutral + milo_more),
+         milo_diff = abs(milo_less - milo_more)) %>%
+  dplyr::select(-milo_less, -milo_more, - neutral, -milo_main)
+```
+
+
+```{r, eval=FALSE}
+res_bootstrap = data.frame()
+set.seed(123)
+for (idx in 1:50) {
+  sampleID = sample(1:nrow(clusterRes), nrow(clusterRes), replace = TRUE)
+  clusterResNew = clusterRes[sampleID,]
+  methods = colnames(clusterResNew)[colnames(clusterResNew) %>% str_detect("_pvals")] %>% str_remove("_pvals")
+  methods = c(methods, "milo")
+  numb_mthd = length(methods)
+  mcc = rep(NA, numb_mthd)
+  auc = rep(NA, numb_mthd)
+  prauc = rep(NA, numb_mthd)
+  sensitivity = rep(NA, numb_mthd)
+  specificity = rep(NA, numb_mthd)
+  precision = rep(NA, numb_mthd)
+  F1 = rep(NA, numb_mthd)
+  truth = clusterResNew$truth
+  for (i in 3:(dim(clusterResNew)[2]-1)){
+    pred = clusterResNew[,i]
+    if (colnames(clusterResNew)[i] == "milo_pct") {
+      pred_res = ifelse(clusterResNew$milo_diff > 0, "P", "N")
+      auc[i-2] = getROC(clusterResNew$truth, 1-pred)$auc
+      prauc[i-2] = getPRC(clusterResNew$truth, 1-pred)$prauc}
+    else {
+      pred_res = ifelse(pred < 0.1, "P", "N")
+      auc[i-2] = getROC(clusterResNew$truth, pred)$auc
+      prauc[i-2] = getPRC(clusterResNew$truth, pred)$prauc}
+    TP <- sum(pred_res=="P"&truth=="P")
+    TN <- sum(pred_res=="N"&truth=="N")
+    FP <- sum(pred_res=="P"&truth=="N")
+    FN <- sum(pred_res=="N"&truth=="P")
+    truthN = TN + FP
+    truthP = FN + TP
+    predP = TP + FP
+    predN = FN + TN
+    sensitivity[i-2] = TP/truthP
+    specificity[i-2] = TN/truthN
+    precision[i-2] = TP/predP
+    mcc[i-2] = (TP*TN-FP*FN)/sqrt(predP*truthP*truthN*predN)
+    F1[i-2] = 2*TP/(2*TP+FP+FN)
+    }
+  res = data.frame(method = methods, mcc = mcc, auc = auc, prauc = prauc, sensitivity = sensitivity, specificity = specificity, precision = precision, F1 = F1) %>% 
+    mutate(bootstrapID = idx)
+  res_bootstrap = rbind(res_bootstrap, res)
+  }
+```
+
+```{r, eval=FALSE}
+clusters8_CI = res_bootstrap %>% 
+  filter(method %in% c("speckle", "diffcyt", "fisher", "scDC", "estPhi_emK", "milo", "ancombc", "ancombc_knn")) %>%
+  mutate(method = ifelse(method == "fisher", "Fisher", method)) %>% 
+  mutate(method = ifelse(method == "estPhi_emK", "DCATS", method)) %>% 
+  mutate(method = ifelse(method == "ancombc_knn", "bcancombc", method)) %>% 
+  dplyr::select(method, mcc, prauc, F1, auc) %>% 
+  group_by(method) %>% 
+  mutate(mcc_lower_CI = quantile(mcc, probs = 0.025),
+         mcc_upper_CI = quantile(mcc, probs = 0.975),
+         mcc_mean = mean(mcc),
+         prauc_lower_CI = quantile(prauc, probs = 0.025),
+         prauc_upper_CI = quantile(prauc, probs = 0.975),
+         prauc_mean = mean(prauc),
+         F1_lower_CI = quantile(F1, probs = 0.025),
+         F1_upper_CI = quantile(F1, probs = 0.975),
+         F1_mean = mean(F1),
+         auc_lower_CI = quantile(auc, probs = 0.025),
+         auc_upper_CI = quantile(auc, probs = 0.975),
+         auc_mean = mean(auc)) %>% 
+  head(n = 8) %>% 
+  mutate(clusterN = "8") %>% 
+  select(-mcc, -prauc, -F1, -auc) %>% 
+  arrange(desc(mcc_mean))
+clusters8_CI
+```
+
+```{r, eval=FALSE}
+clusters_CI = rbind(clusters8_CI, clusters10_CI, clusters12_CI)
+clusters_CI
+save(clusters_CI, file = "/Users/linxy29/Documents/Data/DCATS/simulation/clusters_CI.RData")
+```
+
+```{r}
+load("/storage/holab/linxy/DCATS/simulation/clusters_CI.RData")
+clusters_CI[,2:(ncol(clusters_CI)-1)] %>% round(digits = 3) %>% 
+  mutate(method = clusters_CI$method,
+         clusterN = clusters_CI$clusterN) %>% 
+  dplyr::select(method, everything()) %>% knitr::kable()
+```
+
+```{r, warning=FALSE}
+res_all = data.frame()
+
+for (file in filenames) {
+  load(file)
+  methods = colnames(oper[[1]]$clusterDF)[colnames(oper[[1]]$clusterDF) %>% str_detect("_pvals")] %>% str_remove("_pvals")
+  methods = c(methods, "milo")
+  numb_mthd = length(methods)
+  mcc = rep(NA, numb_mthd)
+  auc = rep(NA, numb_mthd)
+  prauc = rep(NA, numb_mthd)
+  sensitivity = rep(NA, numb_mthd)
+  specificity = rep(NA, numb_mthd)
+  precision = rep(NA, numb_mthd)
+  F1 = rep(NA, numb_mthd)
+  clusterRes = data.frame()
+  nhoodRes = data.frame()
+  for (idx in 1:length(oper)){
+    if (!is.na(oper[[idx]])) {clusterRes = rbind(clusterRes, oper[[idx]]$clusterDF)}
+    if (!is.na(oper[[idx]])) {nhoodRes = rbind(nhoodRes, oper[[idx]]$nhoodDF)}
+    }
+  truth = clusterRes$truth
+  clusterRes = clusterRes %>% 
+    mutate(milo_main = ifelse(milo_less > milo_more, milo_less, milo_more),
+           milo_pct = milo_main/(milo_less + neutral + milo_more),
+           milo_diff = abs(milo_less - milo_more)) %>% 
+    dplyr::select(-milo_less, -milo_more, - neutral, -milo_main)
+  for (i in 3:(dim(clusterRes)[2]-1)){
+    pred = clusterRes[,i]
+    if (colnames(clusterRes)[i] == "milo_pct") {
+      pred_res = ifelse(clusterRes$milo_diff > 0, "P", "N")
+      auc[i-2] = getROC(clusterRes$truth, 1-pred)$auc
+      prauc[i-2] = getPRC(clusterRes$truth, 1-pred)$prauc}
+    else {
+      pred_res = ifelse(pred < 0.1, "P", "N")
+      auc[i-2] = getROC(clusterRes$truth, pred)$auc
+      prauc[i-2] = getPRC(clusterRes$truth, pred)$prauc}
+    TP <- sum(pred_res=="P"&truth=="P")
+    TN <- sum(pred_res=="N"&truth=="N")
+    FP <- sum(pred_res=="P"&truth=="N")
+    FN <- sum(pred_res=="N"&truth=="P")
+    truthN = TN + FP
+    truthP = FN + TP
+    predP = TP + FP
+    predN = FN + TN
+    sensitivity[i-2] = TP/truthP
+    specificity[i-2] = TN/truthN
+    precision[i-2] = TP/predP
+    #mcc[i-2] = sqrt(sensitivity[i]*specificity[i]*precision[i]*(TN/(TN+FN))) - sqrt((1-sensitivity[i])*(1-specificity[i])*(FN/predN)*(FP/predP))
+    mcc[i-2] = (TP*TN-FP*FN)/sqrt(predP*truthP*truthN*predN)
+    F1[i-2] = 2*TP/(2*TP+FP+FN)
+    }
+  res = data.frame(method = methods, mcc = mcc, auc = auc, prauc = prauc, sensitivity = sensitivity, specificity = specificity, precision = precision, F1 = F1) %>% 
+    arrange(desc(auc)) %>% 
+    mutate(clustersN = str_extract(file, "K\\d\\d"))
+  res_all = rbind(res_all, res)
+}
+
+res_all = res_all %>% 
+  mutate(clustersN = ifelse(is.na(clustersN), "K8", clustersN),
+         clustersN = str_remove(clustersN, "K"),
+         clustersN = factor(clustersN, levels = c("8", "10", "12")))
+
+res_all %>% 
+  filter(method %in% c("estPhi_null", "estPhi_emK", "fisher", "speckle", "diffcyt", "betabin_null", "wtoPhi_emK", "scDC", "milo")) %>% 
+  arrange(clustersN, desc(auc)) %>% 
+  dplyr::select(method, mcc, auc, sensitivity, specificity, F1, clustersN) %>% 
+  mutate(mcc = round(mcc, 3),
+         auc = round(auc, 3),
+         sensitivity = round(sensitivity, 3),
+         specificity = round(specificity, 3),
+         F1 = round(F1, 3))
+```
+
+```{r, warning=FALSE, eval=FALSE}
+sim2_mainAUC2 = res_all %>% 
+  filter(method %in% c("speckle", "diffcyt", "fisher", "scDC", "estPhi_emK", "milo", "ancombc", "ancombc_knn")) %>%
+  mutate(method = ifelse(method == "fisher", "Fisher", method)) %>% 
+  mutate(method = ifelse(method == "estPhi_emK", "DCATS", method)) %>% 
+  mutate(method = ifelse(method == "ancombc_knn", "bcancombc", method)) %>% 
+  mutate(method = factor(method, level = c("DCATS", "speckle", "diffcyt", "Fisher", "milo", "bcancombc", "ancombc", "scDC"))) %>% 
+  ggplot(aes(x = clustersN, y = auc, color = method, group = method)) + 
+  geom_point(shape = 0) +
+  geom_line(size = 1.5)+
+  xlab("# of Cell Types") + 
+  theme(axis.title.y = element_blank(),
+        axis.title.x = element_blank(),
+        axis.text.x = element_blank())
+sim2_mainAUC2
+```
+
+```{r, warning=FALSE, eval=FALSE}
+sim2_mainMCC2 = res_all %>% 
+  filter(method %in% c("speckle", "diffcyt", "fisher", "scDC", "estPhi_emK", "milo", "ancombc", "ancombc_knn")) %>%
+  mutate(method = ifelse(method == "fisher", "Fisher", method)) %>% 
+  mutate(method = ifelse(method == "estPhi_emK", "DCATS", method)) %>% 
+  mutate(method = ifelse(method == "ancombc_knn", "bcancombc", method)) %>% 
+  mutate(method = factor(method, level = c("DCATS", "speckle", "diffcyt", "Fisher", "milo", "bcancombc", "ancombc", "scDC"))) %>% 
+  ggplot(aes(x = clustersN, y = mcc, color = method, group = method)) + 
+  geom_point(shape = 0) +
+  geom_line(size = 1.5)+
+  xlab("# of Cell Types") + 
+  theme(axis.title.y = element_blank())
+sim2_mainMCC2
+```
+
+```{r}
+sim2_mainHM3 = res_all %>% 
+  filter(method %in% c("speckle", "diffcyt", "fisher", "scDC", "estPhi_emK", "milo", "ancombc", "ancombc_knn")) %>%
+  mutate(method = ifelse(method == "fisher", "Fisher", method)) %>% 
+  mutate(method = ifelse(method == "estPhi_emK", "DCATS", method)) %>% 
+  mutate(method = ifelse(method == "ancombc_knn", "bcancombc", method)) %>% 
+  mutate(method = factor(method, level = short_order)) %>% 
+  #dplyr::select(method, auc, mcc, F1, clustersN) %>% 
+  #pivot_longer(auc:F1, names_to = "statistics", values_to = "value") %>% 
+  dplyr::select(method, mcc, clustersN) %>% 
+  pivot_longer(mcc, names_to = "statistics", values_to = "value") %>% 
+  group_by(clustersN, statistics) %>% 
+  mutate(order_pre = rank(round(value, 3)),
+         value_order = 7-ceiling(rank(order_pre))) %>% 
+  ggplot(aes(clustersN, method)) +
+    geom_tile(aes(fill = value)) + 
+    geom_text(aes(label = round(value, 3))) +
+  #scale_fill_distiller(palette = "RdYIBu") +
+    scale_fill_gradient(low = "white", high = "red") +
+  xlab("# of cell types") +
+  theme(axis.title.y = element_blank(),
+        axis.text.y = element_blank(),
+        legend.position = "top") +
+  facet_grid(.~statistics) + labs(fill='value')
+sim2_mainHM3
+```
+
+```{r}
+sim2_mainHM4 = res_all %>% 
+  filter(method %in% c("speckle", "diffcyt", "fisher", "scDC", "estPhi_emK", "milo", "ancombc", "ancombc_knn")) %>%
+  mutate(method = ifelse(method == "fisher", "Fisher", method)) %>% 
+  mutate(method = ifelse(method == "estPhi_emK", "DCATS", method)) %>% 
+  mutate(method = ifelse(method == "ancombc_knn", "bcancombc", method)) %>% 
+  mutate(method = factor(method, level = short_order)) %>% 
+  #dplyr::select(method, auc, mcc, F1, clustersN) %>% 
+  #pivot_longer(auc:F1, names_to = "statistics", values_to = "value") %>% 
+  dplyr::select(method, auc, clustersN) %>% 
+  pivot_longer(auc, names_to = "statistics", values_to = "value") %>% 
+  group_by(clustersN, statistics) %>% 
+  mutate(order_pre = rank(round(value, 3)),
+         value_order = 7-ceiling(rank(order_pre))) %>% 
+  ggplot(aes(clustersN, method)) +
+    geom_tile(aes(fill = value)) + 
+    geom_text(aes(label = round(value, 3))) +
+  #scale_fill_distiller(palette = "RdYIBu") +
+    scale_fill_gradient(low = "white", high = "red", breaks = c(0.7,0.8,0.9)) +
+  xlab("# of cell types") +
+  theme(axis.title.y = element_blank(),
+        axis.text.y = element_blank(),
+        legend.position = "top") +
+  facet_grid(.~statistics) + labs(fill='value')
+sim2_mainHM4
+```
+
+Simulation 2: Supplementary Plot
+
+```{r}
+sim2_statistics_clustersN = res_all %>% 
+  filter(method %in% c("scDC", "milo", "wtoPhi_emK", "betabin_null", "speckle", "diffcyt", "fisher", "estPhi_emK", "estPhi_null")) %>%
+  mutate(method = ifelse(method == "estPhi_null", "estPhi_wtoEM", method),
+         method = ifelse(method == "betabin_null", "wtoPhi_wtoEM", method)) %>% 
+  mutate(method = factor(method, level = long_order)) %>% 
+  dplyr::select(method, auc, prauc, mcc, F1, clustersN) %>% 
+  pivot_longer(auc:F1, names_to = "statistics", values_to = "value") %>% 
+  group_by(clustersN, statistics) %>% 
+  mutate(statistics = factor(statistics, levels = c("mcc", "prauc", "F1", "auc"))) %>% 
+  mutate(order_pre = rank(round(value, 3)),
+         value_order = 10-ceiling(rank(order_pre))) %>% 
+  ggplot(aes(clustersN, method)) +
+    geom_tile(aes(fill = value)) + 
+    geom_text(aes(label = round(value, 3))) +
+    scale_fill_gradient(low = "white", high = "red") +
+  xlab("# of cell types") +
+  theme(axis.title.y = element_blank(),
+        axis.text.y = element_blank()) +
+  facet_grid(.~statistics) + labs(fill='value') 
+sim2_statistics_clustersN
+#ggsave("./plot/sim2_statistics_clustersN.png", bg = "transparent")
+```
+
+```{r}
+sim2_statistics_replicates + theme(legend.position = "none") + sim2_statistics_clustersN
+ggsave("./plot/sim2_statistics.png", bg = "transparent", height = 8, width = 16)
+```
+
+
+Details of statistics value
+
+```{r}
+res_all %>% 
+  filter(method %in% c("speckle", "diffcyt", "fisher", "scDC", "betabin_null", "estPhi_null", "wtoPhi_emK", "estPhi_emK", "milo", "ancombc", "ancombc_knn")) %>%
+  #mutate(method = ifelse(method == "fisher", "Fisher", method)) %>% 
+  mutate(method = ifelse(method == "estPhi_null", "estPhi_wtoEM", method),
+         method = ifelse(method == "betabin_null", "wtoPhi_wtoEM", method),
+         method = ifelse(method == "ancombc_knn", "bcancombc", method)) %>% 
+  mutate(method = factor(method, level = long_order)) %>% 
+  mutate(mcc = round(mcc, 3),
+         auc = round(auc, 3),
+         F1 = round(F1, 3),
+         sensitivity = round(sensitivity, 3),
+         prauc = round(prauc,3),
+         specificity = round(specificity, 3),
+         precision = round(precision, 3)) %>% 
+  arrange(clustersN, desc(mcc)) %>% 
+  knitr::kable()
+```
+
+nhoods level
+
+```{r, eval=FALSE}
+nhoodsRes_all = data.frame()
+
+for (file in filenames) {
+  load(file)
+  nhoodRes = data.frame()
+  for (idx in 1:length(oper)){
+    if (!is.na(oper[[idx]])) {nhoodRes = rbind(nhoodRes, oper[[idx]]$nhoodDF)}
+  }
+  nhoodRes = nhoodRes %>% 
+  dplyr::rename(milo_pvals = SpatialFDR) %>% 
+  filter(ident_fraction > 0.8)  # get nhoods mainly contains one cell type -> 90%
+  methods = colnames(nhoodRes)[colnames(nhoodRes) %>% str_detect("_pvals")] %>% str_remove("_pvals")
+  numb_mthd = length(methods)
+  mcc = rep(NA, numb_mthd)
+  auc = rep(NA, numb_mthd)
+  prauc = rep(NA, numb_mthd)
+  sensitivity = rep(NA, numb_mthd)
+  specificity = rep(NA, numb_mthd)
+  precision = rep(NA, numb_mthd)
+  F1 = rep(NA, numb_mthd)
+  truth = nhoodRes$truth
+  select_col = colnames(nhoodRes)[colnames(nhoodRes) %>% str_detect("_pvals")]
+  for (i in 1:length(select_col)){
+    pred = nhoodRes[,select_col[i]]
+    auc[i] = getROC(truth[!is.na(pred)], pred[!is.na(pred)])$auc
+    if (i == 1) {pred_res = ifelse(pred < 0.30, "P", "N")}
+    else {pred_res = ifelse(pred < 0.10, "P", "N")}
+    TP <- sum(pred_res[!is.na(pred_res)]=="P"&truth[!is.na(pred_res)]=="P")
+    TN <- sum(pred_res[!is.na(pred_res)]=="N"&truth[!is.na(pred_res)]=="N")
+    FP <- sum(pred_res[!is.na(pred_res)]=="P"&truth[!is.na(pred_res)]=="N")
+    FN <- sum(pred_res[!is.na(pred_res)]=="N"&truth[!is.na(pred_res)]=="P")
+    truthN = TN + FP
+    truthP = FN + TP
+    predP = TP + FP
+    predN = FN + TN
+    sensitivity[i] = TP/truthP
+    specificity[i] = TN/truthN
+    precision[i] = TP/predP
+    mcc[i] = sqrt(sensitivity[i]*specificity[i]*precision[i]*(TN/(TN+FN))) - sqrt((1-sensitivity[i])*(1-specificity[i])*(FN/predN)*(FP/predP))
+    #mcc[i] = (TP*TN-FP*FN)/sqrt(predP*truthP*truthN*predN)
+    F1[i] = 2*TP/(2*TP+FP+FN)
+    prauc[i] = getPRC(truth[!is.na(pred)], pred[!is.na(pred)])$prauc
+  }
+  res = data.frame(method = methods, mcc = mcc, auc = auc, prauc = prauc, sensitivity = sensitivity, specificity = specificity, precision = precision, F1 = F1) %>% 
+    arrange(desc(prauc)) %>% 
+    mutate(clustersN = str_extract(file, "K\\d\\d"))
+  nhoodsRes_all = rbind(nhoodsRes_all, res)
+}
+
+nhoodsRes_all = nhoodsRes_all %>% 
+  mutate(clustersN = ifelse(is.na(clustersN), "K8", clustersN),
+         clustersN = str_remove(clustersN, "K"),
+         clustersN = factor(clustersN, levels = c("8", "10", "12")))
+
+save(nhoodsRes_all, file = "/storage/holab/linxy/DCATS/simulation/nhoodsRes_all_clustersN.RData")
+```
+
+```{r}
+load("/storage/holab/linxy/DCATS/simulation/nhoodsRes_all_clustersN.RData")
+nhoodsRes_all %>% 
+  arrange(clustersN, desc(auc)) %>% 
+  mutate(method = ifelse(method == "estPhi_null", "estPhi_wtoEM", method),
+         method = ifelse(method == "betabin_null", "wtoPhi_wtoEM", method)) %>% 
+  dplyr::select(method, mcc, auc, sensitivity, specificity, F1, clustersN) %>% 
+  mutate(mcc = round(mcc, 3),
+         prauc = round(auc, 3),
+         sensitivity = round(sensitivity, 3),
+         specificity = round(specificity, 3),
+         F1 = round(F1, 3))
+```
+
+```{r}
+nhoodsH2_auc = nhoodsRes_all %>% 
+  mutate(method = ifelse(method == "fisher", "Fisher", method)) %>% 
+  mutate(method = ifelse(method == "estPhi_null", "estPhi_wtoEM", method),
+         method = ifelse(method == "betabin_null", "wtoPhi_wtoEM", method)) %>% 
+  mutate(method = factor(method, level = c("speckle", "estPhi_emU", "estPhi_wtoEM", "wtoPhi_emU", "wtoPhi_wtoEM", "milo", "Fisher"))) %>% 
+  dplyr::select(method, auc, clustersN) %>% 
+  ggplot(aes(clustersN, method)) +
+    geom_tile(aes(fill = auc)) + 
+    geom_text(aes(label = round(auc, 3))) +
+    scale_fill_gradient(low = "white", high = "red", limits = c(0.6,0.8)) +
+  xlab("# of cell types") +
+  theme(axis.title.y = element_blank(),
+        axis.text.y = element_blank(),
+        axis.title.x = element_blank(),
+        axis.text.x = element_blank())
+
+nhoodsH2_mcc = nhoodsRes_all %>% 
+  mutate(method = ifelse(method == "fisher", "Fisher", method)) %>% 
+  mutate(method = ifelse(method == "estPhi_null", "estPhi_wtoEM", method),
+         method = ifelse(method == "betabin_null", "wtoPhi_wtoEM", method)) %>% 
+  mutate(method = factor(method, level = c("speckle", "estPhi_emU", "estPhi_wtoEM", "wtoPhi_emU", "wtoPhi_wtoEM", "milo", "Fisher"))) %>% 
+  dplyr::select(method, mcc, clustersN) %>% 
+  ggplot(aes(clustersN, method)) +
+    geom_tile(aes(fill = mcc)) + 
+    geom_text(aes(label = ifelse(is.na(mcc), "N.A.", as.character(round(mcc, 3))))) +
+    scale_fill_gradient(low = "white", high = "red", limits = c(0,0.5)) +
+  xlab("# of cell types") +
+  theme(axis.title.x = element_blank(),
+        axis.text.x = element_blank())
+
+nhoodsH2_sensitivity = nhoodsRes_all %>% 
+  mutate(method = ifelse(method == "fisher", "Fisher", method)) %>% 
+  mutate(method = ifelse(method == "estPhi_null", "estPhi_wtoEM", method),
+         method = ifelse(method == "betabin_null", "wtoPhi_wtoEM", method)) %>% 
+  mutate(method = factor(method, level = c("speckle", "estPhi_emU", "estPhi_wtoEM", "wtoPhi_emU", "wtoPhi_wtoEM", "milo", "Fisher"))) %>% 
+  dplyr::select(method, sensitivity, clustersN) %>% 
+  ggplot(aes(clustersN, method)) +
+    geom_tile(aes(fill = sensitivity)) + 
+    geom_text(aes(label = round(sensitivity, 3))) +
+    scale_fill_gradient(low = "white", high = "red", limits = c(0,0.6)) +
+  xlab("# of cell types")
+
+nhoodsH2_specificity = nhoodsRes_all %>% 
+  mutate(method = ifelse(method == "fisher", "Fisher", method)) %>% 
+  mutate(method = ifelse(method == "estPhi_null", "estPhi_wtoEM", method),
+         method = ifelse(method == "betabin_null", "wtoPhi_wtoEM", method)) %>% 
+  mutate(method = factor(method, level = c("speckle", "estPhi_emU", "estPhi_wtoEM", "wtoPhi_emU", "wtoPhi_wtoEM", "milo", "Fisher"))) %>% 
+  dplyr::select(method, specificity, clustersN) %>% 
+  ggplot(aes(clustersN, method)) +
+    geom_tile(aes(fill = specificity)) + 
+    geom_text(aes(label = round(specificity, 3))) +
+    scale_fill_gradient(low = "white", high = "red", limits = c(0.8,1)) +
+  xlab("# of cell types") +
+  theme(axis.title.y = element_blank(),
+        axis.text.y = element_blank())
+
+nhoodsH2_precision = nhoodsRes_all %>% 
+  mutate(method = ifelse(method == "fisher", "Fisher", method)) %>% 
+  mutate(method = ifelse(method == "estPhi_null", "estPhi_wtoEM", method),
+         method = ifelse(method == "betabin_null", "wtoPhi_wtoEM", method)) %>% 
+  mutate(method = factor(method, level = c("speckle", "estPhi_emU", "estPhi_wtoEM", "wtoPhi_emU", "wtoPhi_wtoEM", "milo", "Fisher"))) %>% 
+  dplyr::select(method, precision, clustersN) %>% 
+  ggplot(aes(clustersN, method)) +
+    geom_tile(aes(fill = precision)) + 
+    geom_text(aes(label = ifelse(is.na(precision), "N.A.", as.character(round(precision, 3))))) +
+    scale_fill_gradient(low = "white", high = "red", limits = c(0.7,1)) +
+  xlab("# of cell types") +
+  theme(axis.title.y = element_blank(),
+        axis.text.y = element_blank())
+
+nhoodsH2_F1 = nhoodsRes_all %>% 
+  mutate(method = ifelse(method == "fisher", "Fisher", method)) %>% 
+  mutate(method = ifelse(method == "estPhi_null", "estPhi_wtoEM", method),
+         method = ifelse(method == "betabin_null", "wtoPhi_wtoEM", method)) %>% 
+  mutate(method = factor(method, level = c("speckle", "estPhi_emU", "estPhi_wtoEM", "wtoPhi_emU", "wtoPhi_wtoEM", "milo", "Fisher"))) %>% 
+  dplyr::select(method, F1, clustersN) %>% 
+  ggplot(aes(clustersN, method)) +
+    geom_tile(aes(fill = F1)) + 
+    geom_text(aes(label = round(F1, 3))) +
+    scale_fill_gradient(low = "white", high = "red", limits = c(0,0.7)) +
+  xlab("# of cell types") +
+  theme(axis.title.y = element_blank(),
+        axis.text.y = element_blank(),
+        axis.title.x = element_blank(),
+        axis.text.x = element_blank())
+
+nhoodsH2_mcc + nhoodsH2_F1 + nhoodsH2_auc + nhoodsH2_sensitivity + nhoodsH2_specificity + nhoodsH2_precision
+ggsave("./plot/sim2_nhood2.png", bg = "transparent", width = 10, height = 6)
+```
+
+
+### Figure 2 - GH
+
+```{r}
+load("/storage/holab/linxy/DCATS/simulation/current/replicates10&10_K8_con100_splatter2000&2000_para_wANCOMBC.RData")
+```
+
+
+```{r}
+conditionRes = data.frame()
+genderRes = data.frame()
+ageRes = data.frame()
+for (idx in 1:length(oper)){
+  if (!is.na(oper[[idx]])) {
+    conditionRes = rbind(conditionRes, oper[[idx]]$conditionDF)
+    genderRes = rbind(genderRes, oper[[idx]]$genderDF)
+    ageRes = rbind(ageRes, oper[[idx]]$ageDF)}}
+conditionRes = conditionRes %>% 
+  mutate(factor = "condition") %>% 
+  dplyr::select(cluster, truth, factor, everything())
+ageRes = ageRes %>% 
+  mutate(factor = "age") %>% 
+  dplyr::select(cluster, truth, factor, everything())
+genderRes = genderRes %>% 
+  mutate(factor = "gender") %>% 
+  dplyr::select(cluster, truth, factor, everything())
+## conditionRes
+fileL = list(conditionRes, ageRes, genderRes)
+res_all = data.frame()
+for (file in fileL) {
+  simulationDF = file
+  methods = colnames(simulationDF)[colnames(simulationDF) %>% str_detect("_pvals")] %>% str_remove("_pvals")
+  if("full_milo_less" %in% colnames(simulationDF)) {
+    methods = c(methods, "milo")
+    simulationDF = simulationDF %>% 
+      mutate(milo_main = ifelse(full_milo_less > full_milo_more, full_milo_less, full_milo_more),
+           milo_pct = milo_main/(full_milo_less + full_neutral + full_milo_more),
+           milo_diff = abs(full_milo_less - full_milo_more)) %>% 
+      dplyr::select(-full_milo_less, -full_milo_more, - full_neutral, -milo_main, -null_milo_less, -null_milo_more, -null_neutral)
+  }
+  numb_mthd = length(methods)
+  mcc = rep(NA, numb_mthd)
+  auc = rep(NA, numb_mthd)
+  prauc = rep(NA, numb_mthd)
+  sensitivity = rep(NA, numb_mthd)
+  specificity = rep(NA, numb_mthd)
+  precision = rep(NA, numb_mthd)
+  F1 = rep(NA, numb_mthd)
+  truth = simulationDF$truth
+  for (i in 4:(3+numb_mthd)) {
+    pred = simulationDF[,i]
+    if (colnames(simulationDF)[i] == "milo_pct") {
+      pred_res = ifelse(simulationDF$milo_diff > 0, "P", "N")
+      auc[i-3] = getROC(simulationDF$truth, 1-pred)$auc
+      prauc[i-3] = getPRC(simulationDF$truth, 1-pred)$prauc}
+    else {
+      pred_res = ifelse(pred < 0.1, "P", "N")
+      auc[i-3] = getROC(simulationDF$truth, pred)$auc
+      prauc[i-3] = getPRC(simulationDF$truth, pred)$prauc}
+    TP <- sum(pred_res=="P"&truth=="P")
+    TN <- sum(pred_res=="N"&truth=="N")
+    FP <- sum(pred_res=="P"&truth=="N")
+    FN <- sum(pred_res=="N"&truth=="P")
+    truthN = TN + FP
+    truthP = FN + TP
+    predP = TP + FP
+    predN = FN + TN
+    sensitivity[i-3] = TP/truthP
+    specificity[i-3] = TN/truthN
+    precision[i-3] = TP/predP
+    #mcc[i-2] = sqrt(sensitivity[i]*specificity[i]*precision[i]*(TN/(TN+FN))) - sqrt((1-sensitivity[i])*(1-specificity[i])*(FN/predN)*(FP/predP))
+    mcc[i-3] = (TP*TN-FP*FN)/sqrt(predP*truthP*truthN*predN)
+    F1[i-3] = 2*TP/(2*TP+FP+FN)
+    }
+  res = data.frame(method = methods, mcc = mcc, auc = auc, prauc = prauc, sensitivity = sensitivity, specificity = specificity, precision = precision, F1 = F1) %>% 
+    arrange(desc(auc)) %>% 
+    mutate(factor = unique(simulationDF$factor))
+  res_all = rbind(res_all, res)}
+res_all
+```
+
+```{r}
+sim3_order = c("scDC", "milo", "bcancombc", "ancombc", "Fisher", "speckle", "diffcyt", "DCATS")
+sim3_main = res_all %>% 
+  dplyr::select(method, mcc, factor) %>% 
+  pivot_wider(names_from = factor, values_from = mcc) %>% 
+  pivot_longer(condition:gender, names_to = "factor", values_to = "mcc") %>% 
+  filter(method %in% c("speckle", "diffcyt", "fisher", "scDC", "estPhi_emK", "milo", "ancombc", "ancombc_knn")) %>%
+  mutate(method = ifelse(method == "fisher", "Fisher", method),
+         method = ifelse(method == "estPhi_emK", "DCATS", method),
+         method = ifelse(method == "ancombc_knn", "bcancombc", method)) %>% 
+  mutate(method = factor(method, level = sim3_order),
+         factor = factor(factor, level = c("condition", "age", "gender"))) %>% 
+  ggplot(aes(factor, method)) +
+    geom_tile(aes(fill = mcc)) + 
+    geom_text(aes(label = ifelse(is.na(mcc), "N.A.", as.character(round(mcc, 3))))) +
+    scale_fill_gradient(low = "white", high = "red")+
+  xlab("covariates") +
+  theme(axis.title.y = element_blank())
+sim3_main
+ggsave("./plot/sim3_main.png", bg = "transparent")
+```
+
+```{r}
+res_all %>% 
+  dplyr::select(method, auc, factor) %>% 
+  pivot_wider(names_from = factor, values_from = auc) %>% 
+  pivot_longer(condition:gender, names_to = "factor", values_to = "auc") %>% 
+  filter(method %in% c("speckle", "diffcyt", "fisher", "scDC", "estPhi_emK", "milo", "ancombc", "ancombc_knn")) %>%
+  mutate(method = ifelse(method == "fisher", "Fisher", method)) %>% 
+  mutate(method = ifelse(method == "estPhi_emK", "DCATS", method),
+         method = ifelse(method == "ancombc_knn", "bcancombc", method)) %>% 
+  mutate(method = factor(method, level = sim3_order),
+         factor = factor(factor, level = c("condition", "age", "gender"))) %>% 
+  ggplot(aes(factor, method)) +
+    geom_tile(aes(fill = auc)) + 
+    geom_text(aes(label = ifelse(is.na(auc), "N.A.", as.character(round(auc, 3))))) +
+    scale_fill_gradient(low = "white", high = "red")+
+  xlab("Covariates")
+ggsave("./plot/sim3_auc.png", bg = "transparent")
+```
+
+```{r}
+sim3_order2 = c("scDC", "milo", "Fisher", "speckle", "diffcyt", "wtoPhi_emK", "estPhi_wtoEM", "wtoPhi_wtoEM", "estPhi_emK")
+res_all %>% 
+  dplyr::select(method, mcc, factor) %>% 
+  pivot_wider(names_from = factor, values_from = mcc) %>% 
+  pivot_longer(condition:gender, names_to = "factor", values_to = "mcc") %>% 
+  filter(method %in% c("speckle", "diffcyt", "fisher", "scDC", "betabin_null", "estPhi_null", "wtoPhi_emK", "estPhi_emK", "milo_null", "milo_full")) %>%
+  mutate(method = ifelse(method == "fisher", "Fisher", method)) %>% 
+  mutate(method = ifelse(method == "estPhi_null", "estPhi_wtoEM", method),
+         method = ifelse(method == "betabin_null", "wtoPhi_wtoEM", method)) %>% 
+  mutate(method = factor(method, level = sim3_order2),
+         factor = factor(factor, level = c("condition", "age", "gender"))) %>% 
+  ggplot(aes(factor, method)) +
+    geom_tile(aes(fill = mcc)) + 
+    geom_text(aes(label = ifelse(is.na(mcc), "N.A.", as.character(round(mcc, 3))))) +
+    scale_fill_gradient(low = "white", high = "red")+
+  xlab("Covariates")
+ggsave("./plot/sim3_mcc.png", bg = "transparent")
+```
+
+```{r}
+res_all %>% 
+  dplyr::select(method, F1, factor) %>% 
+ pivot_wider(names_from = factor, values_from = F1) %>% 
+  pivot_longer(condition:gender, names_to = "factor", values_to = "F1") %>% 
+  filter(method %in% c("speckle", "diffcyt", "fisher", "scDC", "estPhi_emK", "milo", "ancombc", "ancombc_knn")) %>%
+  mutate(method = ifelse(method == "fisher", "Fisher", method),
+         method = ifelse(method == "estPhi_emK", "DCATS", method),
+         method = ifelse(method == "ancombc_knn", "bcancombc", method)) %>% 
+  mutate(method = factor(method, level = sim3_order),
+         factor = factor(factor, level = c("condition", "age", "gender"))) %>% 
+  ggplot(aes(factor, method)) +
+    geom_tile(aes(fill = F1)) + 
+    geom_text(aes(label = ifelse(is.na(F1), "N.A.", as.character(round(F1, 3))))) +
+    scale_fill_gradient(low = "white", high = "red", limits = c(0,0.8))+
+  xlab("Covariates")
+ggsave("./plot/sim3_f1.png", bg = "transparent")
+```
+
+### extreme case1
+
+```{r}
+load("/storage/holab/linxy/DCATS/simulation/current/one_increase_wANCOMBC.RData")
+```
+
+```{r}
+## calculate statistics of "three_increase.RData" results
+#load(file_name)
+clusterRes = resL$clusterRes
+methods = colnames(clusterRes)[colnames(clusterRes) %>% str_detect("_pvals")] %>% str_remove("_pvals")
+#methods = colnames(clusterRes)[colnames(clusterRes) %>% str_detect("_pvals")] %>% str_remove("_pvals")
+methods = c(methods, "milo")
+numb_mthd = length(methods)
+mcc = rep(NA, numb_mthd)
+auc = rep(NA, numb_mthd)
+prauc = rep(NA, numb_mthd)
+sensitivity = rep(NA, numb_mthd)
+specificity = rep(NA, numb_mthd)
+precision = rep(NA, numb_mthd)
+F1 = rep(NA, numb_mthd)
+truth = clusterRes$truth
+clusterRes = clusterRes %>% 
+  mutate(milo_main = ifelse(milo_less > milo_more, milo_less, milo_more),
+         milo_pct = milo_main/(milo_less + neutral + milo_more),
+         milo_diff = abs(milo_less - milo_more)) %>% 
+  dplyr::select(-milo_less, -milo_more, - neutral, -milo_main)
+
+for (i in 3:(dim(clusterRes)[2]-1)){
+  pred = clusterRes[,i]
+  if (colnames(clusterRes)[i] == "milo_pct") {
+    pred_res = ifelse(clusterRes$milo_diff > 0, "P", "N")
+    ## most of them are negative, can't calculate this value
+    auc[i-2] = getROC(clusterRes$truth, 1-pred)$auc
+    #prauc[i-2] = getPRC(clusterRes$truth, 1-pred)$prauc
+    }
+  else {
+    pred_res = ifelse(pred < 0.1, "P", "N")
+    auc[i-2] = getROC(clusterRes$truth, pred)$auc
+    prauc[i-2] = getPRC(clusterRes$truth, pred)$prauc}
+  TP <- sum(pred_res=="P"&truth=="P")
+  TN <- sum(pred_res=="N"&truth=="N")
+  FP <- sum(pred_res=="P"&truth=="N")
+  FN <- sum(pred_res=="N"&truth=="P")
+  truthN = TN + FP
+  truthP = FN + TP
+  predP = TP + FP
+  predN = FN + TN
+  sensitivity[i-2] = TP/truthP
+  specificity[i-2] = TN/truthN
+  precision[i-2] = TP/predP
+  #mcc[i-2] = sqrt(sensitivity[i]*specificity[i]*precision[i]*(TN/(TN+FN))) - sqrt((1-sensitivity[i])*(1-specificity[i])*(FN/predN)*(FP/predP))
+  mcc[i-2] = (TP*TN-FP*FN)/sqrt(predP*truthP*truthN*predN)
+  F1[i-2] = 2*TP/(2*TP+FP+FN)
+}
+res = data.frame(methods = methods, mcc = mcc, auc = auc, prauc = prauc, sensitivity = sensitivity, specificity = specificity, precision = precision, F1 = F1) %>% 
+  arrange(desc(mcc))
+  #filter(methods == "wtoPhi_fullK" | methods == "diffcyt" | methods == "speckle" | methods == "fisher" | methods == "scDC")
+print(res)
+```
+
+```{r}
+sim4_mainHM1 = res %>% 
+  filter(methods %in% c("speckle", "diffcyt", "fisher", "scDC", "estPhi_emK", "milo", "ancombc", "ancombc_knn", "emK_org3", "emK_truth3")) %>%
+  mutate(methods = ifelse(methods == "fisher", "Fisher", methods)) %>% 
+  mutate(methods = ifelse(methods == "estPhi_emK", "DCATS", methods)) %>% 
+  mutate(methods = ifelse(methods == "ancombc_knn", "bcancombc", methods)) %>% 
+  mutate(methods = ifelse(methods == "emK_org3", "dcats_autoRef", methods)) %>% 
+  mutate(methods = ifelse(methods == "emK_truth3", "dcats_defRef", methods)) %>% 
+  mutate(methods = factor(methods, level = c("scDC", "Fisher", "milo", "diffcyt", "speckle",  "DCATS", "dcats_autoRef", "dcats_defRef", "ancombc", "bcancombc"))) %>% 
+  dplyr::select(methods, mcc, F1, auc) %>% 
+  pivot_longer(mcc:auc, names_to = "statistics", values_to = "value") %>% 
+  group_by(statistics) %>% 
+  mutate(statistics = factor(statistics, levels = c("mcc", "F1", "auc"))) %>% 
+  mutate(order_pre = rank(round(value, 3)),
+         value_order = 7-ceiling(rank(order_pre))) %>% 
+  ggplot(aes(statistics, methods)) +
+    geom_tile(aes(fill = value)) + 
+    geom_text(aes(label = ifelse(is.na(value), "N.A.", as.character(round(value, 3))))) +
+    #geom_text(aes(label = round(value, 3))) +
+  #scale_fill_distiller(palette = "RdYIBu") +
+    scale_fill_gradient(low = "white", high = "red") +
+  #xlab("# of cell types") +
+  theme(axis.title.x = element_blank()) +
+  labs(fill='value')
+sim4_mainHM1
+```
+
+```{r}
+res %>% 
+   filter(methods %in% c("speckle", "diffcyt", "fisher", "scDC", "estPhi_emK", "milo", "ancombc", "ancombc_knn", "emK_org3", "emK_truth3", "wtoPhi_emK")) %>%
+  mutate(methods = ifelse(methods == "fisher", "Fisher", methods)) %>% 
+  mutate(methods = ifelse(methods == "estPhi_emK", "DCATS", methods)) %>% 
+  mutate(methods = ifelse(methods == "ancombc_knn", "bcancombc", methods)) %>% 
+  mutate(methods = ifelse(methods == "emK_org3", "dcats_autoRef", methods)) %>% 
+  mutate(methods = ifelse(methods == "emK_truth3", "dcats_defRef", methods)) %>% 
+mutate(mcc = round(mcc, 3),
+         auc = round(auc, 3),
+         F1 = round(F1, 3),
+         sensitivity = round(sensitivity, 3),
+         prauc = round(prauc,3),
+         specificity = round(specificity, 3),
+         precision = round(precision, 3)) %>% 
+  arrange(desc(mcc)) %>% 
+  knitr::kable()
+```
+
+```{r}
+sim4_seuratCount = resL$seurat_countDF %>% 
+  rownames_to_column("condition") %>% 
+  mutate(condition = str_sub(condition, 1,5)) %>% 
+  pivot_longer(D:B, names_to = "cellType", values_to = "count") %>% 
+  mutate(proportion = count/3000) %>% 
+  ggplot(aes(cellType, proportion)) +
+  geom_boxplot(aes(col = condition)) +
+  theme(legend.position = "top") + 
+  xlab("Cell type")
+sim4_seuratCount
+```
+
+```{r}
+sim4_trueCount = resL$true_countDF %>% 
+  group_by(sim) %>% 
+  mutate(condition = c(rep("cond1", 3), rep("cond2", 3))) %>% 
+  #rownames_to_column("condition") %>% 
+  #mutate(condition = str_sub(condition, 1,5)) %>% 
+  pivot_longer(V1:V8, names_to = "cellType", values_to = "count") %>% 
+  mutate(proportion = count/3000) %>% 
+  ggplot(aes(cellType, proportion)) +
+  geom_boxplot(aes(col = condition)) +
+  xlab("Cell type")
+sim4_trueCount
+ggsave("./plot/sim4_trueCount.png", bg = "transparent")
+```
+
+```{r}
+(p1 + sim2_prop + boxplot + theme(legend.title = element_blank(), legend.position="top"))/(sim2_mainHM1 + sim2_mainHM2 + sim2_mainHM3 + sim2_mainHM4  + plot_layout(ncol = 4))/(sim4_mainHM1 + sim3_main)
+ggsave("./plot/version2/Fig2_1.png", bg = "transparent", height = 14, width = 14)
+(p1 + sim2_prop + cluster8_CI + theme(legend.title = element_blank(), legend.position="top"))/(sim2_mainHM1 + sim2_mainHM2 + sim2_mainHM3 + sim2_mainHM4  + plot_layout(ncol = 4))/(sim4_mainHM1 + sim3_main)
+ggsave("./plot/version2/Fig2_2.png", bg = "transparent", height = 14, width = 14)
+(p1 + sim2_prop)/(sim2_mainHM1 + sim2_mainHM2 + sim2_mainHM3 + sim2_mainHM4  + plot_layout(ncol = 4))/(sim4_mainHM1 + sim3_main)
+ggsave("./plot/version2/Fig2_3.png", bg = "transparent", height = 14, width = 12)
+#ggsave("./plot/version2/Fig2_sub2.png", bg = "transparent", height = 5, width = 12)
+```
+
+
+
+```{r}
+sim4_mainHM1 = res %>% 
+  filter(methods %in% c("speckle", "diffcyt", "fisher", "scDC", "estPhi_emK", "milo", "ancombc", "ancombc_knn", "emK_org2", "emK_truth2")) %>%
+  mutate(methods = ifelse(methods == "fisher", "Fisher", methods)) %>% 
+  mutate(methods = ifelse(methods == "estPhi_emK", "DCATS", methods)) %>% 
+  mutate(methods = ifelse(methods == "ancombc_knn", "bcancombc", methods)) %>% 
+  mutate(methods = ifelse(methods == "emK_org2", "dcats_autoRef", methods)) %>% 
+  mutate(methods = ifelse(methods == "emK_truth2", "dcats_defRef", methods)) %>% 
+  mutate(methods = factor(methods, level = c("dcats_defRef", "DCATS", "speckle", "diffcyt", "Fisher", "dcats_autoRef", "milo", "bcancombc", "ancombc", "scDC"))) %>% 
+  dplyr::select(methods, auc, mcc, F1) %>% 
+  pivot_longer(auc:F1, names_to = "statistics", values_to = "value") %>% 
+  #dplyr::select(method, auc, mcc, clustersN) %>% 
+  #pivot_longer(auc, names_to = "statistics", values_to = "value") %>% 
+  mutate(statistics = factor(statistics, levels = c("mcc", "auc", "F1"))) %>% 
+  group_by(statistics) %>% 
+  mutate(order_pre = rank(round(value, 3)),
+         value_order = 7-ceiling(rank(order_pre))) %>% 
+  ggplot(aes(statistics, methods)) +
+    geom_tile(aes(fill = value)) + 
+    geom_text(aes(label = round(value, 3))) +
+  #scale_fill_distiller(palette = "RdYIBu") +
+    scale_fill_gradient(low = "white", high = "red") +
+  #xlab("# of cell types") +
+  theme(axis.title.y = element_blank(),
+        #axis.text.y = element_blank(),
+        axis.title.x = element_blank(),
+        legend.position = "bottom") +
+  labs(fill='value') + 
+  ggtitle("Special case 2")
+sim4_mainHM1
+```
+
+```{r}
+res %>% 
+  filter(methods %in% c("speckle", "diffcyt", "fisher", "scDC", "estPhi_emK", "milo", "ancombc", "ancombc_knn", "emK_org2", "emK_truth2")) %>%
+  mutate(methods = ifelse(methods == "fisher", "Fisher", methods)) %>% 
+  #mutate(method = ifelse(method == "estPhi_emK", "DCATS", method)) %>% 
+  mutate(methods = ifelse(methods == "ancombc_knn", "bcancombc", methods)) %>% 
+  mutate(methods = ifelse(methods == "emK_org2", "emK_autoRef", methods)) %>% 
+  mutate(methods = ifelse(methods == "emK_truth2", "emK_defRef", methods)) %>% 
+  mutate(methods = factor(methods, level = c("emK_autoRef", "emK_defRef", "estPhi_emK", "speckle", "diffcyt", "Fisher", "milo", "bcancombc", "ancombc", "scDC"))) %>% 
+mutate(mcc = round(mcc, 3),
+         auc = round(auc, 3),
+         F1 = round(F1, 3),
+         sensitivity = round(sensitivity, 3),
+         prauc = round(prauc,3),
+         specificity = round(specificity, 3),
+         precision = round(precision, 3)) %>% 
+  arrange(desc(auc)) %>% 
+  knitr::kable()
+```
