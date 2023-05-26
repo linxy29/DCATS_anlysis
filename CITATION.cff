@@ -1,0 +1,28 @@
+# This CITATION.cff file was generated with cffinit.
+# Visit https://bit.ly/cffinit to generate yours today!
+
+cff-version: 1.2.0
+title: DCTAS
+message: >-
+  If you use this software, please cite it using the
+  metadata from this file.
+type: software
+authors:
+  - given-names: Xinyi
+    family-names: Lin
+    email: linxy29@connect.hku.hk
+    affiliation: The University of Hong Kong
+    orcid: 'https://orcid.org/0000-0002-7780-2461'
+  - given-names: Chuen
+    family-names: Chau
+  - given-names: Kun
+    family-names: Ma
+  - given-names: 'Yuanhua '
+    family-names: Huang
+  - given-names: 'Joshua '
+    family-names: Ho
+    name-particle: 'W.K. '
+repository-code: 'https://github.com/linxy29/DCATS_anlysis'
+abstract: This is a repository for the analysis process of DCATS
+commit: 0cf8ae4
+date-released: '2023-05-26'
