@@ -1,6 +1,8 @@
 ---
 title: "The main figure1"
-output: html_document
+output:
+  pdf_document: default
+  html_document: default
 ---
 
 ```{r setup, include=FALSE}
@@ -227,4 +229,5 @@ ggsave("./plot/sim1_phi.png", bg = "transparent", width = 8, height = 5)
 ```{r}
 sim_prop + sim1_main
 ggsave("./plot/version2/Fig1.png", bg = "transparent", width = 12, height = 10)
+ggsave("./plot/version2/Fig1.pdf", bg = "transparent", width = 12, height = 10)
 ```

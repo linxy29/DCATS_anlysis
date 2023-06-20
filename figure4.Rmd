@@ -51,11 +51,11 @@ theme_set(theme_classic()+
           panel.background = element_blank(),
           legend.background = element_blank(),
           plot.background = element_rect(fill = "transparent",colour = NA)) + 
-            theme(axis.text=element_text(size=12), axis.title=element_text(size=13))+
-            theme(strip.text.x = element_text(size = 13), strip.text.y = element_text(size = 13)) +
-            theme(plot.title = element_text(size = 13),plot.subtitle = element_text(size = 13)) +
-            theme(legend.title = element_text(size=13), #change legend title font size
-                  legend.text = element_text(size=10)) + 
+            theme(axis.text=element_text(size=15), axis.title=element_text(size=16))+
+            theme(strip.text.x = element_text(size = 16), strip.text.y = element_text(size = 16)) +
+            theme(plot.title = element_text(size = 16),plot.subtitle = element_text(size = 16)) +
+            theme(legend.title = element_text(size=16), #change legend title font size
+                  legend.text = element_text(size=13)) + 
   theme(plot.title = element_text(hjust = 0.5)))
 ```
 
@@ -74,11 +74,11 @@ theme_set(theme_classic()+
           panel.background = element_blank(),
           legend.background = element_blank(),
           plot.background = element_rect(fill = "transparent",colour = NA)) + 
-            theme(axis.text=element_text(size=12), axis.title=element_text(size=13))+
-            theme(strip.text.x = element_text(size = 13), strip.text.y = element_text(size = 13)) +
-            theme(plot.title = element_text(size = 15),plot.subtitle = element_text(size = 15)) +
-            theme(legend.title = element_text(size=13), #change legend title font size
-                  legend.text = element_text(size=13)))
+            theme(axis.text=element_text(size=15), axis.title=element_text(size=17))+
+            theme(strip.text.x = element_text(size = 17), strip.text.y = element_text(size = 17)) +
+            theme(plot.title = element_text(size = 20),plot.subtitle = element_text(size = 20)) +
+            theme(legend.title = element_text(size=17), #change legend title font size
+                  legend.text = element_text(size=17)))
 ```
 
 
@@ -268,7 +268,8 @@ library(ggprism)
 #p2 + add_pvalue(stat.testp2, tip.length = 0.002)
 
 pB1 + add_pvalue(stat.testp1, tip.length = 0.015, step.increase = 0.03, colour = "color") + scale_color_manual(values=c("#F8766D", "#A3A500", "#00BF7D", "#00B0F6", "#E76BF3", "black", "red"))
-ggsave("./plot/Ren_main.png", height = 8, width = 10)
+ggsave("./plot/Ren_main.png", height = 8, width = 12)
+ggsave("./plot/fig4_main.pdf", height = 8, width = 12)
 ```
 
 ### Real world data 4

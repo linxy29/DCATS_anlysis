@@ -369,4 +369,5 @@ all_res %>%
 ```{r, eval=FALSE}
 kang_main + haber1 + haber2 + haber3
 ggsave("./plot/Fig3.png", bg = "transparent", height = 7.5, width = 10)
+ggsave("./plot/Fig3.pdf", bg = "transparent", height = 7.5, width = 10)
 ```
