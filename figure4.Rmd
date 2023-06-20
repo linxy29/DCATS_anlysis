@@ -268,8 +268,9 @@ library(ggprism)
 #p2 + add_pvalue(stat.testp2, tip.length = 0.002)
 
 pB1 + add_pvalue(stat.testp1, tip.length = 0.015, step.increase = 0.03, colour = "color") + scale_color_manual(values=c("#F8766D", "#A3A500", "#00BF7D", "#00B0F6", "#E76BF3", "black", "red"))
-ggsave("./plot/Ren_main.png", height = 8, width = 12)
-ggsave("./plot/fig4_main.pdf", height = 8, width = 12)
+ggsave("./plot/version2/fig4_main.png", height = 8, width = 15)
+pB1 + add_pvalue(stat.testp1, tip.length = 0.015, step.increase = 0.03, colour = "color") + scale_color_manual(values=c("#F8766D", "#A3A500", "#00BF7D", "#00B0F6", "#E76BF3", "black", "red"))
+ggsave("./plot/version2/fig4_main.pdf", height = 8, width = 12)
 ```
 
 ### Real world data 4
