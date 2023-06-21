@@ -51,11 +51,11 @@ theme_set(theme_classic()+
           panel.background = element_blank(),
           legend.background = element_blank(),
           plot.background = element_rect(fill = "transparent",colour = NA)) + 
-            theme(axis.text=element_text(size=12), axis.title=element_text(size=13))+
-            theme(strip.text.x = element_text(size = 13), strip.text.y = element_text(size = 13)) +
-            theme(plot.title = element_text(size = 13),plot.subtitle = element_text(size = 13)) +
-            theme(legend.title = element_text(size=13), #change legend title font size
-                  legend.text = element_text(size=10)) + 
+            theme(axis.text=element_text(size=15), axis.title=element_text(size=17))+
+            theme(strip.text.x = element_text(size = 17), strip.text.y = element_text(size = 17)) +
+            theme(plot.title = element_text(size = 20),plot.subtitle = element_text(size = 20)) +
+            theme(legend.title = element_text(size=15), #change legend title font size
+                  legend.text = element_text(size=15)) + 
   theme(plot.title = element_text(hjust = 0.5)))
 ```
 
@@ -81,15 +81,15 @@ seuratObj <- FindClusters(seuratObj, resolution = 0.5, verbose = FALSE)
 seuratObj <- RunUMAP(seuratObj, dims = 1:30, verbose = FALSE)
 seuratObj[['orig.ident']] <- origLabels
 DimPlot(seuratObj, reduction = "umap")
-p1 = DimPlot(seuratObj, reduction = "umap", group.by = "orig.ident") + theme(legend.position="none") + ggtitle("Simulation data (8 Cell Types)")
+p1 = DimPlot(seuratObj, reduction = "umap", group.by = "orig.ident") + theme(legend.position="none") + ggtitle("Simulation data (8 Cell Types)") 
 ```
 
-```{r}
+```{r, eval=FALSE}
 #load("D:/Data/DCATS/cells_pool10_splatter.RData")
 load("/storage/holab/linxy/DCATS/cells_pool10_splatter.RData")
 ```
 
-```{r}
+```{r, eval=FALSE}
 seuratObj <- CreateSeuratObject(counts = sim_mat, project="Splatter")
 seuratObj <- NormalizeData(seuratObj, verbose = FALSE)
 seuratObj <- FindVariableFeatures(seuratObj, selection.method = "vst", nfeatures = 2000, verbose = FALSE)
@@ -103,12 +103,12 @@ DimPlot(seuratObj, reduction = "umap")
 p2 = DimPlot(seuratObj, reduction = "umap", group.by = "orig.ident") + theme(legend.position="none", axis.title.y = element_blank())  + ggtitle("Simulation data (10 Cell Types)")
 ```
 
-```{r}
+```{r, eval=FALSE}
 #load("D:/Data/DCATS/cells_pool12_splatter.RData")
 load("/storage/holab/linxy/DCATS/cells_pool12_splatter.RData")
 ```
 
-```{r}
+```{r, eval=FALSE}
 seuratObj <- CreateSeuratObject(counts = sim_mat, project="Splatter")
 seuratObj <- NormalizeData(seuratObj, verbose = FALSE)
 seuratObj <- FindVariableFeatures(seuratObj, selection.method = "vst", nfeatures = 2000, verbose = FALSE)
@@ -122,7 +122,7 @@ DimPlot(seuratObj, reduction = "umap")
 p3 = DimPlot(seuratObj, reduction = "umap", group.by = "orig.ident") + theme(legend.position="none", axis.title.y = element_blank()) + ggtitle("Simulation data (12 Cell Types)")
 ```
 
-```{r}
+```{r, eval=FALSE}
 p1 + p2 + p3
 ggsave("./plot/sim2_cellpool.png", bg = "transparent", width = 12, height = 4)
 ```
@@ -188,7 +188,7 @@ clusterRes = clusterRes %>%
 
 ### AUC curve
 
-```{r}
+```{r, eval=FALSE}
 rocobj_dcats = roc(clusterRes$truth, clusterRes$estPhi_emK_pvals)
 rocobj_fisher = roc(clusterRes$truth, clusterRes$fisher_pvals)
 rocobj_scDC = roc(clusterRes$truth, clusterRes$scDC_pvals)
@@ -197,7 +197,7 @@ rocobj_diffcyt = roc(clusterRes$truth, clusterRes$diffcyt_pvals)
 rocobj_milo = roc(clusterRes$truth, clusterRes$milo_pct)
 ```
 
-```{r}
+```{r, eval=FALSE}
 sim2_auc = ggroc(list(DCATS=rocobj_dcats, Fisher=rocobj_fisher, diffcyt=rocobj_diffcyt, speckle=rocobj_speckle, scDC=rocobj_scDC))+
   geom_point(aes(x=0.926, y=0.685), colour="black", shape = 4) +
   geom_point(aes(x=0.954, y=0.509), colour="black", shape = 4) +
@@ -208,7 +208,7 @@ sim2_auc = ggroc(list(DCATS=rocobj_dcats, Fisher=rocobj_fisher, diffcyt=rocobj_d
 sim2_auc
 ```
 
-```{r}
+```{r, eval=FALSE}
 prauc_dcats = getPRC(clusterRes$truth, clusterRes$estPhi_emK_pvals)$df %>% 
   mutate(fdr = 1-precision) %>% 
   dplyr::select(recall, fdr, precision) %>% 
@@ -245,7 +245,7 @@ prauc_ancombc_bs = getPRC(clusterRes$truth, clusterRes$ancombc_knn_pvals)$df %>%
 praucDF = rbind(prauc_dcats, prauc_fisher, prauc_scDC, prauc_speckle, prauc_diffcyt, prauc_ancombc, prauc_ancombc_bs)
 ```
 
-```{r}
+```{r, eval=FALSE}
 prcurve = praucDF %>% 
   arrange(desc(recall)) %>% 
   ggplot(aes(x = fdr, y = recall, color = method)) +
@@ -257,7 +257,7 @@ prcurve
 ggsave("./plot/sim2_prauc.png", bg = "transparent")
 ```
 
-```{r}
+```{r, eval=FALSE}
 boxplot = praucDF %>% 
   mutate(group = ifelse(fdr<=0.1, "0.1", "1"),
          group = ifelse(fdr>0.1&fdr<=0.2, "0.2", group),
@@ -275,7 +275,7 @@ boxplot = praucDF %>%
 boxplot
 ```
 
-```{r}
+```{r, eval=FALSE}
 sim2_auc + prcurve
 ggsave("./plot/sim2_auc_prauc.png", bg = "transparent", width = 10, height = 4)
 sim2_auc + boxplot
@@ -347,6 +347,7 @@ cluster8_CI = res_bootstrap %>%
         axis.title.x = element_blank()) +
   theme(legend.position = "top")
 cluster8_CI
+
 ```
 
 
@@ -363,6 +364,8 @@ filenames
 ```
 
 ##### calculate confidence interval
+
+Confidence interval is for the supplementary table
 
 ```{r, eval=FALSE}
 file = filenames[3]
@@ -459,7 +462,7 @@ replicates_CI
 save(replicates_CI, file = "/Users/linxy29/Documents/Data/DCATS/simulation/replicates_CI.RData")
 ```
 
-```{r}
+```{r, eval=FALSE}
 load("/storage/holab/linxy/DCATS/simulation/replicates_CI.RData")
 replicates_CI[,2:(ncol(replicates_CI)-1)] %>% round(digits = 3) %>% 
   mutate(method = replicates_CI$method,
@@ -628,7 +631,7 @@ sim2_mainHM2
 
 Simulation 2: Supplementary Plots
 
-```{r}
+```{r, eval=FALSE}
 long_order = c("scDC", "ancombc", "bcancombc", "fisher", "milo", "diffcyt", "speckle", "wtoPhi_wtoEM", "wtoPhi_emK", "estPhi_wtoEM", "estPhi_emK")
 sim2_statistics_replicates = res_all %>% 
   filter(method %in% c("scDC", "milo", "wtoPhi_emK", "betabin_null", "speckle", "diffcyt", "fisher", "estPhi_emK", "estPhi_null", "ancombc", "ancombc_knn")) %>%
@@ -656,7 +659,7 @@ sim2_statistics_replicates
 
 Details of statistics value
 
-```{r}
+```{r, eval=FALSE}
 res_all %>% 
   filter(method %in% c("scDC", "milo", "wtoPhi_emK", "betabin_null", "speckle", "diffcyt", "fisher", "estPhi_emK", "estPhi_null", "ancombc", "ancombc_knn")) %>%
   #mutate(method = ifelse(method == "fisher", "Fisher", method)) %>% 
@@ -729,7 +732,7 @@ for (file in filenames) {
 save(nhoodsRes_all, file = "/storage/holab/linxy/DCATS/simulation/nhoodsRes_all_replicates.RData")
 ```
 
-```{r}
+```{r, eval=FALSE}
 load("/storage/holab/linxy/DCATS/simulation/nhoodsRes_all_replicates.RData")
 nhoodsRes_all %>% 
   arrange(replicates, desc(auc)) %>% 
@@ -743,7 +746,7 @@ nhoodsRes_all %>%
          F1 = round(F1, 3))
 ```
 
-```{r}
+```{r, eval=FALSE}
 nhoodsH1_auc = nhoodsRes_all %>% 
   mutate(method = ifelse(method == "fisher", "Fisher", method)) %>% 
   mutate(method = ifelse(method == "estPhi_null", "estPhi_wtoEM", method),
@@ -836,11 +839,12 @@ ggsave("./plot/sim2_nhood1.png", bg = "transparent", width = 10, height = 6)
 
 #### Different numbers of clusters
 
-```{r, eval=FALSE}
+```{r}
 ## replicates number 3&3
-filenames = list.files("/Users/linxy29/Documents/Data/DCATS/simulation/current", full.names = TRUE)
-#filenames = list.files("/storage/holab/linxy/DCATS/simulation/current", full.names = TRUE)
+#filenames = list.files("/Users/linxy29/Documents/Data/DCATS/simulation/current", full.names = TRUE)
+filenames = list.files("/storage/holab/linxy/DCATS/simulation/current", full.names = TRUE)
 filenames = filenames[grep("replicates3&3", filenames)]
+
 filenames
 ```
 
@@ -1111,7 +1115,7 @@ sim2_mainHM4
 
 Simulation 2: Supplementary Plot
 
-```{r}
+```{r, eval=FALSE}
 sim2_statistics_clustersN = res_all %>% 
   filter(method %in% c("scDC", "milo", "wtoPhi_emK", "betabin_null", "speckle", "diffcyt", "fisher", "estPhi_emK", "estPhi_null")) %>%
   mutate(method = ifelse(method == "estPhi_null", "estPhi_wtoEM", method),
@@ -1135,7 +1139,7 @@ sim2_statistics_clustersN
 #ggsave("./plot/sim2_statistics_clustersN.png", bg = "transparent")
 ```
 
-```{r}
+```{r, eval=FALSE}
 sim2_statistics_replicates + theme(legend.position = "none") + sim2_statistics_clustersN
 ggsave("./plot/sim2_statistics.png", bg = "transparent", height = 8, width = 16)
 ```
@@ -1143,7 +1147,7 @@ ggsave("./plot/sim2_statistics.png", bg = "transparent", height = 8, width = 16)
 
 Details of statistics value
 
-```{r}
+```{r, eval=FALSE}
 res_all %>% 
   filter(method %in% c("speckle", "diffcyt", "fisher", "scDC", "betabin_null", "estPhi_null", "wtoPhi_emK", "estPhi_emK", "milo", "ancombc", "ancombc_knn")) %>%
   #mutate(method = ifelse(method == "fisher", "Fisher", method)) %>% 
@@ -1222,7 +1226,7 @@ nhoodsRes_all = nhoodsRes_all %>%
 save(nhoodsRes_all, file = "/storage/holab/linxy/DCATS/simulation/nhoodsRes_all_clustersN.RData")
 ```
 
-```{r}
+```{r, eval=FALSE}
 load("/storage/holab/linxy/DCATS/simulation/nhoodsRes_all_clustersN.RData")
 nhoodsRes_all %>% 
   arrange(clustersN, desc(auc)) %>% 
@@ -1236,7 +1240,7 @@ nhoodsRes_all %>%
          F1 = round(F1, 3))
 ```
 
-```{r}
+```{r, eval=FALSE}
 nhoodsH2_auc = nhoodsRes_all %>% 
   mutate(method = ifelse(method == "fisher", "Fisher", method)) %>% 
   mutate(method = ifelse(method == "estPhi_null", "estPhi_wtoEM", method),
@@ -1624,13 +1628,13 @@ ggsave("./plot/sim4_trueCount.png", bg = "transparent")
 ```
 
 ```{r}
-(p1 + sim2_prop + boxplot + theme(legend.title = element_blank(), legend.position="top"))/(sim2_mainHM1 + sim2_mainHM2 + sim2_mainHM3 + sim2_mainHM4  + plot_layout(ncol = 4))/(sim4_mainHM1 + sim3_main)
-ggsave("./plot/version2/Fig2_1.png", bg = "transparent", height = 14, width = 14)
+#(p1 + sim2_prop + boxplot + theme(legend.title = element_blank(), legend.position="top"))/(sim2_mainHM1 + sim2_mainHM2 + sim2_mainHM3 + sim2_mainHM4  + plot_layout(ncol = 4))/(sim4_mainHM1 + sim3_main)
+#ggsave("./plot/version2/Fig2_1.png", bg = "transparent", height = 14, width = 14)
 (p1 + sim2_prop + cluster8_CI + theme(legend.title = element_blank(), legend.position="top"))/(sim2_mainHM1 + sim2_mainHM2 + sim2_mainHM3 + sim2_mainHM4  + plot_layout(ncol = 4))/(sim4_mainHM1 + sim3_main)
-ggsave("./plot/version2/Fig2_2.png", bg = "transparent", height = 14, width = 14)
-(p1 + sim2_prop)/(sim2_mainHM1 + sim2_mainHM2 + sim2_mainHM3 + sim2_mainHM4  + plot_layout(ncol = 4))/(sim4_mainHM1 + sim3_main)
-ggsave("./plot/version2/Fig2_3.png", bg = "transparent", height = 14, width = 12)
-#ggsave("./plot/version2/Fig2_sub2.png", bg = "transparent", height = 5, width = 12)
+ggsave("./plot/version2/Fig2.png", bg = "transparent", height = 14, width = 14)
+ggsave("./plot/version2/Fig2.pdf", bg = "transparent", height = 14, width = 14)
+#(p1 + sim2_prop)/(sim2_mainHM1 + sim2_mainHM2 + sim2_mainHM3 + sim2_mainHM4  + plot_layout(ncol = 4))/(sim4_mainHM1 + sim3_main)
+#ggsave("./plot/version2/Fig2_3.png", bg = "transparent", height = 14, width = 12)
 ```
 
 
