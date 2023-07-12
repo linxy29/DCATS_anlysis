@@ -1637,6 +1637,11 @@ ggsave("./plot/version2/Fig2.pdf", bg = "transparent", height = 14, width = 14)
 #ggsave("./plot/version2/Fig2_3.png", bg = "transparent", height = 14, width = 12)
 ```
 
+```{r}
+(sim2_mainHM1 + theme(legend.position="right") + sim2_mainHM2 + theme(legend.position="right"))/(sim2_mainHM3 + theme(legend.position="right") + sim2_mainHM4 + theme(legend.position="right"))/(sim4_mainHM1 + sim3_main)
+ggsave("./plot/Fig2_sub.pdf", bg = "transparent", height = 14, width = 14)
+```
+
 
 
 ```{r}
